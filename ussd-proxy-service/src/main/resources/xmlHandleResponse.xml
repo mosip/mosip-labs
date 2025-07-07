@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<methodResponse>
+   <params>
+      <param>
+         <value>
+            <struct>
+               <member>
+                  <name>USSDResponseString</name>
+                  <value>
+                     <string>%s</string>
+                  </value>
+               </member>
+               <member>
+                  <name>action</name>
+                  <value>
+                     <string>%s</string>
+                  </value>
+               </member>
+               <member>
+                  <name>TransactionTime</name>
+                  <value>
+                     <dateTime.iso8601>%s</dateTime.iso8601>
+                  </value>
+               </member>
+               <member>
+                  <name>TransactionId</name>
+                  <value>
+                     <string>%s</string>
+                  </value>
+               </member>
+            </struct>
+         </value>
+      </param>
+   </params>
+</methodResponse>

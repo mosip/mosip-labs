@@ -1,0 +1,146 @@
+{
+    
+    "machines":[
+    {
+        "name":"config",
+        "servicecode":"*384*23932#",
+        "states":[
+            {"name":"start","menu":"configMainMenu", "position":"entry", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"},
+            {"name":"register_uin","menu":"UINMenu", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"},
+            {"name":"register_langpref","menu":"langMenu", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"},
+            {"name":"view_registerd_uin","menu":"", "position":"end", "handler":"org.mosip.ussd.sm.actions.uinPreferenceLoadHandler"},
+            {"name":"view_registerd_langpref","menu":"", "position":"end", "handler":"org.mosip.ussd.sm.actions.langPreferenceLoadHandler"},
+            {"name":"save_uin","menu":"successMessage", "position":"end", "handler":"org.mosip.ussd.sm.actions.saveUinHandler"},
+            {"name":"save_langpref","menu":"successMessage", "position":"end", "handler":"org.mosip.ussd.sm.actions.saveLangPrefHandler"},
+            
+            {"name":"end","menu":"response", "position":"end", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"}
+        
+        ],
+        "transitions":[
+            {"id":"1","from":"start","to":"register_uin","evttype":"input","evtvalue":"1","tag":"" , "condition":{}},
+            {"id":"1.1","from":"register_uin","to":"save_uin","evttype":"auto","evtvalue":"","tag":"" , "condition":{}},
+            {"id":"2","from":"start","to":"register_langpref","evttype":"input","evtvalue":"2","tag":"" , "condition":{}},
+            {"id":"2.1","from":"register_langpref","to":"save_langpref","evttype":"auto","evtvalue":"","tag":"", "condition":{} },
+            {"id":"3","from":"start","to":"view_registerd_uin","evttype":"input","evtvalue":"3" ,"tag":"", "condition":{}},
+            {"id":"4","from":"start","to":"view_registerd_langpref","evttype":"input","evtvalue":"4","tag":"", "condition":{} }
+        
+        ]
+     },
+     {
+        "name":"credential",
+        "servicecode":"*384*23933#",
+        "states":[
+            {"name":"start","menu":"residentServices", "position":"entry", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"},
+            {"name":"request_otp","menu":"authenticateMenu", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.RequestOTPHandler"},
+            {"name":"request_uin","menu":"UINMenu", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.RequestUINHandler"},
+            {"name":"check_uin_status","menu":"", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.CheckUINStatusHandler"},
+            {"name":"request_rid","menu":"ridRequest", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.RequestRIDHandler"},
+            {"name":"request_timepref","menu":"timeMenu", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"},
+            {"name":"request_months","menu":"requestMonths", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"},
+            {"name":"request_days","menu":"requestDays", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"},
+            {"name":"request_fake_otp","menu":"authenticateMenu", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.RequestOTPHandler"},
+            {"name":"check_status","menu":"", "position":"end", "handler":"org.mosip.ussd.sm.actions.CheckStatusHandler"},
+            {"name":"gen_vid","menu":"response", "position":"end", "handler":"org.mosip.ussd.sm.actions.generateVidHandler"},
+            {"name":"gen_fake_vid","menu":"response", "position":"end", "handler":"org.mosip.ussd.sm.actions.generateFakeVidHandler"},
+            {"name":"req_vc_download","menu":"VCDownloadRequest", "position":"end", "handler":"org.mosip.ussd.sm.actions.downloadVCHandler"},
+            {"name":"req_list_history","menu":"response", "position":"end", "handler":"org.mosip.ussd.sm.actions.listHistoryHandler"},
+            {"name":"req_list_creds","menu":"response", "position":"end", "handler":"org.mosip.ussd.sm.actions.listCredsHandler"},
+            {"name":"req_claims","menu":"claimsMenu", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"},
+            {"name":"claims_process","menu":"", "position":"end", "handler":"org.mosip.ussd.sm.actions.ClaimsHandler"},
+            {"name":"request_credentialId","menu":"claimsInput", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.ClaimsMenuInputHandler"},
+            {"name":"request_partnerId","menu":"RPPartnerIdMenu", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"},    
+            {"name":"request_applicationId","menu":"RPApplMenu", "position":"nonentry", "handler":"org.mosip.ussd.sm.actions.ApplicationIdHandler"},    
+            {"name":"process_transfer","menu":"response", "position":"end", "handler":"org.mosip.ussd.sm.actions.processTransferHandler"},   
+            {"name":"lock_unlock_uin","menu":"successMessage", "position":"end", "handler":"org.mosip.ussd.sm.actions.lockUnlockUINHandler"},   
+
+            {"name":"end","menu":"response", "position":"end", "handler":"org.mosip.ussd.sm.actions.EmptyMenuHandler"}
+
+        
+        ],
+        "transitions":[
+            
+            {"id":"1","from":"start","to":"request_otp","evttype":"input","evtvalue":"2", "tag":"gen_vid" , "condition":{
+                "variable":{"varName":"uin","varValue":""}, "operation":"=","toState":"request_uin"}},
+            {"id":"1.1","from":"request_otp","to":"gen_vid","evttype":"auto","evtvalue":"", "tag":"" , "condition":{
+                "variable":{"varName":"tag","varValue":"gen_vid"},"operation":"=","toState":""
+            }},
+            
+            {"id":"2","from":"start","to":"request_otp","evttype":"input","evtvalue":"3","tag":"req_vc_download", "condition":{
+                "variable":{"varName":"uin","varValue":""}, "operation":"=","toState":"request_uin"}},
+            {"id":"2.1","from":"request_otp","to":"req_vc_download","evttype":"auto","evtvalue":"" , "tag":"","condition":{
+                "variable":{"varName":"tag","varValue":"req_vc_download"},"operation":"=","toState":""
+            }},
+
+            {"id":"3","from":"start","to":"request_otp","evttype":"input","evtvalue":"5","tag":"req_list_history", "condition":{
+                "variable":{"varName":"uin","varValue":""}, "operation":"=","toState":"request_uin"}},
+            {"id":"3.1","from":"request_otp","to":"req_list_history","evttype":"auto","evtvalue":"" , "tag":"","condition":{
+                "variable":{"varName":"tag","varValue":"req_list_history"},"operation":"=","toState":""
+            }},
+            {"id":"4","from":"start","to":"req_list_creds","evttype":"input","evtvalue":"6","tag":"", "condition":{}},
+            {"id":"5","from":"start","to":"req_claims","evttype":"input","evtvalue":"7","tag":"", "condition":{}},
+            
+            {"id":"6","from":"req_claims","to":"claims_process","evttype":"input","evtvalue":"1","tag":"req_claims", "condition":{
+                "variable":{"varName":"credentialId","varValue":""}, "operation":"=","toState":"request_credentialId"
+            }},
+            {"id":"6.1","from": "claims_process" , "to":"req_claims","evttype":"¸","evtvalue":"","tag":"","condition":{
+                "variable":{"varName":"tag","varValue":"req_claims"},"operation":"=","toState":""
+            }},
+        
+            {"id":"7","from":"req_claims","to":"claims_process","evttype":"input","evtvalue":"2","tag":"req_claims", "condition":{
+                "variable":{"varName":"credentialId","varValue":""}, "operation":"=","toState":"request_credentialId"
+            }},
+            {"id":"7.1","from": "claims_process" , "to":"req_claims","evttype":"auto","evtvalue":"","tag":"","condition":{
+                "variable":{"varName":"tag","varValue":"req_claims"},"operation":"=","toState":""
+            }},
+            {"id":"8","from":"req_claims","to":"claims_process","evttype":"input","evtvalue":"3","tag":"req_claims", "condition":{
+                "variable":{"varName":"credentialId","varValue":""}, "operation":"=","toState":"request_credentialId"
+            }},
+            {"id":"8.1","from": "claims_process" , "to":"req_claims","evttype":"auto","evtvalue":"","tag":"","condition":{
+                "variable":{"varName":"tag","varValue":"req_claims"},"operation":"=","toState":""
+            }},
+
+            {"id":"9","from":"start","to":"request_partnerId","evttype":"input","evtvalue":"4","tag":"", "condition":{}},
+            
+            {"id":"9.1","from": "request_partnerId" , "to":"request_applicationId","evttype":"auto","evtvalue":"","tag":"","condition":{},"saveto":"partnerId"},
+            {"id":"9.2","from": "request_applicationId" , "to":"request_credentialId","evttype":"auto","evtvalue":"","tag":"","condition":{},"saveto":"applicationId"},
+            {"id":"9.3","from": "request_credentialId" , "to":"process_transfer","evttype":"auto","evtvalue":"","tag":"process_transfer","condition":{},"saveto":"credentialId"},
+
+
+            {"id":"10","from":"start","to":"request_fake_otp","evttype":"input","evtvalue":"8", "tag":"check_status" , "condition":{
+                "variable":{"varName":"rid","varValue":""}, "operation":"=","toState":"request_rid"}},
+            {"id":"10.1","from": "request_fake_otp" , "to":"check_status","evttype":"auto","evtvalue":"","tag":"","condition":{
+                "variable":{"varName":"tag","varValue":"check_status"},"operation":"=","toState":""
+            }},
+            
+            {"id":"11","from":"start","to":"request_timepref","evttype":"input","evtvalue":"9", "tag":"gen_vid" , "condition":{}},
+
+            {"id":"12","from":"request_timepref","to":"request_months","evttype":"input","evtvalue":"1", "tag":"gen_fake_vid" , "condition":{}},
+            {"id":"12.1","from": "request_months" , "to":"request_fake_otp","evttype":"auto","evtvalue":"","tag":"gen_fake_vid","condition":{}},
+            {"id":"12.2","from": "request_fake_otp" , "to":"gen_fake_vid","evttype":"auto","evtvalue":"","tag":"","condition":{
+                "variable":{"varName":"tag","varValue":"gen_fake_vid"},"operation":"=","toState":""
+            }},
+            {"id":"12.3","from": "gen_fake_vid" , "to":"end","evttype":"auto","evtvalue":"","tag":"","condition":{}},
+
+            {"id":"13","from":"request_timepref","to":"request_days","evttype":"input","evtvalue":"2", "tag":"gen_fake_vid" , "condition":{}},
+            {"id":"13.1","from": "request_days" , "to":"request_fake_otp","evttype":"auto","evtvalue":"","tag":"gen_fake_vid","condition":{}},
+            {"id":"13.2","from": "request_fake_otp" , "to":"gen_fake_vid","evttype":"auto","evtvalue":"","tag":"","condition":{
+                "variable":{"varName":"tag","varValue":"gen_fake_vid"},"operation":"=","toState":""
+            }},
+            {"id":"13.3","from": "gen_fake_vid" , "to":"end","evttype":"auto","evtvalue":"","tag":"","condition":{}}, 
+
+            {"id":"14","from":"start","to":"request_fake_otp","evttype":"input","evtvalue":"10", "tag":"check_uin_status" , "condition":{
+                "variable":{"varName":"uin","varValue":""}, "operation":"=","toState":"request_uin"}},
+            {"id":"14.1","from": "request_fake_otp" , "to":"check_uin_status","evttype":"auto","evtvalue":"","tag":"","condition":{
+                "variable":{"varName":"tag","varValue":"check_uin_status"},"operation":"=","toState":""
+            }},
+
+            {"id":"15","from":"start","to":"lock_unlock_uin","evttype":"input","evtvalue":"11", "tag":"gen_vid" , "condition":{
+                "variable":{"varName":"uin","varValue":""}, "operation":"=","toState":"request_uin"
+            }}
+        
+        ]
+    }
+    
+    
+    ]
+}

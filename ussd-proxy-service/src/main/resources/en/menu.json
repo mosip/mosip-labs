@@ -1,0 +1,81 @@
+{
+    "mainMenu":  [
+        "Enter VID/UIN"
+    ],
+    "authenticateMenu" :  [
+        "Enter the OTP sent to your registered Mobile"
+    ],
+    "errorMessage" : [
+        "Invalid Option"
+    ],
+    "successMessage" :[ 
+        "Completed successfuly."	
+    ],
+    
+    "residentServices" :[ 
+        "1. Get Registration Status",
+        "2. Get Temporary Virtual ID",
+        "3. Download Credentials to Wallet",
+        "4. Transfer Credentials to Relying Party",
+        "5. Authentication History",
+        "6. List Credentials from Wallet",
+        "7. Claims",
+        "8. Get RID Status",
+        "9. Generate Temporary Virtual ID with validity",
+        "10. Check UIN Status",
+        "11. Lock/Unlock UIN"
+
+    ],
+    "claimsMenu" : [
+        "1. Is above 18 years",
+        "2. Is below 5 years",
+        "3. Is above 60 years"
+    ],
+    "RPPartnerIdMenu" : [
+        "Enter Relying Party Partner-Id"
+    ],
+    "RPApplMenu": [
+    "Enter Application-Id"
+    ],
+    
+    "UINMenu" :[ 
+        "Enter your UIN"
+    ],
+    "VCRequest":[
+        "Request for VC Transfer placed"
+    ],
+    "claimsInput":[
+        "Enter Credential-Id"
+    ],
+    "configMainMenu" :[
+        "1. Register your UIN",
+        "2. Register your language preference",
+        "3. View registered UIN",
+        "4. View registered language preference",
+        "5. Clear registered UIN"
+    ],
+    "langMenu":[
+        "1. English",
+        "2. Hindi"
+    ],
+    "VCDownloadRequest":[
+        "Request for VC download placed"
+    ],
+ 
+    "response":[
+        
+    ],
+    "ridRequest":[
+        "Enter your RID"
+    ],
+    "timeMenu":[
+        "1. Months",
+        "2. Days"
+    ],
+    "requestMonths": [
+        "Enter Number of Months"
+    ],
+    "requestDays": [
+        "Enter Number of Days"
+    ]
+}
