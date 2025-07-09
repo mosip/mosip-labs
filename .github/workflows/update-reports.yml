@@ -1,4 +1,4 @@
-name: Update CSV and XLSX via MinIO (Reporting Branch)
+name: Update CSV and XLSX via MinIO
 
 on:
   schedule:
