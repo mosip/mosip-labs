@@ -4,6 +4,7 @@
  */
 const axios = require('axios');
 require('dotenv').config();
+const { HTTP } = require('../config/errorCodes');
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -36,7 +37,7 @@ githubClient.interceptors.response.use(
     const retryAfter = headers['retry-after'];
 
     // Primary rate limit: wait until reset and retry once.
-    if (status === 403 && String(remaining) === '0' && reset) {
+    if (status === HTTP.FORBIDDEN && String(remaining) === '0' && reset) {
       const resetMs = Number(reset) * 1000;
       const waitMs = Math.max(0, resetMs - Date.now()) + 1500;
       config.__retryCount += 1;
@@ -45,7 +46,10 @@ githubClient.interceptors.response.use(
     }
 
     // Secondary rate limit / abuse detection often provides Retry-After.
-    if ((status === 403 || status === 429) && retryAfter) {
+    if (
+      (status === HTTP.FORBIDDEN || status === HTTP.TOO_MANY_REQUESTS) &&
+      retryAfter
+    ) {
       const waitMs = Math.max(0, Number(retryAfter) * 1000) + 250;
       config.__retryCount += 1;
       await sleep(waitMs);
