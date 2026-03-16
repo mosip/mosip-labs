@@ -48,6 +48,7 @@ const QUERY_PR_PAGE = `
               id
               submittedAt
               author {
+                __typename
                 login
                 ... on User { databaseId avatarUrl url }
                 ... on Bot { databaseId avatarUrl url }
@@ -72,6 +73,7 @@ const QUERY_PR_REVIEWS_PAGE = `
             submittedAt
             author {
               login
+              __typename
               ... on User { databaseId avatarUrl url }
               ... on Bot { databaseId avatarUrl url }
             }
@@ -158,7 +160,7 @@ async function syncReviews(repoId) {
             continue;
           }
           // Don't count self-reviews (author reviewing their own PR)
-          if (prAuthorLogin && reviewer.login === prAuthorLogin) continue;
+          if (prAuthorLogin && reviewer.login.toLowerCase() === prAuthorLogin.toLowerCase()) continue;
 
           const githubUserId = reviewer.databaseId;
           if (githubUserId == null) continue;
@@ -195,6 +197,23 @@ async function syncReviews(repoId) {
             );
             const userId = userResult.rows[0].id;
 
+            // Insert event first; only increment reviews_count if this review is new.
+            const eventInsert = await pool.query(
+              `
+              INSERT INTO activity_events (event_type, event_id, repo_id, user_id, html_url, created_at)
+              VALUES ($1, $2, $3, $4, $5, $6)
+              ON CONFLICT (event_type, event_id)
+              DO NOTHING
+              RETURNING id
+            `,
+              ['review', String(review.id), repoId, userId, prUrl, submittedAt]
+            );
+
+            if (eventInsert.rowCount === 0) {
+              // Duplicate review event; do not increment reviews_count again.
+              continue;
+            }
+
             // Upsert into repo_users: increment reviews_count, update first_seen_at / last_seen_at
             await pool.query(
               `
@@ -207,17 +226,6 @@ async function syncReviews(repoId) {
                 first_seen_at = LEAST(COALESCE(repo_users.first_seen_at, EXCLUDED.first_seen_at), EXCLUDED.first_seen_at)
             `,
               [repoId, userId, submittedAt]
-            );
-
-            // Insert into activity_events; unique on (event_type, event_id)
-            await pool.query(
-              `
-              INSERT INTO activity_events (event_type, event_id, repo_id, user_id, html_url, created_at)
-              VALUES ($1, $2, $3, $4, $5, $6)
-              ON CONFLICT (event_type, event_id)
-              DO UPDATE SET html_url = COALESCE(activity_events.html_url, EXCLUDED.html_url)
-            `,
-              ['review', String(review.id), repoId, userId, prUrl, submittedAt]
             );
 
             totalProcessed += 1;

@@ -138,6 +138,22 @@ async function syncCommits(repoId) {
 
           const userId = userResult.rows[0].id;
 
+          // Record event first; only increment commit counters when the event is newly inserted.
+          const eventInsert = await pool.query(
+            `
+              INSERT INTO activity_events (event_type, event_id, repo_id, user_id, html_url, created_at)
+              VALUES ($1, $2, $3, $4, $5, $6)
+              ON CONFLICT (event_type, event_id) DO NOTHING
+              RETURNING id
+            `,
+            ['commit', commitSha, repoId, userId, commit.html_url || null, commitDate]
+          );
+
+          if (eventInsert.rowCount === 0) {
+            // Duplicate commit event; do not increment commits_count again.
+            continue;
+          }
+
           // Bump commit count and update first/last seen for this repo+user
           await pool.query(
             `
@@ -147,29 +163,10 @@ async function syncCommits(repoId) {
               DO UPDATE SET
                 commits_count = repo_users.commits_count + 1,
                 last_seen_at = GREATEST(repo_users.last_seen_at, EXCLUDED.last_seen_at),
-                first_seen_at = LEAST(repo_users.first_seen_at, EXCLUDED.first_seen_at)
+                first_seen_at = LEAST(COALESCE(repo_users.first_seen_at, EXCLUDED.first_seen_at), EXCLUDED.first_seen_at)
             `,
             [repoId, userId, commitDate]
           );
-
-          // Record commit as an activity event (skip if already present)
-          try {
-            await pool.query(
-              `
-                INSERT INTO activity_events (event_type, event_id, repo_id, user_id, html_url, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
-                ON CONFLICT (event_type, event_id) DO NOTHING
-              `,
-              ['commit', commitSha, repoId, userId, commit.html_url || null, commitDate]
-            );
-          } catch (eventError) {
-            // If unique constraint violation, skip (already processed)
-            if (eventError.code === POSTGRES.UNIQUE_VIOLATION) {
-              console.log(`Commit ${commitSha} already exists in activity_events, skipping`);
-            } else {
-              throw eventError;
-            }
-          }
 
           totalProcessed += 1;
         } catch (commitError) {
