@@ -2,6 +2,7 @@ const axios = require('axios');
 require('dotenv').config();
 const pool = require('../db/dbPool');
 const { POSTGRES } = require('../config/errorCodes');
+const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
 
 const GRAPHQL_URL = 'https://api.github.com/graphql';
 const PR_PAGE_SIZE = 50;
@@ -119,6 +120,7 @@ async function syncReviews(repoId) {
   }
 
   let totalProcessed = 0;
+  let hadProcessingErrors = false;
   let prCursor = null;
 
   // Paginate pull requests
@@ -152,6 +154,9 @@ async function syncReviews(repoId) {
         for (const review of reviews) {
           const reviewer = review.author;
           if (!reviewer || !reviewer.login) continue;
+          if (isExcludedGitHubLogin(reviewer.login)) {
+            continue;
+          }
           // Don't count self-reviews (author reviewing their own PR)
           if (prAuthorLogin && reviewer.login === prAuthorLogin) continue;
 
@@ -219,6 +224,7 @@ async function syncReviews(repoId) {
           } catch (err) {
             if (err.code === POSTGRES.UNIQUE_VIOLATION) continue;
             console.error(`Error processing review ${review.id}:`, err.message);
+            hadProcessingErrors = true;
           }
         }
 
@@ -239,6 +245,10 @@ async function syncReviews(repoId) {
 
     if (!prPageInfo.hasNextPage) break;
     prCursor = prPageInfo.endCursor;
+  }
+
+  if (hadProcessingErrors) {
+    throw new Error('Review sync incomplete; not advancing last_reviews_sync_at');
   }
 
   // Mark repo as synced for incremental runs

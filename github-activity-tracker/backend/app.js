@@ -16,7 +16,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Allow frontend (or other origins) to call this API
-app.use(cors());
+// app.use(cors());
+app.use(cors({ origin: (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean) }));
 app.use(express.json());
 
 // Health / API info – list available sync endpoints

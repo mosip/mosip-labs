@@ -1,6 +1,7 @@
 const githubClient = require('../utils/githubClient');
 const pool = require('../db/dbPool');
 const { POSTGRES } = require('../config/errorCodes');
+const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
 
 /**
  * Sync commits for a single repository.
@@ -48,6 +49,9 @@ async function syncCommits(repoId) {
   const perPage = 100;
   let page = 1;
   let totalProcessed = 0;
+  let hadCommitFailure = false;
+  let failedCommitSha = null;
+  let failedCommitError = null;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -105,6 +109,11 @@ async function syncCommits(repoId) {
             html_url,
             type,
           } = commit.author;
+
+          if (isExcludedGitHubLogin(login)) {
+            console.log(`Skipping commit ${commitSha} - excluded author ${login}`);
+            continue;
+          }
 
           if (!github_user_id) {
             console.log(`Skipping commit ${commitSha} - author has no ID`);
@@ -164,11 +173,16 @@ async function syncCommits(repoId) {
 
           totalProcessed += 1;
         } catch (commitError) {
+          hadCommitFailure = true;
+          failedCommitSha = commit?.sha || 'unknown';
+          failedCommitError = commitError;
           console.error(
             `Error processing commit ${commit.sha || 'unknown'}:`,
             commitError.message
           );
-          // Continue processing other commits instead of failing completely
+          // Stop the sync so we don't advance last_commits_sync_at and skip this commit forever.
+          shouldStopPagination = true;
+          break;
         }
       }
 
@@ -190,6 +204,13 @@ async function syncCommits(repoId) {
       }
       throw apiError;
     }
+  }
+
+  if (hadCommitFailure) {
+    const message = `Commit sync aborted due to persistence failure on commit ${failedCommitSha}; last_commits_sync_at will not be updated so it can be retried.`;
+    const error = new Error(message);
+    error.cause = failedCommitError;
+    throw error;
   }
 
   console.log(`Completed syncing commits for ${owner}/${name}. Total processed: ${totalProcessed}`);

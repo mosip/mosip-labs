@@ -1,6 +1,7 @@
 const githubClient = require('../utils/githubClient');
 const pool = require('../db/dbPool');
 const { GITHUB, POSTGRES } = require('../config/errorCodes');
+const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
 
 /**
  * Sync pull requests for a single repository.
@@ -46,6 +47,8 @@ async function syncPRs(repoId) {
   const maxPage = 10; // Search API cap: 1000 results = 10 pages × 100
   let page = 1;
   let totalProcessed = 0;
+  let hadProcessingErrors = false;
+  let hitSearchCap = false;
 
   while (page <= maxPage) {
     try {
@@ -53,12 +56,15 @@ async function syncPRs(repoId) {
       const response = await githubClient.get('/search/issues', {
         params: {
           q,
+          sort: 'created',
+          order: 'desc',
           per_page: perPage,
           page,
         },
       });
 
       const items = response.data?.items || [];
+      const incompleteResults = response.data?.incomplete_results || false;
       if (!Array.isArray(items) || items.length === 0) {
         break;
       }
@@ -71,6 +77,9 @@ async function syncPRs(repoId) {
         const author = pr.user;
 
         if (!author || !author.id) {
+          continue;
+        }
+        if (isExcludedGitHubLogin(author.login)) {
           continue;
         }
 
@@ -111,8 +120,48 @@ async function syncPRs(repoId) {
 
           const userId = userResult.rows[0].id;
 
-          // Upsert into repo_users using (repo_id, user_id) as unique key
-          // Increment prs_count, update first_seen_at and last_seen_at
+          // Insert event first; only increment prs_count if this PR is new.
+          const eventInsert = await pool.query(
+            `
+              INSERT INTO activity_events (event_type, event_id, repo_id, user_id, html_url, created_at)
+              VALUES ($1, $2, $3, $4, $5, $6)
+              ON CONFLICT (event_type, event_id)
+              DO NOTHING
+              RETURNING id
+            `,
+            ['pr', String(prId), repoId, userId, pr.html_url || null, createdAt]
+          );
+
+          if (eventInsert.rowCount === 0) {
+            // Existing PR event: do not increment prs_count, but keep repo_users seen timestamps fresh.
+            await pool.query(
+              `
+                INSERT INTO repo_users (repo_id, user_id, first_seen_at, last_seen_at)
+                VALUES ($1, $2, $3, $3)
+                ON CONFLICT (repo_id, user_id)
+                DO UPDATE SET
+                  last_seen_at = GREATEST(repo_users.last_seen_at, EXCLUDED.last_seen_at),
+                  first_seen_at = LEAST(COALESCE(repo_users.first_seen_at, EXCLUDED.first_seen_at), EXCLUDED.first_seen_at)
+              `,
+              [repoId, userId, createdAt]
+            );
+
+            // Preserve prior behavior of backfilling html_url when missing, without counting.
+            if (pr.html_url) {
+              await pool.query(
+                `
+                  UPDATE activity_events
+                  SET html_url = COALESCE(activity_events.html_url, $1)
+                  WHERE event_type = 'pr' AND event_id = $2
+                `,
+                [pr.html_url, String(prId)]
+              );
+            }
+
+            continue;
+          }
+
+          // New PR event: increment prs_count.
           await pool.query(
             `
               INSERT INTO repo_users (repo_id, user_id, prs_count, first_seen_at, last_seen_at)
@@ -126,26 +175,23 @@ async function syncPRs(repoId) {
             [repoId, userId, createdAt]
           );
 
-          // Insert into activity_events; prevent duplicates via unique (event_type, event_id)
-          await pool.query(
-            `
-              INSERT INTO activity_events (event_type, event_id, repo_id, user_id, html_url, created_at)
-              VALUES ($1, $2, $3, $4, $5, $6)
-              ON CONFLICT (event_type, event_id)
-              DO UPDATE SET
-                html_url = COALESCE(activity_events.html_url, EXCLUDED.html_url)
-            `,
-            ['pr', String(prId), repoId, userId, pr.html_url || null, createdAt]
-          );
-
           totalProcessed += 1;
         } catch (prError) {
+          hadProcessingErrors = true;
           if (prError.code === POSTGRES.UNIQUE_VIOLATION) {
             // Unique constraint on activity_events - skip duplicate
             continue;
           }
           console.error(`Error processing PR #${prNumber} (id ${prId}):`, prError.message);
         }
+      }
+
+      // If we hit the Search API cap boundary, do not advance watermark (risk of missed PRs).
+      if (page === maxPage && items.length === perPage) {
+        hitSearchCap = true;
+      }
+      if (incompleteResults) {
+        hitSearchCap = true;
       }
 
       if (shouldStopPagination || items.length < perPage) {
@@ -169,6 +215,10 @@ async function syncPRs(repoId) {
       }
       throw apiError;
     }
+  }
+
+  if (hadProcessingErrors || hitSearchCap) {
+    throw new Error('PR sync incomplete; not advancing last_prs_sync_at');
   }
 
   // Update last_prs_sync_at only after successful sync

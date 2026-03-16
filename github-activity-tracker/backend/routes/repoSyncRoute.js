@@ -29,7 +29,6 @@ router.post('/admin/sync/repos', async (req, res) => {
     });
   } catch (error) {
     console.error('Error syncing repositories:', error);
-    console.error('Error stack:', error.stack);
     return res.status(HTTP.INTERNAL_SERVER_ERROR).json({
       status: STATUS.ERROR,
       message: 'Failed to sync repositories',
