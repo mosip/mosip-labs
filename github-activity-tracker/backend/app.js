@@ -11,13 +11,18 @@ const repoSyncRoute = require('./routes/repoSyncRoute');
 const commitSyncRoute = require('./routes/commitSyncRoute');
 const prSyncRoute = require('./routes/prSyncRoute');
 const reviewSyncRoute = require('./routes/reviewSyncRoute');
+const leaderboardRoute = require('./routes/leaderBoardRoute');
+const orgActivityRoute = require('./routes/orgActivityRoute');
+const orgSummaryRoute = require('./routes/orgSummaryRoute');
+const orgUsersRoute = require('./routes/orgUsersRoute');
+const userDetailsRoute = require('./routes/userDetailsRoute');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Allow frontend (or other origins) to call this API
-// app.use(cors());
-app.use(cors({ origin: (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean) }));
+app.use(cors());
+// app.use(cors({ origin: (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean) }));
 app.use(express.json());
 
 // Health / API info – list available sync endpoints
@@ -38,6 +43,11 @@ app.use(repoSyncRoute);
 app.use(commitSyncRoute);
 app.use(prSyncRoute);
 app.use(reviewSyncRoute);
+app.use(orgUsersRoute);
+app.use(orgSummaryRoute);
+app.use(userDetailsRoute);
+app.use(orgActivityRoute);
+app.use(leaderboardRoute);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
