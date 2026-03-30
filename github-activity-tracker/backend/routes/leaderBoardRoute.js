@@ -14,6 +14,10 @@ router.get("/orgs/:org_id/leaderboard", async (req, res) => {
       return res.status(400).json({ error: "Invalid org_id" });
     }
 
+    if (!["daily", "weekly", "monthly", "all"].includes(period)) {
+      return res.status(400).json({ error: "Invalid period value" });
+    }
+
     const data = await getLeaderboard(org_id, period, limit);
 
     return res.status(200).json(data);

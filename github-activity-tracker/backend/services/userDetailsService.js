@@ -2,16 +2,14 @@ const pool = require('../db/dbPool');
 const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
 
 /* -----------------------------------------------
-   Helper: Generate continuous date array
+   Helper: Generate continuous UTC calendar-day keys
+   from startDate (inclusive), matching SQL DATE buckets.
 ------------------------------------------------ */
-function generateDateRange(days) {
+function generateDateRange(startDate, days) {
   const dates = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
+  for (let i = 0; i < days; i++) {
+    const d = new Date(startDate);
+    d.setUTCDate(startDate.getUTCDate() + i);
     dates.push(d.toISOString().slice(0, 10));
   }
   return dates;
@@ -55,16 +53,22 @@ async function getUserDetails(login, period) {
   };
 
   const days = periods[period];
+  if (!days) {
+    throw new Error('Invalid period');
+  }
 
   const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - (days - 1));
+  end.setUTCHours(23, 59, 59, 999);
 
-  const prevStart = new Date(start);
-  prevStart.setDate(prevStart.getDate() - days);
+  const start = new Date(end);
+  start.setUTCDate(end.getUTCDate() - (days - 1));
+  start.setUTCHours(0, 0, 0, 0);
 
-  const prevEnd = new Date(start);
-  prevEnd.setDate(prevEnd.getDate() - 1);
+  const prevEnd = new Date(start.getTime() - 1);
+
+  const prevStart = new Date(prevEnd);
+  prevStart.setUTCDate(prevEnd.getUTCDate() - (days - 1));
+  prevStart.setUTCHours(0, 0, 0, 0);
 
   /* 3. Fetch daily activity for selected range */
   const dailyQuery = `
@@ -87,7 +91,7 @@ async function getUserDetails(login, period) {
   ]);
 
   /* 4. Fill missing days */
-  const dateRange = generateDateRange(days);
+  const dateRange = generateDateRange(start, days);
   const dailyMap = {};
 
   dailyRes.rows.forEach(row => {

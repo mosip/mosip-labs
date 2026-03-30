@@ -13,22 +13,23 @@ function getDateRanges(period) {
     monthly: 30,
   };
 
-  const days = periods[period] || 7;
+  const days = periods[period];
+  if (!days) {
+    throw new Error('Invalid period');
+  }
 
   const end = new Date();
-  end.setHours(23, 59, 59, 999);
+  end.setUTCHours(23, 59, 59, 999);
 
-  const start = new Date();
-  start.setDate(start.getDate() - (days - 1));
-  start.setHours(0, 0, 0, 0);
+  const start = new Date(end);
+  start.setUTCDate(end.getUTCDate() - (days - 1));
+  start.setUTCHours(0, 0, 0, 0);
 
-  const prevEnd = new Date(start);
-  prevEnd.setDate(prevEnd.getDate() - 1);
-  prevEnd.setHours(23, 59, 59, 999);
+  const prevEnd = new Date(start.getTime() - 1);
 
   const prevStart = new Date(prevEnd);
-  prevStart.setDate(prevStart.getDate() - (days - 1));
-  prevStart.setHours(0, 0, 0, 0);
+  prevStart.setUTCDate(prevEnd.getUTCDate() - (days - 1));
+  prevStart.setUTCHours(0, 0, 0, 0);
 
   return { start, end, prevStart, prevEnd };
 }

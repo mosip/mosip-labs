@@ -54,6 +54,9 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
       } catch (err) {
         console.error("Error loading team members:", err);
         setMembers([]);
+        setTotalUsers(0);
+        setTotalPages(1);
+        setPage(1);
       }
     }
 
@@ -95,9 +98,23 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
           <tbody>
             {filtered.map((m, index) => (
               <tr
-                key={index}
-                className="border-b last:border-0 cursor-pointer hover:bg-gray-50 transition"
+                key={m.login ?? index}
+                className="border-b last:border-0 cursor-pointer hover:bg-gray-50 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                 onClick={() => onSelectUser?.(m.login)}
+                role={onSelectUser ? "button" : undefined}
+                tabIndex={onSelectUser ? 0 : undefined}
+                aria-label={
+                  onSelectUser
+                    ? `View profile for ${m.login}`
+                    : undefined
+                }
+                onKeyDown={(e) => {
+                  if (!onSelectUser) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectUser(m.login);
+                  }
+                }}
               >
                 <td className="py-4 flex items-center gap-3">
                   <UserIcon />

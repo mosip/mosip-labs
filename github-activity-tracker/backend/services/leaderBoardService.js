@@ -5,24 +5,22 @@ const { EXCLUDED_GITHUB_LOGINS } = require('../config/excludedGitHubLogins');
    Calculate date ranges
 --------------------------------------------- */
 function getDateRange(period) {
-  const now = new Date();
-
   if (period === "all") {
     return { start: null, end: null };
   }
 
+  const periods = { daily: 1, weekly: 7, monthly: 30 };
+  const days = periods[period];
+  if (!days) {
+    throw new Error('Invalid period');
+  }
+
   const end = new Date();
-  end.setHours(23, 59, 59, 999);
+  end.setUTCHours(23, 59, 59, 999);
 
-  let days = 7;
-
-  if (period === "daily") days = 1;
-  if (period === "weekly") days = 7;
-  if (period === "monthly") days = 30;
-
-  const start = new Date();
-  start.setDate(start.getDate() - (days - 1));
-  start.setHours(0, 0, 0, 0);
+  const start = new Date(end);
+  start.setUTCDate(end.getUTCDate() - (days - 1));
+  start.setUTCHours(0, 0, 0, 0);
 
   return { start, end };
 }

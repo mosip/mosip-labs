@@ -15,6 +15,10 @@ router.get("/orgs/:org_id/users", async (req, res) => {
       return res.status(400).json({ error: "Invalid org_id" });
     }
 
+    if (!["daily", "weekly", "monthly"].includes(period)) {
+      return res.status(400).json({ error: "Invalid period value" });
+    }
+
     // pass pagination to service
     const users = await getOrgUsers(org_id, period, page, limit);
 
