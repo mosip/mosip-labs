@@ -4,11 +4,11 @@
 
 1.  **App Mounts:** The React application starts.
 2.  **Fetch Repositories:** The `useEffect` hook in `App.tsx` calls Supabase to retrieve the list of repositories.
-3.  **Display Sidebar:** The `Sidebar` component renders the list of repositories.
+3.  **Main layout:** Top navigation and dashboard content (no side nav).
 
 ### 2. User Interaction
 
-1.  **Select Repository:** User selects a repository from the `Sidebar`.
+1.  **Select Repository:** (Optional) Filter via top nav / team controls where wired.
 2.  **Select Date Range:** User selects a date range from the dropdown.
 3.  **Enter GitHub Username:** User enters a GitHub username in the input field.
 4.  **Click Search:** User clicks the "Search" button.
@@ -37,26 +37,18 @@
 
 1.  **User Input:** User enters a new repository name in the input field.
 2.  **Click Run:** User clicks the "Run" button.
-3.  **Send API Request:** The frontend sends a POST request to the `/api/addRepo` endpoint with the repository name.
-4.  **Backend Processing:**
-    - The Node.js backend validates the repository name.
-    - It appends the repository name to the `config.properties` file.
-    - It executes the `github_activity.py` script.
-5.  **Python Script:** The Python script fetches activity data from the GitHub API and stores it in Supabase.
-6.  **Response:** The backend sends a success or error message back to the frontend.
+3.  **Send API Request:** (Legacy) Some client helpers may call `/api/addRepo` or similar; the deployed app uses the separate **`backend/`** service (Postgres + `/admin/sync/*`, `/orgs/*`) instead of the old in-frontend API.
 
 ### 6. Key Components
 
 *   **App.tsx:** Main component that manages state, renders the UI, and orchestrates data fetching.
-*   **Sidebar.tsx:** Displays the list of repositories and handles repository selection.
 *   **StatsCard.tsx:** Displays summary statistics.
 *   **ActivityChart.tsx:** Visualizes activity data over time.
 *   **UserActivityStats.tsx:** Displays user-specific activity statistics.
 *   **ActivityTable.tsx:** Displays a detailed table of activities.
 *   **useGitHubActivity (lib/hooks.ts):** Custom hook that fetches and filters activity data from Supabase.
 *   **supabase (lib/supabase.ts):** Supabase client for interacting with the database.
-*   **api/index.ts:** Node.js backend that provides the `/api/addRepo` endpoint.
-*   **github_activity.py:** Python script that fetches data from the GitHub API and stores it in Supabase.
+*   **backend/ (repo root):** Node.js API for sync and dashboard data (not inside `frontend/`).
 
 ### 7. Technologies Used
 

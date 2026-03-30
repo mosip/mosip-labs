@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 
 import { StatsCard } from "./components/StatsCard";
 import ActivityChart from "./components/ActivityChart";
-import DetailView from "./components/DetailView";
 import TopNav from "./components/TopNav";
 import TeamMembers from "./components/TeamMembers";
 import LeaderboardCard from "./components/LeaderboardCard";
@@ -16,17 +15,11 @@ import {
   fetchLeaderboard,
 } from "./lib/api";
 
-import type { ActivityItem } from "./lib/database.types";
-
 /* SVG ICON IMPORTS */
 import CommitIcon from "./assets/CommitIcon.svg";
 import PRIcon from "./assets/PRIcon.svg";
 import CodeReviewIcon from "./assets/CodeReviewIcon.svg";
 import TotalActivityIcon from "./assets/TotalActivityIcon.svg";
-import DashboardIconWhite from "./assets/DashboardIconWhite.svg";
-import LeaderboardIconBlack from "./assets/LeaderboardIconBlack.svg";
-import DashboardIconBlack from "./assets/DashboardIconBlack.svg";
-import LeaderboardIconWhite from "./assets/LeaderboardIconWhite.svg";
 
 function App() {
   const [activePage, setActivePage] = useState<

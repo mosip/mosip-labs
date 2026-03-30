@@ -5,23 +5,17 @@
   "type": "commonjs",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.api.json && vite build",
-    "start": "node api/dist/index.js",
-    "api:dev": "ts-node api/index.ts",
-    "api:build": "tsc -p tsconfig.api.json",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "build": "vite build",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.1",
     "@tanstack/react-query": "^5.76.1",
-    "@types/express": "^5.0.0",
     "axios": "^1.9.0",
     "chart.js": "^4.4.9",
-    "cors": "^2.8.5",
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",
-    "express": "^4.21.2",
     "lucide-react": "^0.344.0",
     "luxon": "^3.6.1",
     "pg": "^8.16.0",
@@ -31,7 +25,6 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
     "@types/node": "^22.13.4",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
