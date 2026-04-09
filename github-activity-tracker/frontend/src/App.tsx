@@ -1,4 +1,13 @@
 import { useState, useEffect } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 
 import { StatsCard } from "./components/StatsCard";
 import ActivityChart from "./components/ActivityChart";
@@ -21,14 +30,20 @@ import PRIcon from "./assets/PRIcon.svg";
 import CodeReviewIcon from "./assets/CodeReviewIcon.svg";
 import TotalActivityIcon from "./assets/TotalActivityIcon.svg";
 
-function App() {
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { username } = useParams();
+
   const [activePage, setActivePage] = useState<
     "dashboard" | "leaderboard" | "profile"
   >("dashboard");
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("weekly");
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
+    "weekly"
+  );
 
   const [users, setUsers] = useState<string[]>([]);
   const [summary, setSummary] = useState<any | null>(null);
@@ -45,8 +60,20 @@ function App() {
     false,
     "",
     [],
-    [],
+    []
   );
+
+  // Sync route -> activePage
+  useEffect(() => {
+    if (location.pathname.startsWith("/dashboard")) {
+      setActivePage("dashboard");
+    } else if (location.pathname.startsWith("/leaderboard")) {
+      setActivePage("leaderboard");
+    } else if (location.pathname.startsWith("/profile")) {
+      setActivePage("profile");
+      if (username) setSelectedUser(username);
+    }
+  }, [location.pathname, username]);
 
   useEffect(() => {
     async function loadUsers() {
@@ -119,6 +146,16 @@ function App() {
   const handleSelectUser = (name: string) => {
     setSelectedUser(name);
     setActivePage("profile");
+    navigate(`/profile/${name}`);
+  };
+
+  const handlePageChange = (
+    page: "dashboard" | "leaderboard" | "profile"
+  ) => {
+    setActivePage(page);
+
+    if (page === "dashboard") navigate("/dashboard");
+    if (page === "leaderboard") navigate("/leaderboard");
   };
 
   return (
@@ -126,7 +163,7 @@ function App() {
       {activePage !== "profile" && (
         <TopNav
           activePage={activePage}
-          onChange={setActivePage}
+          onChange={handlePageChange}
           title="GitHub Activity Tracker"
           period={period}
           onPeriodChange={setPeriod}
@@ -142,7 +179,10 @@ function App() {
       {activePage === "profile" && selectedUser && (
         <UserProfile
           userName={selectedUser}
-          onBack={() => setActivePage("dashboard")}
+          onBack={() => {
+            setActivePage("dashboard");
+            navigate("/dashboard");
+          }}
         />
       )}
 
@@ -206,6 +246,19 @@ function App() {
         </main>
       )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<AppContent />} />
+        <Route path="/leaderboard" element={<AppContent />} />
+        <Route path="/profile/:username" element={<AppContent />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
