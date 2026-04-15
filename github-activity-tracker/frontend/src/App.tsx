@@ -7,6 +7,7 @@ import {
   useNavigate,
   useLocation,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
 
 import { StatsCard } from "./components/StatsCard";
@@ -17,12 +18,7 @@ import LeaderboardCard from "./components/LeaderboardCard";
 import UserProfile from "./components/UserProfile";
 
 import { useGitHubActivity } from "./lib/hooks";
-import {
-  fetchUsers,
-  fetchOrgSummary,
-  fetchOrgActivity,
-  fetchLeaderboard,
-} from "./lib/api";
+import { useDashboardData, useLeaderboardData } from "./lib/usePageData";
 
 /* SVG ICON IMPORTS */
 import CommitIcon from "./assets/CommitIcon.svg";
@@ -34,25 +30,27 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { username } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [activePage, setActivePage] = useState<
     "dashboard" | "leaderboard" | "profile"
   >("dashboard");
 
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const periodFromUrl =
+    (searchParams.get("period") as "daily" | "weekly" | "monthly" | null) ||
+    "weekly";
 
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
-    "weekly"
+    periodFromUrl,
   );
 
-  const [users, setUsers] = useState<string[]>([]);
-  const [summary, setSummary] = useState<any | null>(null);
+  const isDashboard = location.pathname.startsWith("/dashboard");
+  const isLeaderboard = location.pathname.startsWith("/leaderboard");
 
-  const [activityChartData, setActivityChartData] = useState<any | null>(null);
+  const { summary, activityChartData } = useDashboardData(period, isDashboard);
 
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
-
-  const { activities, loading, error } = useGitHubActivity(
+  const { leaderboard } = useLeaderboardData(period, isLeaderboard);
+  const { loading, error } = useGitHubActivity(
     "all",
     "all",
     "",
@@ -60,7 +58,7 @@ function AppContent() {
     false,
     "",
     [],
-    []
+    [],
   );
 
   // Sync route -> activePage
@@ -71,96 +69,35 @@ function AppContent() {
       setActivePage("leaderboard");
     } else if (location.pathname.startsWith("/profile")) {
       setActivePage("profile");
-      if (username) setSelectedUser(username);
     }
-  }, [location.pathname, username]);
+  }, [location.pathname]);
 
+  // Sync period -> URL only for dashboard + leaderboard
   useEffect(() => {
-    async function loadUsers() {
-      try {
-        const list = await fetchUsers();
-        setUsers(list);
-      } catch (err) {
-        console.error("Error fetching users:", err);
-      }
-    }
-    loadUsers();
-  }, []);
+    if (location.pathname.startsWith("/profile")) return;
 
-  useEffect(() => {
-    async function loadSummary() {
-      try {
-        const data = await fetchOrgSummary("mosip", period);
-        setSummary(data);
-        console.log("ORG SUMMARY:", data);
-      } catch (err) {
-        console.error("Error fetching org summary:", err);
-      }
-    }
-
-    loadSummary();
-  }, [period]);
-
-  useEffect(() => {
-    async function loadActivity() {
-      try {
-        const data = await fetchOrgActivity("mosip", period);
-        setActivityChartData(data);
-        console.log("ORG ACTIVITY:", data);
-      } catch (err) {
-        console.error("Error fetching org activity:", err);
-      }
-    }
-
-    loadActivity();
-  }, [period]);
-
-  useEffect(() => {
-    async function loadLeaderboard() {
-      try {
-        const data = await fetchLeaderboard("mosip", period, 10);
-
-        console.log("LEADERBOARD RAW:", data);
-
-        const list = Array.isArray(data) ? data : data?.leaderboard || [];
-
-        const ranked = list.map((u: any) => ({
-          name: u.login,
-          team: "—",
-          project: "—",
-          commits: u.commits,
-          prs: u.prs,
-          reviews: u.reviews,
-          total: u.score,
-        }));
-
-        setLeaderboard(ranked);
-      } catch (err) {
-        console.error("Error loading leaderboard:", err);
-      }
-    }
-
-    loadLeaderboard();
-  }, [period]);
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("period", period);
+      return params;
+    });
+  }, [period, setSearchParams, location.pathname]);
 
   const handleSelectUser = (name: string) => {
-    setSelectedUser(name);
     setActivePage("profile");
-    navigate(`/profile/${name}`);
+    navigate(`/profile/${name}?period=${period}`);
   };
 
-  const handlePageChange = (
-    page: "dashboard" | "leaderboard" | "profile"
-  ) => {
+  const handlePageChange = (page: "dashboard" | "leaderboard" | "profile") => {
     setActivePage(page);
 
-    if (page === "dashboard") navigate("/dashboard");
-    if (page === "leaderboard") navigate("/leaderboard");
+    if (page === "dashboard") navigate(`/dashboard?period=${period}`);
+    if (page === "leaderboard") navigate(`/leaderboard?period=${period}`);
   };
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {activePage !== "profile" && (
+      {!location.pathname.startsWith("/profile") && (
         <TopNav
           activePage={activePage}
           onChange={handlePageChange}
@@ -176,17 +113,17 @@ function AppContent() {
         />
       )}
 
-      {activePage === "profile" && selectedUser && (
+      {location.pathname.startsWith("/profile") && username && (
         <UserProfile
-          userName={selectedUser}
+          userName={username}
           onBack={() => {
             setActivePage("dashboard");
-            navigate("/dashboard");
+            navigate(`/dashboard?period=${period}`);
           }}
         />
       )}
 
-      {activePage === "dashboard" && (
+      {location.pathname.startsWith("/dashboard") && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {loading && <p>Loading...</p>}
           {error && <p className="text-red-500">{error}</p>}
@@ -200,21 +137,18 @@ function AppContent() {
                   change={summary?.change?.commits}
                   icon={CommitIcon}
                 />
-
                 <StatsCard
                   title="Pull Requests"
                   value={summary?.total_prs ?? 0}
                   change={summary?.change?.prs}
                   icon={PRIcon}
                 />
-
                 <StatsCard
                   title="Reviews"
                   value={summary?.total_reviews ?? 0}
                   change={summary?.change?.reviews}
                   icon={CodeReviewIcon}
                 />
-
                 <StatsCard
                   title="Total Activity"
                   value={summary?.total_activity ?? 0}
@@ -238,10 +172,9 @@ function AppContent() {
         </main>
       )}
 
-      {activePage === "leaderboard" && (
+      {location.pathname.startsWith("/leaderboard") && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-3xl font-arimo font-bold mb-6">Leaderboard</h1>
-
           <LeaderboardCard leaders={leaderboard} />
         </main>
       )}

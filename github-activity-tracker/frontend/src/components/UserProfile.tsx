@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { StatsCard } from "./StatsCard";
 import ActivityChart from "./ActivityChart";
@@ -16,11 +17,24 @@ interface UserProfileProps {
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const periodFromUrl =
+    (searchParams.get("period") as
+      | "daily"
+      | "weekly"
+      | "monthly"
+      | null) || "weekly";
+
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
-    "weekly",
+    periodFromUrl
   );
 
   const [userData, setUserData] = useState<any>(null);
+
+  useEffect(() => {
+    setSearchParams({ period });
+  }, [period, setSearchParams]);
 
   useEffect(() => {
     async function loadUser() {
@@ -139,7 +153,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6">
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-10">
           <StatsCard
             title="Commits"
@@ -163,7 +176,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
           />
         </div>
 
-        {/* Activity Chart */}
         <div className="bg-white border rounded-xl p-6 mb-8 shadow-sm">
           <h2 className="text-xl font-semibold mb-4">
             Activity Overview –{" "}
@@ -173,7 +185,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
           <ActivityChart data={chartData} period={period} showTitle={false} />
         </div>
 
-        {/* Activity Trend */}
         <ActivityTrend
           data={
             userData?.trend?.labels?.map((label: string, i: number) => ({
@@ -185,7 +196,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
           }
         />
 
-        {/* Detailed Activity Table */}
         <div className="bg-white border rounded-xl p-6 shadow-sm mb-10">
           <h2 className="text-xl font-semibold mb-4">Detailed Activity</h2>
 
