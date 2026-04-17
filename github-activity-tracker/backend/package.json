@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "migrate": "node migrations/runMigrations.js"
+    "migrate": "node migrations/runMigrations.js",
+    "build": "echo 'No build step required'"
   },
   "dependencies": {
     "aws-serverless-express": "^3.4.0",
