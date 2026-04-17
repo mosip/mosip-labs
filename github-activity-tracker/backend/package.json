@@ -6,7 +6,7 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "migrate": "node migrations/runMigrations.js",
-    "build": "echo 'No build step required'"
+    "build": "rm -rf dist && mkdir dist && cp -r app.js package*.json migrations dist"
   },
   "dependencies": {
     "aws-serverless-express": "^3.4.0",
