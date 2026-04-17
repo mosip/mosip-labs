@@ -23,15 +23,14 @@ on:
 
 jobs:
   build-github-activity-tracker-service:
-    uses: mosip/kattu/.github/workflows/maven-build.yml@master-java21
+    uses: mosip/kattu/.github/workflows/npm-build.yml@develop
     with:
       SERVICE_LOCATION: ./github-activity-tracker/backend
       BUILD_ARTIFACT: github-activity-tracker-service
+      NPM_BUILD_TYPE: 'BOB'
+      NODE_VERSION: "18.x"
+      ZIP_DIR: "dist"
     secrets:
-      OSSRH_USER: ${{ secrets.OSSRH_USER }}
-      OSSRH_SECRET: ${{ secrets.OSSRH_SECRET }}
-      OSSRH_TOKEN: ${{ secrets.OSSRH_TOKEN }}
-      GPG_SECRET: ${{ secrets.GPG_SECRET }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
 
   build-github-activity-tracker-ui:
@@ -75,6 +74,7 @@ jobs:
         include:
           - SERVICE_LOCATION: './github-activity-tracker/backend'
             SERVICE_NAME: 'github-activity-tracker-service'
+            NPM_BUILD: true
             BUILD_ARTIFACT: 'github-activity-tracker-service'
             SQUASH_LAYERS: '0'
       fail-fast: false
