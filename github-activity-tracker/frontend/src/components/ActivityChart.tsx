@@ -7,6 +7,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import type { ChartOptions } from "chart.js";
 import { Bar } from "react-chartjs-2";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
@@ -104,9 +105,13 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
 
   /* -------------------------------
      WEEKLY AGGREGATION FOR MONTHLY
+     (Skip if API already returned weekly buckets, e.g. "Week 1".)
   -------------------------------- */
 
-  if (period === "monthly" && labels.length > 0) {
+  const isPreAggregatedWeekly =
+    labels.length > 0 && labels.every((l) => /^Week\s+\d+$/i.test(l));
+
+  if (period === "monthly" && labels.length > 0 && !isPreAggregatedWeekly) {
     const weekLabels: string[] = [];
     const weekCommits: number[] = [];
     const weekPRs: number[] = [];
@@ -153,14 +158,14 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
     ],
   };
 
-  const options = {
+  const options: ChartOptions<"bar"> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: { position: "bottom" },
 
       tooltip: {
-        mode: "index",
+        mode: "index" as const,
         intersect: false,
         backgroundColor: "rgba(255,255,255,0.98)",
         borderColor: "rgba(0,0,0,0.2)",
@@ -169,7 +174,7 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
         padding: 14,
 
         titleColor: "#111",
-        titleFont: { size: 18, weight: "600" },
+        titleFont: { size: 18, weight: 600 },
         titleMarginBottom: 12,
 
         displayColors: false,
@@ -198,7 +203,7 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
       },
     },
 
-    hover: { mode: "index", intersect: false },
+    hover: { mode: "index" as const, intersect: false },
 
     scales: {
       x: { grid: { display: false } },
