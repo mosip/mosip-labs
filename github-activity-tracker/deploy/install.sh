@@ -27,10 +27,10 @@ function installing_gh_tracker() {
   API_HOST=$(kubectl get cm global -o jsonpath={.data.mosip-api-internal-host})
 
   echo Installing GH-Tracker service. Will wait till service gets installed.
-  helm -n $NS install gh-tracker mosip/gh-tracker-service --set istio.corsPolicy.allowOrigins\[0\].prefix=https://$gh_tracker_host --wait --version $CHART_VERSION -f gh-tracker-values.yaml
+  helm -n $NS install gh-tracker ../helm/gh-tracker-service --set istio.corsPolicy.allowOrigins\[0\].prefix=https://$gh_tracker_host --wait --version $CHART_VERSION -f gh-tracker-values.yaml
 
   echo Installing GH-Tracker-UI. Will wait till the UI gets installed.
-  helm -n $NS install gh-tracker-ui mosip/gh-tracker-ui --set istio.hosts\[0\]=$gh_tracker_host --version $CHART_VERSION -f gh-tracker-ui-values.yaml
+  helm -n $NS install gh-tracker-ui ../helm/gh-tracker-ui --set istio.hosts\[0\]=$gh_tracker_host --version $CHART_VERSION -f gh-tracker-ui-values.yaml
 
   kubectl -n $NS  get deploy -o name |  xargs -n1 -t  kubectl -n $NS rollout status
 

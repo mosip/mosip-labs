@@ -13,6 +13,9 @@
 commonLabels:
   app.kubernetes.io/component: mosip
 
+
+fullnameOverride: "gh-tracker-service"
+
 ## Add annotations to all the deployed resources
 ##
 commonAnnotations: {}
@@ -51,8 +54,8 @@ service:
 
 image:
   registry: docker.io
-  repository: mosipdev/gh-tracker-service
-  tag: 0.0.1-develop
+  repository: mosip/github-activity-tracker-service
+  tag: develop
 
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
@@ -266,6 +269,11 @@ extraEnvVars:
       secretKeyRef:
         key: rds_password
         name: rds-secret
+  - name: GITHUB_TOKEN
+    valueFrom:
+      secretKeyRef:
+        key: token
+        name: github-token
 
 ## ConfigMap with extra environment variables
 ##
@@ -434,7 +442,7 @@ metrics:
     #       severity: error
     rules: []
 
-gh-tracker-service:
+ghtrackerservice:
   configmaps:
     rds:
       rds_host: "api-internal.sandbox.xyz.net"
@@ -444,6 +452,14 @@ gh-tracker-service:
   secrets:
     rds-secret:
       rds_password: <your_password>    # Provide rds password
+    github-token:
+      token: <github_token>   # provide github token.
+
+cronjob:
+  enabled: true
+  schedule: "0 */6 * * *"              # every 6 hours
+  org: "mosip"                         # GitHub org to sync
+  backendUrl: "http://<backend-service>:80"
 
 ## Admin swagger should have only internal access. Hence linked to internal gateway
 istio:

@@ -11,7 +11,7 @@ metadata:
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
 data:
-  rds-host: {{ .Values.gh-tracker-service.configmaps.rds.rds_host | quote }}
-  rds-database: {{ .Values.gh-tracker-service.configmaps.rds.rds_database | quote }}
-  rds-port: {{ .Values.gh-tracker-service.configmaps.rds.rds_port | quote }}
-  rds-username: {{ .Values.gh-tracker-service.configmaps.rds.rds_username | quote }}
+  rds-host: {{ .Values.ghtrackerservice.configmaps.rds.rds_host | quote }}
+  rds-database: {{ .Values.ghtrackerservice.configmaps.rds.rds_database | quote }}
+  rds-port: {{ .Values.ghtrackerservice.configmaps.rds.rds_port | quote }}
+  rds-username: {{ .Values.ghtrackerservice.configmaps.rds.rds_username | quote }}

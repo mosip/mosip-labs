@@ -1,4 +1,4 @@
-gh-tracker-service:
+ghtrackerservice:
   configmaps:
     rds:
       rds_host: "api-internal.sandbox.xyz.net"
@@ -8,6 +8,14 @@ gh-tracker-service:
   secrets:
     rds-secret:
       rds_password: <your_password>    # Provide rds password
+    github-token:
+      token: <github_token>   # provide github token.
+
+cronjob:
+  enabled: true
+  schedule: "0 */6 * * *"              # every 6 hours
+  org: "mosip"                         # GitHub org to sync
+  backendUrl: "http://gh-tracker-service:80"
 
 ## Admin swagger should have only internal access. Hence linked to internal gateway
 istio:
