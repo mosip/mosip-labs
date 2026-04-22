@@ -5,9 +5,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "common.labels.standard" . | nindent 4 }}
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" (dict "value" .Values.commonLabels "context" $) | nindent 4 }}
-    {{- end }}
+      {{- if .Values.commonLabels }}
+      {{- include "common.tplvalues.render" (dict "value" .Values.commonLabels "context" $) | nindent 4 }}
+      {{- end }}
   {{- if .Values.commonAnnotations }}
   annotations:
     {{- include "common.tplvalues.render" (dict "value" .Values.commonAnnotations "context" $) | nindent 4 }}
@@ -20,62 +20,49 @@ data:
       server_name localhost;
       root /usr/share/nginx/html;
       index index.html index.htm;
-  
+
       # Enable gzip compression
       gzip on;
       gzip_vary on;
       gzip_min_length 1024;
       gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
-  
+
       # Serve static files
       location / {
           try_files $uri $uri/ /index.html;
-  
-          # Cache static assets
+
           location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
               expires 1y;
               add_header Cache-Control "public, immutable";
           }
       }
-  
-      # API proxy to backend - same-origin to avoid CORS
-      location /api/ {
-          proxy_pass http://gh-tracker-service:80/;
-          proxy_http_version 1.1;
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
-          proxy_cache_bypass $http_upgrade;
-      }
-  
+
+      # Proxy /orgs/ → backend /orgs/
       location /orgs/ {
-          proxy_pass http://gh-tracker-service:80/orgs/;
+          proxy_pass http://{{ .Values.backend.serviceName }}:{{ .Values.backend.servicePort }}/orgs/;
           proxy_http_version 1.1;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto $scheme;
-          proxy_cache_bypass $http_upgrade;
       }
-  
+
+      # Proxy /admin/ → backend /admin/
       location /admin/ {
-          proxy_pass http://gh-tracker-service:80/admin/;
+          proxy_pass http://{{ .Values.backend.serviceName }}:{{ .Values.backend.servicePort }}/admin/;
           proxy_http_version 1.1;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto $scheme;
-          proxy_cache_bypass $http_upgrade;
       }
-  
+
       # Security headers
       add_header X-Frame-Options "SAMEORIGIN" always;
       add_header X-XSS-Protection "1; mode=block" always;
       add_header X-Content-Type-Options "nosniff" always;
       add_header Referrer-Policy "no-referrer-when-downgrade" always;
-  
-      # Error pages
+
       error_page 500 502 503 504 /50x.html;
       location = /50x.html {
           root /usr/share/nginx/html;

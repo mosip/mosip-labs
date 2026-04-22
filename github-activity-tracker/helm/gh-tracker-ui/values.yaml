@@ -376,6 +376,13 @@ metrics:
     #       severity: error
     rules: []
 
+## Backend service the UI's nginx proxies to.
+## Change serviceName if you rename the backend chart release,
+## and servicePort if the backend Service uses a non-default port.
+backend:
+  serviceName: gh-tracker-service
+  servicePort: 80
+
 ## We create a gateway for gh tracker specific URL(s) listed under `hosts`
 istio:
   enabled: true

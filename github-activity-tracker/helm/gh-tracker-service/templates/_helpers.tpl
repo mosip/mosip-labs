@@ -33,17 +33,6 @@ Create the name of the service account to use
 {{/*
 Compile all warnings into a single message.
 */}}
-{{- define "gh-tracker-service.validateValues" -}}
-{{- $messages := list -}}
-{{- $messages := append $messages (include "gh-tracker-service.validateValues.foo" .) -}}
-{{- $messages := append $messages (include "gh-tracker-service.validateValues.bar" .) -}}
-{{- $messages := without $messages "" -}}
-{{- $message := join "\n" $messages -}}
-
-{{- if $message -}}
-{{-   printf "\nVALUES VALIDATION:\n%s" $message -}}
-{{- end -}}
-{{- end -}}
 
 {{/*
 Return podAnnotations
