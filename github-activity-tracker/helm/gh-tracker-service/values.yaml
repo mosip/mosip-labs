@@ -54,7 +54,7 @@ service:
 
 image:
   registry: docker.io
-  repository: mosip/github-activity-tracker-service
+  repository: mosipdev/github-activity-tracker-service
   tag: develop
 
   ## Specify a imagePullPolicy

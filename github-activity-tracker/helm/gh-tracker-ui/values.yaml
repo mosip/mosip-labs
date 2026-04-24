@@ -45,7 +45,7 @@ service:
   externalTrafficPolicy: Cluster
 image:
   registry: docker.io
-  repository: mosip/github-activity-tracker-ui
+  repository: mosipdev/github-activity-tracker-ui
   tag: develop
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
