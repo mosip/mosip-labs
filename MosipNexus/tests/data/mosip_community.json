@@ -1,0 +1,102 @@
+[
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/how-to-set-up-mosip-in-a-single-node-kubernetes-cluster/1001",
+    "title": "How to set up MOSIP in a single-node Kubernetes cluster?",
+    "tags": ["setup", "kubernetes", "deployment"],
+    "question": "Hi everyone,\n\nI am trying to set up MOSIP 1.2.0 on a single-node Kubernetes cluster for a POC (proof of concept). The official docs mention a 3-control-plane + 9-worker configuration, which is overkill for our environment.\n\nHas anyone successfully deployed MOSIP on a single-node or minimal cluster? What are the minimum resource requirements and any caveats?",
+    "answers": [
+      {
+        "text": "Yes, you can run MOSIP on a single node for a POC. Here's what worked for us:\n\n**Minimum specs:**\n- 32 GB RAM (MOSIP services are memory-heavy)\n- 8 vCPUs\n- 200 GB SSD\n\n**Steps:**\n1. Install k3s (lightweight Kubernetes): `curl -sfL https://get.k3s.io | sh -`\n2. Add the MOSIP Helm repo: `helm repo add mosip https://mosip.github.io/mosip-helm/`\n3. Deploy only the services you need for your POC (skip ABIS, resident services if not required)\n\n**Caveats:**\n- Disable pod anti-affinity rules in Helm values — they will prevent pods from scheduling on a single node\n- Use `hostPath` volumes instead of a distributed storage class\n- Single node = no HA, so expect downtime during node restarts\n\nThis is NOT production-ready but works fine for demos.",
+        "accepted": true,
+        "vote_count": 15
+      },
+      {
+        "text": "We did a similar POC on a single-node setup with minikube. Main issue was the default resource requests — PostgreSQL alone wanted 4 GB. Override them in your values.yaml:\n\n```yaml\npostgresql:\n  resources:\n    requests:\n      memory: 1Gi\n      cpu: 500m\n```\n\nSame pattern for Keycloak and MinIO. With these overrides, total RAM consumption dropped from 28 GB to about 14 GB.",
+        "accepted": false,
+        "vote_count": 8
+      }
+    ],
+    "accepted_answer": "Yes, you can run MOSIP on a single node for a POC..."
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/ida-mLC-009-error-during-authentication/1042",
+    "title": "Getting IDA-MLC-009 error during authentication — partner certificate issue",
+    "tags": ["ida", "authentication", "certificates", "error"],
+    "question": "We are integrating with MOSIP IDA for the first time. Our authentication requests are returning error code `IDA-MLC-009` with message 'Invalid Certificate'. Our certificate was signed by our internal CA.\n\nThe IDA documentation mentions partner certificates must be CA-signed but does not explain which CAs are trusted. What CA is required and how do we register it?",
+    "answers": [
+      {
+        "text": "IDA-MLC-009 means MOSIP could not validate your partner certificate chain against its trusted CA store.\n\n**Root cause:** MOSIP only trusts CAs registered in its own internal trust store — your internal CA is not in it by default.\n\n**Fix:**\n1. Have your MOSIP admin log into the Partner Management System (PMS).\n2. Go to **Certificate Trust Store** → **Upload CA Certificate**.\n3. Upload your internal CA's root certificate (PEM format).\n4. After upload, re-test your authentication request.\n\nIf you are using a public CA (DigiCert, Let's Encrypt, etc.), it should already be trusted — check that the full certificate chain is included in your partner certificate.\n\nNote: Certificate changes take up to 5 minutes to propagate across IDA nodes.",
+        "accepted": true,
+        "vote_count": 22
+      },
+      {
+        "text": "One more thing to check: make sure your partner certificate has `keyUsage: digitalSignature` and `extendedKeyUsage: clientAuth` in the extensions. MOSIP validates these fields and will reject certificates without them even if the CA is trusted.",
+        "accepted": false,
+        "vote_count": 6
+      }
+    ],
+    "accepted_answer": "IDA-MLC-009 means MOSIP could not validate your partner certificate chain..."
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/registration-client-device-not-detected-sbi/1078",
+    "title": "Registration Client not detecting fingerprint device — SBI error",
+    "tags": ["registration-client", "sbi", "biometrics", "devices"],
+    "question": "After installing the Registration Client on Windows 10, the fingerprint scanner is not being detected. The device manager shows the device correctly (no yellow triangle). The Registration Client shows 'No device found'.\n\nWe are using a Mantra MFS100 fingerprint scanner. What should we check?",
+    "answers": [
+      {
+        "text": "The Mantra MFS100 is SBI 2.0 compatible, so the issue is likely with the MOSIP device service.\n\n**Checklist:**\n1. **Install the MFS100 driver** from Mantra's website — just having Windows detect the device is not enough; the SBI service layer needs its own driver.\n2. **Start the MOSIP device service**: open Services (`services.msc`) and check if `MOSIP Biometric Device Service` is running. If not, start it.\n3. **Check the port**: the Registration Client discovers devices on ports 4501–4600. Make sure no firewall rule is blocking localhost on these ports. Test: `curl http://localhost:4501/device`.\n4. **Restart sequence**: always restart the device service before opening the Registration Client.\n\nIf it still doesn't work, share the logs from `%APPDATA%\\mosip\\logs\\reg-client.log`.",
+        "accepted": true,
+        "vote_count": 18
+      },
+      {
+        "text": "Also check that the Registration Client version matches the SBI version. SBI 2.0 devices require Registration Client 1.2.0 or later. Older clients (1.1.x) used SBI 1.0 and are not compatible.",
+        "accepted": false,
+        "vote_count": 4
+      }
+    ],
+    "accepted_answer": "The Mantra MFS100 is SBI 2.0 compatible, so the issue is likely with the MOSIP device service..."
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/how-does-mosip-handle-duplicate-enrollment/1103",
+    "title": "How does MOSIP detect and handle duplicate enrollments?",
+    "tags": ["abis", "deduplication", "enrollment", "biometrics"],
+    "question": "We are rolling out MOSIP for a national ID program. One major concern is duplicate enrollments — a person registering twice with slightly different demographics.\n\nHow does MOSIP handle this? Is the deduplication automatic? What happens when a potential duplicate is found?",
+    "answers": [
+      {
+        "text": "[ACCEPTED ANSWER] MOSIP uses an ABIS (Automated Biometric Identification System) for deduplication during the registration processing pipeline.\n\n**How it works:**\n1. After a resident is enrolled, the Registration Processor sends biometric data (fingerprints + iris) to the ABIS via a Kafka queue.\n2. The ABIS performs a 1:N biometric search against all previously enrolled records.\n3. Results are returned as a list of potential duplicate UINs with match scores.\n4. If the score exceeds the configured threshold, the packet enters a **Manual Adjudication** workflow.\n5. A human officer reviews the case and decides whether it's a genuine duplicate or a coincidence.\n\n**What happens to duplicates:**\n- If confirmed duplicate: the new enrollment is rejected; the resident is informed.\n- If not a duplicate: enrollment proceeds normally and UIN is generated.\n\n**ABIS interface:** MOSIP defines an open ABIS interface spec. Countries can plug in any ABIS vendor that implements it (IDEMIA, NEC, Aware, etc.).\n\n**Configuration:** The deduplication threshold is set per country in the registration processor config: `registration.processor.abis.threshold`.",
+        "accepted": true,
+        "vote_count": 31
+      },
+      {
+        "text": "To add to the above: MOSIP also does demographic deduplication as a first-pass check before ABIS. If the name + date of birth combination exactly matches an existing record, it can be flagged without even running the biometric search. This is configurable and helps reduce ABIS query load.",
+        "accepted": false,
+        "vote_count": 9
+      }
+    ],
+    "accepted_answer": "MOSIP uses an ABIS (Automated Biometric Identification System) for deduplication..."
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/resident-portal-otp-not-received/1157",
+    "title": "Resident portal — OTP not being received by residents",
+    "tags": ["resident-services", "otp", "notifications", "setup"],
+    "question": "We deployed MOSIP 1.2.0 and the resident portal is live, but residents are not receiving OTPs on their mobile numbers during the authentication step. The system shows 'OTP sent successfully' but nothing arrives.\n\nWe are using a local SMS gateway. How do we debug this?",
+    "answers": [
+      {
+        "text": "The 'OTP sent successfully' message means the MOSIP OTP manager accepted the request, but it does not mean the SMS gateway actually delivered it. The issue is almost always in the SMS gateway configuration.\n\n**Debug steps:**\n1. Check the `notifier` service logs: `kubectl logs -n mosip deploy/notifier` — look for HTTP errors from your SMS gateway.\n2. Verify the SMS gateway URL and credentials in the kernel config: `kernel.sms.provider.url`, `kernel.sms.api.key`.\n3. Test the gateway directly using curl:\n   ```bash\n   curl -X POST https://your-sms-gateway/send \\\n     -d 'to=+1234567890&message=TestOTP&apikey=yourkey'\n   ```\n4. Check if your gateway requires a sender ID registration (many countries require this for OTPs).\n\n**Common fixes:**\n- Whitelist the MOSIP outbound IP on the SMS gateway firewall\n- Some gateways require `Content-Type: application/json` — check the notifier's request format\n- OTP messages may be blocked by carrier spam filters if the sender ID is not registered",
+        "accepted": true,
+        "vote_count": 12
+      },
+      {
+        "text": "One more thing: if your MOSIP instance is behind a corporate proxy, the notifier service may not be able to reach the SMS gateway. Set `HTTP_PROXY` and `HTTPS_PROXY` environment variables in the notifier deployment manifest.",
+        "accepted": false,
+        "vote_count": 5
+      }
+    ],
+    "accepted_answer": "The 'OTP sent successfully' message means the MOSIP OTP manager accepted the request..."
+  }
+]

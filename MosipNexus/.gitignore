@@ -1,0 +1,38 @@
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ── Vector database (generated — rebuild with ingestion/store.py) ─────────────
+chroma_db/
+
+# ── Crawled data — JSON files ARE committed so cloners skip the 10-hour crawl
+# Exceptions: crawl_state (runtime) and confluence data (may contain internal secrets)
+data/crawl_state.json
+data/mosip_confluence.json
+
+# ── Virtual environment (managed at monorepo root) ────────────────────────────
+.venv/
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Test cache ────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
