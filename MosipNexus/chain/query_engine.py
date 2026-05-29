@@ -1,0 +1,351 @@
+"""
+Query Engine — the core RAG chain.
+
+Pipeline for each user question:
+  1. Pure greeting → direct friendly reply (no RAG).
+  2. Message starting with greeting → RAG answer prefixed with a brief greeting.
+  3. Condense follow-up questions using chat history (LCEL condenser chain).
+  4. Retrieve top-K chunks from both ChromaDB collections via MMR.
+  5. Score confidence from the best chunk's cosine distance.
+  6. Generate answer grounded strictly in context (Groq Llama 3.3).
+  7. If retrieved context is irrelevant → emit [NO_DOC_SOURCE] marker.
+  8. [NO_DOC_SOURCE] path → DuckDuckGo web search fallback.
+  9. If web search also fails → source_type="none" (UI shows escalation options).
+
+LangSmith tracing is activated automatically when LANGCHAIN_TRACING_V2=true
+and LANGCHAIN_API_KEY are set in the environment — no code changes needed.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any
+
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_groq import ChatGroq
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config.settings import GROQ_API_KEY, GROQ_MODEL
+from retrieval.retriever import retrieve, _ERROR_CODE_RE, _CODE_QUERY_RE
+
+_llm: ChatGroq | None = None
+_condenser = None
+
+_GREETINGS = {
+    "hi", "hello", "hey", "hola", "bonjour", "namaste", "vanakkam",
+    "ciao", "hallo", "salut", "ola", "howdy", "sup", "yo",
+    "good morning", "good afternoon", "good evening", "good night",
+    "thanks", "thank you", "bye", "goodbye", "ok", "okay", "great",
+}
+
+_NO_SOURCE_MARKER = "[NO_DOC_SOURCE]"
+
+
+def _build() -> None:
+    global _llm, _condenser
+    _llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY)
+
+    condense_prompt = ChatPromptTemplate.from_messages([
+        ("system",
+         "Given the conversation history and the latest question, rewrite the question "
+         "as a standalone search query that captures all necessary context. "
+         "Return ONLY the rewritten question, nothing else."),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ])
+    _condenser = condense_prompt | _llm | StrOutputParser()
+
+
+def _get_llm() -> ChatGroq:
+    if _llm is None:
+        _build()
+    assert _llm is not None
+    return _llm
+
+
+def _web_search(query: str, max_results: int = 4) -> list[dict]:
+    """Search DuckDuckGo and return result dicts with href, title, body."""
+    try:
+        from duckduckgo_search import DDGS
+        with DDGS() as ddgs:
+            return list(ddgs.text(query, max_results=max_results))
+    except Exception:
+        return []
+
+
+def _rate_limit_response() -> dict:
+    return {
+        "answer": (
+            "⚠️ **Groq API rate limit reached.** The free tier allows 100,000 tokens per day. "
+            "Please wait a few minutes and try again, or check your usage at "
+            "[console.groq.com](https://console.groq.com)."
+        ),
+        "sources": [],
+        "source_type": "none",
+        "confidence": "n/a",
+        "similar_questions": [],
+    }
+
+
+def _is_greeting(text: str) -> bool:
+    return text.strip().lower().rstrip("!.,?") in _GREETINGS
+
+
+def _starts_with_greeting(text: str) -> bool:
+    first = text.strip().lower().split()[0].rstrip("!.,?") if text.strip() else ""
+    return first in _GREETINGS
+
+
+def _build_system_prompt(
+    language: str,
+    has_greeting: bool,
+    is_error_query: bool = False,
+    is_code_query: bool = False,
+) -> str:
+    greeting_rule = (
+        "Start with one warm sentence acknowledging the greeting, then answer directly.\n"
+        if has_greeting else ""
+    )
+    if is_error_query:
+        answer_format = (
+            "For this error code question, structure your answer as:\n"
+            "  1. What the error means (one clear sentence)\n"
+            "  2. Most likely root cause(s) — list in order of likelihood\n"
+            "  3. Step-by-step resolution\n"
+            "  4. How to verify the fix worked\n\n"
+        )
+    elif is_code_query:
+        answer_format = (
+            "For this code/class question:\n"
+            "  - Name the exact class(es) or file(s) from the retrieved context directly and immediately.\n"
+            "  - State what the class does and which package/module it belongs to.\n"
+            "  - Mention key methods if they are in the context.\n"
+            "  - If multiple classes share the responsibility, list them in order of importance.\n"
+            "  - If the exact class is not in the context, name the closest class you CAN identify "
+            "and clearly state what aspect of the question it covers.\n\n"
+        )
+    else:
+        answer_format = (
+            "Match your answer format to the question type — definitions get clear explanations, "
+            "how-to questions get numbered steps, comparisons get bullet lists. "
+            "Don't force a fixed structure onto every answer.\n\n"
+        )
+    return (
+        f"You are a senior MOSIP (Modular Open Source Identity Platform) engineer and "
+        f"first-level support expert. You have deep hands-on knowledge of all MOSIP modules: "
+        f"ID Authentication (IDA), Registration Client, Registration Processor, Resident Services, "
+        f"Partner Management, Key Manager, Admin UI, and the full Kubernetes deployment stack.\n\n"
+        f"Answer like a knowledgeable colleague responding in a Slack channel — direct, complete, "
+        f"actionable. You ARE the expert. Never say 'consult the documentation', "
+        f"'check the forums', or 'contact the MOSIP team'.\n\n"
+        f"{answer_format}"
+        f"RULE #1 — FABRICATION IS FORBIDDEN (read this before anything else):\n"
+        f"Every class name, method name, CLI command, Helm chart name, repository name, "
+        f"configuration key, file path, and API endpoint you write MUST appear word-for-word "
+        f"in the retrieved context below. If it is not in the context, do NOT write it. "
+        f"Do not guess. Do not complete a plausible-sounding name. Do not write 'HelmInstaller', "
+        f"'installChart', 'mosip/mosip-id-auth', or any other specific name unless those exact "
+        f"strings appear in the retrieved context. When the specific name is absent, say so — "
+        f"e.g. 'the exact class/command is not in the available documentation' — then explain "
+        f"the concept or point to the repository where the user can find it. "
+        f"A vague but honest answer is far more valuable than a detailed but fabricated one. "
+        f"Contributors who follow fabricated class names or commands lose hours of work.\n\n"
+        f"STRICT RULES — violating these makes the answer useless:\n"
+        f"{greeting_rule}"
+        f"- NEVER end with or add a 'Note:' or 'Note that' sentence. NEVER use hedging phrases: "
+        f"'it appears that', 'may be involved', 'it is possible that', "
+        f"'I would need more information', 'cannot determine without more context', "
+        f"'would need to review the codebase', 'more information is required', "
+        f"'the exact answer depends on', 'these steps may vary', 'may vary depending on', "
+        f"'may vary depending on the version', 'the actual requirements may vary', "
+        f"'the specific configuration settings and classes may vary', "
+        f"'depending on the specific implementation', 'depending on your setup', "
+        f"'depending on the version of MOSIP', 'depending on the specific version', "
+        f"'refer to the MOSIP documentation', 'refer to the documentation', "
+        f"'it is recommended to refer', 'consult the documentation', 'check the documentation'. "
+        f"State what you know directly. If something varies by version, name the version you are "
+        f"describing and stop — do not add a trailing disclaimer.\n"
+        f"- Give ONE concrete answer first. Then add caveats only if essential.\n"
+        f"- If the retrieved context gives conflicting version numbers or specs, pick the most "
+        f"specific/conservative value and state it clearly — do NOT list both and confuse the reader.\n"
+        f"- Synthesize all retrieved context into a complete, useful answer.\n"
+        f"- Do NOT start with 'According to the documentation' or similar phrases.\n"
+        f"- If partial information is all you have, give that information clearly and tell the user "
+        f"specifically what log entry, config key, or environment detail would confirm the rest — "
+        f"never stop at 'I don't have enough information'.\n"
+        f"- Prioritise content marked [ACCEPTED ANSWER] — these are verified solutions.\n"
+        f"- GitHub Issues in the context show real error reports with real solutions — use them.\n"
+        f"- When source code file names appear in context, cite them by name and explain their role.\n"
+        f"- ONLY output {_NO_SOURCE_MARKER} at the very start if the question is completely "
+        f"unrelated to MOSIP (e.g. weather, sports, general coding unrelated to MOSIP). "
+        f"For any MOSIP question — even with limited context — give your best answer.\n"
+        f"- Always respond in {language}. This is mandatory.\n\n"
+        f"Retrieved context (your primary source — use it fully):\n{{context}}"
+    )
+
+
+def ask(
+    question: str,
+    chat_history: list,
+    language: str = "English",
+) -> dict[str, Any]:
+    """Run the full RAG pipeline for one user turn.
+
+    Args:
+        question:     Raw user message.
+        chat_history: LangChain HumanMessage / AIMessage objects from prior turns.
+        language:     Human-readable language name for the LLM response language.
+
+    Returns:
+        answer      (str):       generated response text.
+        sources     (list[dict]): metadata of retrieved chunks; empty for chat/no-source.
+        source_type (str):       "mosip_docs" | "community" | "mixed" | "chat" | "none".
+        confidence  (str):       "high" | "medium" | "low" | "n/a".
+        similar_questions (list[str]): titles of related community threads (may be empty).
+    """
+    llm = _get_llm()
+
+    # ── Pure greeting ──────────────────────────────────────────────────────────
+    if _is_greeting(question):
+        response = llm.invoke([
+            SystemMessage(content=(
+                f"You are a friendly MOSIP assistant. Respond naturally to the greeting "
+                f"in {language} and invite the user to ask about MOSIP."
+            )),
+            HumanMessage(content=question),
+        ])
+        return {
+            "answer": response.content,
+            "sources": [],
+            "source_type": "chat",
+            "confidence": "n/a",
+            "similar_questions": [],
+        }
+
+    # ── Condense follow-up questions ───────────────────────────────────────────
+    if _condenser is None:
+        _build()
+    assert _condenser is not None
+
+    try:
+        standalone = (
+            _condenser.invoke({"input": question, "chat_history": chat_history})
+            if chat_history
+            else question
+        )
+    except Exception as e:
+        if "rate_limit" in str(e).lower() or "429" in str(e):
+            return _rate_limit_response()
+        raise
+
+    # ── Retrieve from both collections ─────────────────────────────────────────
+    docs, confidence = retrieve(standalone)
+    context = "\n\n".join(d.page_content for d in docs)
+
+    # ── Build QA chain ─────────────────────────────────────────────────────────
+    has_greeting = _starts_with_greeting(question)
+    is_error_query = bool(_ERROR_CODE_RE.search(standalone))
+    is_code_query = not is_error_query and bool(_CODE_QUERY_RE.search(standalone))
+    system_prompt = _build_system_prompt(language, has_greeting, is_error_query, is_code_query)
+
+    qa_prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ])
+    qa_chain = qa_prompt | llm | StrOutputParser()
+
+    try:
+        answer = qa_chain.invoke({
+            "input":        question,
+            "chat_history": chat_history,
+            "context":      context,
+        })
+    except Exception as e:
+        if "rate_limit" in str(e).lower() or "429" in str(e):
+            return _rate_limit_response()
+        raise
+
+    # ── [NO_DOC_SOURCE] → try DuckDuckGo web search fallback ─────────────────
+    if _NO_SOURCE_MARKER in answer:
+        web_hits = _web_search(question)
+        if web_hits:
+            web_context = "\n\n".join(
+                f"[{h.get('title', '')}]({h['href']})\n{h['body']}"
+                for h in web_hits
+            )
+            llm = _get_llm()
+            web_response = llm.invoke([
+                SystemMessage(content=(
+                    f"You are a helpful assistant. The MOSIP knowledge base did not have "
+                    f"the answer. Use the web search results below to answer the question. "
+                    f"Cite source URLs inline. Begin by noting this comes from external web "
+                    f"sources, not MOSIP documentation. Respond in {language}."
+                )),
+                HumanMessage(content=f"Web results:\n{web_context}\n\nQuestion: {question}"),
+            ])
+            return {
+                "answer":           web_response.content,
+                "sources":          [{"source": h["href"], "title": h.get("title", "")} for h in web_hits],
+                "source_type":      "web",
+                "confidence":       "medium",
+                "similar_questions": [],
+            }
+
+        # Web search also found nothing — escalation needed
+        answer = answer.replace(_NO_SOURCE_MARKER, "").lstrip()
+        return {
+            "answer":           answer,
+            "sources":          [],
+            "source_type":      "none",
+            "confidence":       "low",
+            "similar_questions": [],
+        }
+
+    # ── Classify sources ───────────────────────────────────────────────────────
+    source_types = {d.metadata.get("source_type", "") for d in docs}
+    if source_types == {"docs"}:
+        source_type = "mosip_docs"
+    elif source_types == {"community"}:
+        source_type = "community"
+    elif source_types == {"github"}:
+        source_type = "github"
+    elif source_types == {"code"}:
+        source_type = "code"
+    elif source_types == {"confluence"}:
+        source_type = "confluence"
+    elif source_types == {"jira"}:
+        source_type = "jira"
+    else:
+        source_type = "mixed"
+
+    # Show top 2 per collection — enough for attribution without overwhelming the user
+    _by_type: dict[str, list] = {}
+    for d in docs:
+        t = d.metadata.get("source_type", "other")
+        _by_type.setdefault(t, []).append(d.metadata)
+    sources = (
+        _by_type.get("docs", [])[:2] +
+        _by_type.get("community", [])[:2] +
+        _by_type.get("github", [])[:1] +
+        _by_type.get("code", [])[:1] +
+        _by_type.get("confluence", [])[:1]
+    )
+
+    # ── Similar questions (community titles in the results) ────────────────────
+    similar_questions = list({
+        d.metadata.get("title", "")
+        for d in docs
+        if d.metadata.get("source_type") == "community" and d.metadata.get("title")
+    })[:3]
+
+    return {
+        "answer": answer,
+        "sources": sources,
+        "source_type": source_type,
+        "confidence": confidence,
+        "similar_questions": similar_questions,
+    }
