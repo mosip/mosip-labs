@@ -1,0 +1,56 @@
+ghtrackerservice:
+  configmaps:
+    rds:
+      rds_host: "api-internal.sandbox.xyz.net"
+      rds_database: "<db_name>"   # provide db name
+      rds_port: "5432"
+      rds_username: "<username>"   # provide username
+  secrets:
+    rds-secret:
+      rds_password: <your_password>    # Provide rds password
+    github-token:
+      token: <github_token>   # provide github token.
+
+cronjob:
+  enabled: true
+  schedule: "0 */6 * * *"              # every 6 hours
+  org: "mosip"                         # GitHub org to sync
+  backendUrl: "http://gh-tracker-service:80"
+
+## Admin swagger should have only internal access. Hence linked to internal gateway
+istio:
+  enabled: true
+  gateways:
+    - gh-tracker-gateway
+  prefix: /
+  corsPolicy:
+    allowOrigins:
+      - prefix: https://gh-tracker.sandbox.xyz.net
+    allowCredentials: true
+    allowHeaders:
+      - Accept
+      - Accept-Encoding
+      - Accept-Language
+      - Connection
+      - Content-Type
+      - Cookie
+      - Host
+      - Referer
+      - Sec-Fetch-Dest
+      - Sec-Fetch-Mode
+      - Sec-Fetch-Site
+      - Sec-Fetch-User
+      - Origin
+      - Upgrade-Insecure-Requests
+      - User-Agent
+      - sec-ch-ua
+      - sec-ch-ua-mobile
+      - sec-ch-ua-platform
+      - x-xsrf-token
+      - xsrf-token
+    allowMethods:
+      - GET
+      - POST
+      - PATCH
+      - PUT
+      - DELETE

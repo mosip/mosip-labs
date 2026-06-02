@@ -1,0 +1,10 @@
+## We create a gateway for gh tracker specific URL(s) listed under `hosts`
+istio:
+  enabled: true
+  ingressController:
+    name: ingressgateway-internal
+  gateways:
+    - gh-tracker-gateway
+  hosts:
+    - gh-tracker.sandbox.xyz.net
+  prefix: /

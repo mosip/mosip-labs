@@ -1,0 +1,50 @@
+{{- if .Values.cronjob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ template "common.names.fullname" . }}-sync
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.cronjob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: sync
+              image: curlimages/curl:8.10.1
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  BACKEND={{ .Values.cronjob.backendUrl | quote }}
+                  ORG={{ .Values.cronjob.org | quote }}
+
+                  echo "1/4 Syncing repos..."
+                  curl -sS -X POST "$BACKEND/admin/sync/repos" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"org\":\"$ORG\"}"
+                  echo
+
+                  echo "2/4 Syncing commits..."
+                  curl -sS -X POST "$BACKEND/admin/sync/commits"
+                  echo
+
+                  echo "3/4 Syncing PRs..."
+                  curl -sS -X POST "$BACKEND/admin/sync/prs"
+                  echo
+
+                  echo "4/4 Syncing reviews..."
+                  curl -sS -X POST "$BACKEND/admin/sync/reviews"
+                  echo
+
+                  echo "Done."
+{{- end }}
