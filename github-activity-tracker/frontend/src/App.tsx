@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -6,8 +6,8 @@ import {
   Navigate,
   useNavigate,
   useLocation,
-  useParams,
   useSearchParams,
+  matchPath,
 } from "react-router-dom";
 
 import { StatsCard } from "./components/StatsCard";
@@ -26,26 +26,33 @@ import PRIcon from "./assets/PRIcon.svg";
 import CodeReviewIcon from "./assets/CodeReviewIcon.svg";
 import TotalActivityIcon from "./assets/TotalActivityIcon.svg";
 
+type Period = "daily" | "weekly" | "monthly";
+
+function parsePeriod(value: string | null): Period {
+  return value === "daily" || value === "weekly" || value === "monthly"
+    ? value
+    : "weekly";
+}
+
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { username } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const [activePage, setActivePage] = useState<
-    "dashboard" | "leaderboard" | "profile"
-  >("dashboard");
-
-  const periodFromUrl =
-    (searchParams.get("period") as "daily" | "weekly" | "monthly" | null) ||
-    "weekly";
-
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
-    periodFromUrl,
-  );
 
   const isDashboard = location.pathname.startsWith("/dashboard");
   const isLeaderboard = location.pathname.startsWith("/leaderboard");
+  const isProfile = location.pathname.startsWith("/profile");
+  const username = matchPath(
+    "/profile/:username",
+    location.pathname,
+  )?.params.username;
+  const activePage: "dashboard" | "leaderboard" | "profile" = isDashboard
+    ? "dashboard"
+    : isLeaderboard
+      ? "leaderboard"
+      : "profile";
+  const periodParam = searchParams.get("period");
+  const period = parsePeriod(periodParam);
 
   const { summary, activityChartData } = useDashboardData(period, isDashboard);
 
@@ -61,49 +68,42 @@ function AppContent() {
     [],
   );
 
-  // Sync route -> activePage
   useEffect(() => {
-    if (location.pathname.startsWith("/dashboard")) {
-      setActivePage("dashboard");
-    } else if (location.pathname.startsWith("/leaderboard")) {
-      setActivePage("leaderboard");
-    } else if (location.pathname.startsWith("/profile")) {
-      setActivePage("profile");
-    }
-  }, [location.pathname]);
-
-  // Sync period -> URL only for dashboard + leaderboard
-  useEffect(() => {
-    if (location.pathname.startsWith("/profile")) return;
+    if (periodParam === period) return;
 
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
       params.set("period", period);
       return params;
+    }, { replace: true });
+  }, [period, periodParam, setSearchParams]);
+
+  const handlePeriodChange = (nextPeriod: Period) => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("period", nextPeriod);
+      return params;
     });
-  }, [period, setSearchParams, location.pathname]);
+  };
 
   const handleSelectUser = (name: string) => {
-    setActivePage("profile");
     navigate(`/profile/${name}?period=${period}`);
   };
 
   const handlePageChange = (page: "dashboard" | "leaderboard" | "profile") => {
-    setActivePage(page);
-
     if (page === "dashboard") navigate(`/dashboard?period=${period}`);
     if (page === "leaderboard") navigate(`/leaderboard?period=${period}`);
   };
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {!location.pathname.startsWith("/profile") && (
+      {!isProfile && (
         <TopNav
           activePage={activePage}
           onChange={handlePageChange}
           title="GitHub Activity Tracker"
           period={period}
-          onPeriodChange={setPeriod}
+          onPeriodChange={handlePeriodChange}
           team="all"
           onTeamChange={() => {}}
           project="all"
@@ -113,17 +113,14 @@ function AppContent() {
         />
       )}
 
-      {location.pathname.startsWith("/profile") && username && (
+      {isProfile && username && (
         <UserProfile
           userName={username}
-          onBack={() => {
-            setActivePage("dashboard");
-            navigate(`/dashboard?period=${period}`);
-          }}
+          onBack={() => navigate(`/dashboard?period=${period}`)}
         />
       )}
 
-      {location.pathname.startsWith("/dashboard") && (
+      {isDashboard && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {loading && <p>Loading...</p>}
           {error && <p className="text-red-500">{error}</p>}
@@ -172,7 +169,7 @@ function AppContent() {
         </main>
       )}
 
-      {location.pathname.startsWith("/leaderboard") && (
+      {isLeaderboard && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-3xl font-arimo font-bold mb-6">Leaderboard</h1>
           <LeaderboardCard leaders={leaderboard} />
@@ -187,9 +184,11 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<AppContent />} />
-        <Route path="/leaderboard" element={<AppContent />} />
-        <Route path="/profile/:username" element={<AppContent />} />
+        <Route element={<AppContent />}>
+          <Route path="/dashboard" />
+          <Route path="/leaderboard" />
+          <Route path="/profile/:username" />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

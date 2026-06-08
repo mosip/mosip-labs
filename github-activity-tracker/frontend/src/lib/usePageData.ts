@@ -16,6 +16,7 @@ export function useDashboardData(
 
   useEffect(() => {
     if (!enabled) return;
+    let ignore = false;
 
     async function loadDashboard() {
       try {
@@ -25,15 +26,21 @@ export function useDashboardData(
           fetchOrgActivity("mosip", period),
         ]);
 
-        setUsers(usersData);
-        setSummary(summaryData);
-        setActivityChartData(activityData);
+        if (!ignore) {
+          setUsers(usersData);
+          setSummary(summaryData);
+          setActivityChartData(activityData);
+        }
       } catch (err) {
-        console.error("Dashboard API error:", err);
+        if (!ignore) console.error("Dashboard API error:", err);
       }
     }
 
     loadDashboard();
+
+    return () => {
+      ignore = true;
+    };
   }, [period, enabled]);
 
   return { users, summary, activityChartData };
@@ -47,6 +54,7 @@ export function useLeaderboardData(
 
   useEffect(() => {
     if (!enabled) return;
+    let ignore = false;
 
     async function loadLeaderboard() {
       try {
@@ -64,13 +72,17 @@ export function useLeaderboardData(
           total: u.score,
         }));
 
-        setLeaderboard(ranked);
+        if (!ignore) setLeaderboard(ranked);
       } catch (err) {
-        console.error("Leaderboard API error:", err);
+        if (!ignore) console.error("Leaderboard API error:", err);
       }
     }
 
     loadLeaderboard();
+
+    return () => {
+      ignore = true;
+    };
   }, [period, enabled]);
 
   return { leaderboard };
