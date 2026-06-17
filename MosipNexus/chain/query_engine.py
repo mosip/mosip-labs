@@ -41,6 +41,37 @@ _GREETINGS = {
     "thanks", "thank you", "bye", "goodbye", "ok", "okay", "great",
 }
 
+_META_QUESTION_PHRASES = [
+    "knowledge source", "knowledge base", "what sources", "what data",
+    "what do you know", "what can you help", "what can you do",
+    "who are you", "what are you", "tell me about yourself",
+    "how do you work", "how does this work", "what information do you have",
+    "what topics", "what are your capabilities", "what can i ask",
+]
+
+_META_ANSWER = """\
+I am **MOSIP Nexus** — an AI assistant with deep knowledge of the MOSIP \
+(Modular Open Source Identity Platform) ecosystem. My knowledge comes from \
+five sources:
+
+1. **MOSIP Documentation** — all 449 pages from docs.mosip.io/1.2.0 \
+(architecture, modules, deployment guides, APIs)
+2. **Community Forum** — Q&A threads from community.mosip.io, prioritising \
+accepted answers and highly-voted replies
+3. **GitHub Issues** — issues and discussions from 25 active MOSIP \
+repositories
+4. **Confluence** — internal Confluence spaces covering engineering, QA, \
+and product management
+5. **MOSIP Source Code** — Java, YAML, SQL, XML, and properties files \
+from 71 MOSIP repositories (error constants, service implementations, \
+controllers, schemas)
+
+You can ask me anything about MOSIP modules (IDA, Registration, Resident \
+Services, Partner Management, Key Manager, Admin UI), error codes, \
+configuration, deployment, or integration. I support questions in any \
+language.\
+"""
+
 _NO_SOURCE_MARKER = "[NO_DOC_SOURCE]"
 
 
@@ -90,8 +121,55 @@ def _rate_limit_response() -> dict:
     }
 
 
+def _web_fallback_or_none(
+    question: str,
+    language: str,
+    fallback_answer: str | None = None,
+) -> dict[str, Any]:
+    """Try a web search when the knowledge base has no usable context; otherwise
+    return a plain "not available" response instead of letting the LLM guess."""
+    web_hits = _web_search(question)
+    if web_hits:
+        web_context = "\n\n".join(
+            f"[{h.get('title', '')}]({h['href']})\n{h['body']}"
+            for h in web_hits
+        )
+        llm = _get_llm()
+        web_response = llm.invoke([
+            SystemMessage(content=(
+                f"You are a helpful assistant. The MOSIP knowledge base did not have "
+                f"the answer. Use the web search results below to answer the question. "
+                f"Cite source URLs inline. Begin by noting this comes from external web "
+                f"sources, not MOSIP documentation. Respond in {language}."
+            )),
+            HumanMessage(content=f"Web results:\n{web_context}\n\nQuestion: {question}"),
+        ])
+        return {
+            "answer":           web_response.content,
+            "sources":          [{"source": h["href"], "title": h.get("title", "")} for h in web_hits],
+            "source_type":      "web",
+            "confidence":       "medium",
+            "similar_questions": [],
+        }
+
+    return {
+        "answer": fallback_answer or (
+            "This information is not available in the MOSIP knowledge sources."
+        ),
+        "sources":          [],
+        "source_type":      "none",
+        "confidence":       "low",
+        "similar_questions": [],
+    }
+
+
 def _is_greeting(text: str) -> bool:
     return text.strip().lower().rstrip("!.,?") in _GREETINGS
+
+
+def _is_meta_question(text: str) -> bool:
+    lowered = text.strip().lower()
+    return any(phrase in lowered for phrase in _META_QUESTION_PHRASES)
 
 
 def _starts_with_greeting(text: str) -> bool:
@@ -225,6 +303,16 @@ def ask(
             "similar_questions": [],
         }
 
+    # ── Meta-question (about the system itself) ────────────────────────────────
+    if _is_meta_question(question):
+        return {
+            "answer": _META_ANSWER,
+            "sources": [],
+            "source_type": "chat",
+            "confidence": "n/a",
+            "similar_questions": [],
+        }
+
     # ── Condense follow-up questions ───────────────────────────────────────────
     if _condenser is None:
         _build()
@@ -244,6 +332,11 @@ def ask(
     # ── Retrieve from both collections ─────────────────────────────────────────
     docs, confidence = retrieve(standalone)
     context = "\n\n".join(d.page_content for d in docs)
+
+    # No chunks retrieved at all — don't let the LLM guess from pretrained
+    # knowledge, go straight to the same web-fallback path as [NO_DOC_SOURCE].
+    if not docs:
+        return _web_fallback_or_none(question, language)
 
     # ── Build QA chain ─────────────────────────────────────────────────────────
     has_greeting = _starts_with_greeting(question)
@@ -269,41 +362,25 @@ def ask(
             return _rate_limit_response()
         raise
 
+    # ── Confidence override — downgrade when LLM admits info wasn't found ────────
+    _NOT_FOUND_PHRASES = (
+        "not in the available documentation",
+        "not available in the",
+        "not in the context",
+        "is not available in",
+        "cannot find",
+        "not found in",
+        "no information available",
+        "not provided in",
+        "not mentioned in",
+    )
+    if any(p in answer.lower() for p in _NOT_FOUND_PHRASES):
+        confidence = "low"
+
     # ── [NO_DOC_SOURCE] → try DuckDuckGo web search fallback ─────────────────
     if _NO_SOURCE_MARKER in answer:
-        web_hits = _web_search(question)
-        if web_hits:
-            web_context = "\n\n".join(
-                f"[{h.get('title', '')}]({h['href']})\n{h['body']}"
-                for h in web_hits
-            )
-            llm = _get_llm()
-            web_response = llm.invoke([
-                SystemMessage(content=(
-                    f"You are a helpful assistant. The MOSIP knowledge base did not have "
-                    f"the answer. Use the web search results below to answer the question. "
-                    f"Cite source URLs inline. Begin by noting this comes from external web "
-                    f"sources, not MOSIP documentation. Respond in {language}."
-                )),
-                HumanMessage(content=f"Web results:\n{web_context}\n\nQuestion: {question}"),
-            ])
-            return {
-                "answer":           web_response.content,
-                "sources":          [{"source": h["href"], "title": h.get("title", "")} for h in web_hits],
-                "source_type":      "web",
-                "confidence":       "medium",
-                "similar_questions": [],
-            }
-
-        # Web search also found nothing — escalation needed
-        answer = answer.replace(_NO_SOURCE_MARKER, "").lstrip()
-        return {
-            "answer":           answer,
-            "sources":          [],
-            "source_type":      "none",
-            "confidence":       "low",
-            "similar_questions": [],
-        }
+        fallback_answer = answer.replace(_NO_SOURCE_MARKER, "").lstrip()
+        return _web_fallback_or_none(question, language, fallback_answer)
 
     # ── Classify sources ───────────────────────────────────────────────────────
     source_types = {d.metadata.get("source_type", "") for d in docs}
@@ -327,8 +404,21 @@ def ask(
     for d in docs:
         t = d.metadata.get("source_type", "other")
         _by_type.setdefault(t, []).append(d.metadata)
+
+    # Remove doc URLs that are ancestors of a more specific URL already in the list
+    # e.g. drop /identity-verification when /identity-verification/id-authentication is present
+    _doc_candidates = _by_type.get("docs", [])[:2]
+    _doc_urls = [m.get("source", "") for m in _doc_candidates]
+    _doc_filtered = [
+        m for m in _doc_candidates
+        if not any(
+            other != m.get("source", "") and other.startswith(m.get("source", "") + "/")
+            for other in _doc_urls
+        )
+    ]
+
     sources = (
-        _by_type.get("docs", [])[:2] +
+        _doc_filtered +
         _by_type.get("community", [])[:2] +
         _by_type.get("github", [])[:1] +
         _by_type.get("code", [])[:1] +

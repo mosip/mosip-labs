@@ -1,0 +1,105 @@
+# ── pgvector database ──────────────────────────────────────────────────────────
+# Uses pgvector/pgvector:pg16 which ships with the vector extension pre-installed.
+# The init script (ConfigMap below) enables the extension in the mosipnexus DB.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: mosip-nexus
+data:
+  init.sql: |
+    CREATE EXTENSION IF NOT EXISTS vector;
+    GRANT ALL ON SCHEMA public TO mosip;
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: mosip-nexus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  # storageClassName: standard   # uncomment and set to your Rancher storage class
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nexus-postgres
+  namespace: mosip-nexus
+  labels:
+    app: nexus-postgres
+spec:
+  serviceName: nexus-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus-postgres
+  template:
+    metadata:
+      labels:
+        app: nexus-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: mosipnexus
+            - name: POSTGRES_USER
+              value: mosip
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nexus-env
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "mosip", "-d", "mosipnexus"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "mosip", "-d", "mosipnexus"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: postgres-data
+        - name: init-script
+          configMap:
+            name: postgres-init
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-postgres
+  namespace: mosip-nexus
+spec:
+  selector:
+    app: nexus-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None   # headless — pods connect directly via StatefulSet DNS

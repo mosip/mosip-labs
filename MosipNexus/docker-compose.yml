@@ -1,0 +1,67 @@
+services:
+
+  # ── PostgreSQL with pgvector ────────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: mosipnexus
+      POSTGRES_USER: mosip
+      POSTGRES_PASSWORD: mosip            # change before going to production
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./k8s/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mosip -d mosipnexus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI backend ─────────────────────────────────────────────────────────
+  nexus-api:
+    build: .
+    command:
+      - uv
+      - run
+      - uvicorn
+      - api.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --reload                          # remove --reload in production
+    env_file: .env
+    environment:
+      PG_CONNECTION: "postgresql+psycopg://mosip:mosip@postgres:5432/mosipnexus"
+      PYTHONPATH: /app/MosipNexus
+    volumes:
+      - ./data:/app/MosipNexus/data
+    ports:
+      - "8010:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Streamlit UI ────────────────────────────────────────────────────────────
+  nexus-ui:
+    build: .
+    command:
+      - uv
+      - run
+      - streamlit
+      - run
+      - app/app.py
+      - --server.port=8501
+      - --server.address=0.0.0.0
+    env_file: .env
+    environment:
+      PG_CONNECTION: "postgresql+psycopg://mosip:mosip@postgres:5432/mosipnexus"
+      PYTHONPATH: /app/MosipNexus
+    ports:
+      - "8501:8501"
+    depends_on:
+      - nexus-api
+
+volumes:
+  pgdata:

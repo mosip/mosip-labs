@@ -8,6 +8,7 @@ A production-grade RAG chatbot that answers MOSIP questions using **five knowled
 |---|---|---|
 | [Developer Guide](docs/MOSIP_Nexus_Developer_Guide.docx) | Developers (zero GenAI background) | `docs/MOSIP_Nexus_Developer_Guide.docx` |
 | [Business Presentation](docs/MOSIP_Nexus_Presentation.pptx) | Stakeholders, managers, org leaders | `docs/MOSIP_Nexus_Presentation.pptx` |
+| [Rancher Deployment Guide](docs/MOSIP_Nexus_Rancher_Deployment_Guide.md) | Infrastructure / DevOps team | `docs/MOSIP_Nexus_Rancher_Deployment_Guide.md` |
 
 > To regenerate these files after changes: `uv run python docs/generate_docs.py`
 
@@ -39,7 +40,7 @@ A production-grade RAG chatbot that answers MOSIP questions using **five knowled
 | **Community intelligence** | `[ACCEPTED ANSWER]` posts and high-voted replies ranked higher |
 | **Confidence scoring** | 🟢 High / 🟡 Medium / 🔴 Low based on retrieval cosine distance |
 | **No hallucination guard** | LLM instructed to return "not available" when context is irrelevant |
-| **Incremental updates** | `run_update.py` re-crawls only changed pages and new issues |
+| **Incremental updates** | `run_update.py` re-crawls only changed/new content across docs, community, GitHub, Confluence, and Jira |
 | **LangSmith observability** | Full trace visibility — zero code changes, just env vars |
 
 ## Tech Stack
@@ -49,7 +50,7 @@ A production-grade RAG chatbot that answers MOSIP questions using **five knowled
 | Framework | LangChain 1.x (LCEL) |
 | LLM | Groq — `llama-3.3-70b-versatile` |
 | Embeddings | HuggingFace `intfloat/multilingual-e5-base` (768-dim, 100+ languages) |
-| Vector DB | ChromaDB (persistent SQLite, no server needed) |
+| Vector DB | pgvector (PostgreSQL extension — ACID, SQL filtering, pg_dump backups) |
 | Crawlers | `requests` + `BeautifulSoup` + Discourse API + GitHub REST API + Atlassian REST API |
 | Observability | LangSmith (optional, free tier) |
 | UI | Streamlit |
@@ -71,7 +72,7 @@ MosipNexus/
 │   ├── jira_crawler.py          # Atlassian Jira API → mosip_jira.json (optional)
 │   └── state.py                 # Crawl state persistence for incremental updates
 ├── ingestion/
-│   └── store.py                 # Chunk, embed, upsert into ChromaDB collections
+│   └── store.py                 # Chunk, embed, upsert into pgvector collections
 ├── retrieval/
 │   ├── retriever.py             # MMR search across all collections + confidence scoring
 │   └── dedup.py                 # Duplicate question detection
@@ -86,13 +87,28 @@ MosipNexus/
 │   └── app.py                   # Streamlit chat UI
 ├── run_update.py                 # Incremental update runner
 ├── data/                         # Crawled JSON files (committed — skips re-crawl for new cloners)
-├── chroma_db/                    # Generated vector store (gitignored — rebuild with ingestion/store.py)
 └── .env                          # Local secrets (gitignored)
 ```
 
 ## Setup
 
-### 1. Install dependencies
+### 1. Set up PostgreSQL with pgvector
+
+PostgreSQL must be running with the `pgvector` extension installed before ingestion.
+
+```sql
+-- Run as a PostgreSQL superuser
+CREATE DATABASE mosipnexus;
+CREATE USER mosip WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE mosipnexus TO mosip;
+\c mosipnexus
+CREATE EXTENSION IF NOT EXISTS vector;
+GRANT ALL ON SCHEMA public TO mosip;
+```
+
+On Rancher/Kubernetes, use the `pgvector/pgvector:pg16` Docker image — it ships with the extension pre-installed.
+
+### 2. Install dependencies
 
 From the `MosipNexus/` directory:
 
@@ -101,11 +117,14 @@ cd MosipNexus
 uv sync
 ```
 
-### 2. Configure environment
+### 3. Configure environment
 
 Create `MosipNexus/.env` with the following variables:
 
 ```env
+# Required — PostgreSQL connection string
+PG_CONNECTION="postgresql+psycopg://mosip:your_password@localhost:5432/mosipnexus"
+
 # Required
 GROQ_API_KEY="your_groq_api_key"          # free at console.groq.com
 
@@ -140,7 +159,7 @@ SMTP_PASSWORD=your_app_password
 NOTIFY_EMAIL=mosip-team@example.com
 ```
 
-### 3. Crawl all knowledge sources
+### 4. Crawl all knowledge sources
 
 Run crawlers once to generate the JSON data files. Each crawler is independent and can be run in parallel.
 
@@ -164,17 +183,17 @@ uv run python MosipNexus/crawler/confluence_crawler.py
 uv run python MosipNexus/crawler/jira_crawler.py
 ```
 
-### 4. Build the vector index
+### 5. Build the vector index
 
-Embeds all crawled data and stores in ChromaDB. Uses `intfloat/multilingual-e5-base` (CPU-only — plan for 2–6 hours depending on which sources you have).
+Embeds all crawled data and stores in pgvector. Uses `intfloat/multilingual-e5-base` (CPU-only — plan for 2–6 hours depending on which sources you have).
 
 ```powershell
 uv run python MosipNexus/ingestion/store.py
 ```
 
-Progress is shown per batch (100 chunks each). Delete `MosipNexus/chroma_db/` before re-running to avoid duplicate embeddings.
+Progress is shown per batch (100 chunks each). Re-running automatically clears and rebuilds each collection (`pre_delete_collection=True` on the first batch).
 
-### 5. Launch the app
+### 6. Launch the app
 
 ```powershell
 uv run streamlit run MosipNexus/app/app.py
@@ -207,7 +226,7 @@ Pure greeting? ──yes──► Direct friendly reply (no RAG)
 Condense follow-up with chat history (LLM)
       │
       ▼
-MMR search across all 5 ChromaDB collections
+MMR search across all 5 pgvector collections
 (docs + community + github + confluence + code)
       │
       ▼
@@ -235,12 +254,90 @@ This compares the current crawl against `data/crawl_state.json` and re-embeds on
 
 ## Rebuilding from Scratch
 
-If you change the embedding model or chunking parameters, delete both the vector store and the crawl state before re-running:
+If you change the embedding model or chunking parameters, reset the pgvector collections and crawl state before re-running:
 
 ```powershell
-Remove-Item -Recurse -Force MosipNexus/chroma_db
+# Reset crawl state so all content is treated as new
 Remove-Item MosipNexus/data/crawl_state.json
+
+# Re-run ingestion — pre_delete_collection=True clears each pgvector collection on first batch
 uv run python MosipNexus/ingestion/store.py
+```
+
+To wipe collections manually via SQL (e.g., before a schema change):
+
+```sql
+DELETE FROM langchain_pg_embedding;
+DELETE FROM langchain_pg_collection;
+```
+
+## Production Deployment (Rancher / Kubernetes)
+
+### Build the Docker image
+
+The image is built and pushed to Docker Hub automatically by
+`.github/workflows/mosip-nexus-docker-publish.yml` on every push to `master`
+or `develop` that touches files under `MosipNexus/`. Pushes to `master` are
+tagged `latest` + `<short-sha>`; pushes to `develop` are tagged `develop` +
+`develop-<short-sha>`. `k8s/03-deployment-api.yaml` and `k8s/04-deployment-ui.yaml`
+already point to `mohanachandran45/mosip-nexus:latest` with `imagePullPolicy: Always`,
+so a Rancher rollout restart picks up the newest `master` build automatically.
+
+To build manually instead (e.g. for a different registry):
+
+```powershell
+# From MosipNexus/ directory
+docker build -t mosip-nexus:latest .
+docker tag mosip-nexus:latest your-registry/mosip-nexus:1.0.0
+docker push your-registry/mosip-nexus:1.0.0
+```
+
+Update the `image:` field in `k8s/03-deployment-api.yaml` and `k8s/04-deployment-ui.yaml` to point to your registry.
+
+### Deploy to Rancher
+
+```powershell
+# 1. Fill in real values in k8s/02-secret.yaml (DO NOT commit with real values)
+# 2. Apply all manifests in order
+kubectl apply -f k8s/00-namespace.yaml
+kubectl apply -f k8s/01-postgres.yaml
+kubectl apply -f k8s/02-secret.yaml
+kubectl apply -f k8s/03-deployment-api.yaml
+kubectl apply -f k8s/04-deployment-ui.yaml
+kubectl apply -f k8s/05-services.yaml
+kubectl apply -f k8s/06-ingress.yaml
+kubectl apply -f k8s/07-cronjob.yaml
+```
+
+### First-time ingestion on the cluster
+
+Copy `data/*.json` into the `nexus-data` PVC (via a temporary pod — see the
+[Rancher Deployment Guide](docs/MOSIP_Nexus_Rancher_Deployment_Guide.md), Step 9),
+then apply the bootstrap Job — it runs automatically, no `kubectl exec` needed:
+
+```powershell
+kubectl apply -f k8s/08-initial-ingest-job.yaml
+kubectl logs -n mosip-nexus job/nexus-initial-ingest -f
+```
+
+This runs `ingestion/store.py` (full ingest from the committed seed files)
+followed by `run_update.py` (bootstraps Confluence/Jira from their live APIs,
+if configured in `k8s/02-secret.yaml`).
+
+### Trigger a manual knowledge update
+
+```powershell
+kubectl create job --from=cronjob/nexus-updater nexus-updater-manual \
+  -n mosip-nexus
+```
+
+### Local testing with Docker Compose
+
+```powershell
+# Requires .env with GROQ_API_KEY set
+docker compose up --build
+# UI  → http://localhost:8501
+# API → http://localhost:8000/docs
 ```
 
 ## LangSmith Observability

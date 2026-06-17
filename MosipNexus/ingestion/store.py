@@ -1,13 +1,17 @@
 """
 Ingestion — Stage 2.
 
-Reads mosip_docs.json and mosip_community.json, chunks the content,
-embeds with multilingual-e5-base, and upserts into two ChromaDB collections:
+Reads crawled JSON files, chunks the content, embeds with multilingual-e5-base,
+and upserts into pgvector collections in PostgreSQL:
   - mosip_docs       — documentation chunks
   - mosip_community  — community Q&A chunks
+  - mosip_github     — GitHub issue chunks
+  - mosip_code       — source code chunks
+  - mosip_confluence — Confluence page chunks
+  - mosip_jira       — Jira ticket chunks
 
-Run after both crawlers have completed.
-Delete chroma_db/ before re-running to avoid embedding dimension mismatches.
+Run after the crawlers have completed. Re-running drops and rebuilds each
+collection (pre_delete_collection=True on the first batch per collection).
 """
 
 import json
@@ -15,14 +19,15 @@ import math
 import sys
 from pathlib import Path
 
-from langchain_chroma import Chroma
+from langchain_postgres import PGVector
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from sqlalchemy import create_engine, text as sql_text
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.settings import (
-    CHROMA_DIR, CHUNK_OVERLAP, CHUNK_SIZE, CODE_COLLECTION, CODE_FILE,
+    PG_CONNECTION, CHUNK_OVERLAP, CHUNK_SIZE, CODE_COLLECTION, CODE_FILE,
     COMMUNITY_COLLECTION, COMMUNITY_FILE, CONFLUENCE_COLLECTION, CONFLUENCE_FILE,
     DOCS_COLLECTION, DOCS_FILE, EMBED_MODEL,
     GITHUB_COLLECTION, GITHUB_FILE, JIRA_COLLECTION, JIRA_FILE,
@@ -117,7 +122,7 @@ def prepare_community_documents() -> list[Document]:
 # ── Ingestion pipeline ─────────────────────────────────────────────────────────
 
 def ingest(documents: list[Document], collection_name: str, embeddings: HuggingFaceEmbeddings) -> None:
-    """Chunk and embed a list of documents into a named ChromaDB collection."""
+    """Chunk and embed a list of documents into a named pgvector collection."""
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
@@ -131,28 +136,43 @@ def ingest(documents: list[Document], collection_name: str, embeddings: HuggingF
         batch = chunks[i * BATCH_SIZE : (i + 1) * BATCH_SIZE]
         print(f"  Batch {i + 1}/{total_batches} ({len(batch)} chunks)...")
         if vectorstore is None:
-            vectorstore = Chroma.from_documents(
+            # pre_delete_collection=True on first batch — clears any existing data
+            # for this collection (equivalent to deleting the old vector store).
+            vectorstore = PGVector.from_documents(
                 documents=batch,
                 embedding=embeddings,
-                persist_directory=CHROMA_DIR,
+                connection=PG_CONNECTION,
                 collection_name=collection_name,
+                pre_delete_collection=True,
             )
         else:
             vectorstore.add_documents(batch)
 
 
-def _open_collection(collection_name: str, embeddings: HuggingFaceEmbeddings) -> Chroma:
-    """Open an existing ChromaDB collection (must already exist)."""
-    return Chroma(
-        persist_directory=CHROMA_DIR,
-        embedding_function=embeddings,
+def _open_collection(collection_name: str, embeddings: HuggingFaceEmbeddings) -> PGVector:
+    """Open an existing pgvector collection."""
+    return PGVector(
+        embeddings=embeddings,
+        connection=PG_CONNECTION,
         collection_name=collection_name,
     )
 
 
-def delete_chunks_by_url(vectorstore: Chroma, url: str) -> None:
-    """Delete all chunks for a specific source URL from a ChromaDB collection."""
-    vectorstore._collection.delete(where={"source": url})
+def delete_chunks_by_url(collection_name: str, url: str) -> None:
+    """Delete all chunks for a source URL from the given pgvector collection."""
+    engine = create_engine(PG_CONNECTION)
+    with engine.connect() as conn:
+        conn.execute(
+            sql_text(
+                "DELETE FROM langchain_pg_embedding "
+                "WHERE cmetadata->>'source' = :url "
+                "AND collection_id = ("
+                "  SELECT uuid FROM langchain_pg_collection WHERE name = :cname"
+                ")"
+            ),
+            {"url": url, "cname": collection_name},
+        )
+        conn.commit()
 
 
 def ingest_incremental(
@@ -182,7 +202,7 @@ def ingest_incremental(
     if changed_pages:
         print(f"  Removing stale chunks for {len(changed_pages)} changed page(s)...")
         for page in changed_pages:
-            delete_chunks_by_url(vectorstore, page["url"])
+            delete_chunks_by_url(collection_name, page["url"])
 
     # ── Build LangChain Documents ──────────────────────────────────────────────
     all_pages = new_pages + changed_pages
@@ -431,13 +451,41 @@ if __name__ == "__main__":
                     github_state.get(repo, {}).get("max_issue_number", 0), number
                 ), "last_run": now_iso()}
 
+    # Confluence: seed known page versions so run_update.py treats already-
+    # ingested pages as unchanged instead of re-embedding them as "new".
+    confluence_state: dict = {"page_versions": {}, "last_run": now_iso()}
+    if CONFLUENCE_FILE.exists():
+        with open(CONFLUENCE_FILE, encoding="utf-8") as f:
+            raw_confluence = json.load(f)
+        for item in raw_confluence:
+            page_id = item.get("_page_id", "")
+            if page_id:
+                confluence_state["page_versions"][page_id] = item.get("_version", 0)
+
+    # Jira: seed known issue keys per project (parsed from the "PROJECT-123"
+    # key format) so run_update.py's incremental JQL query starts from "now".
+    jira_state: dict = {}
+    if JIRA_FILE.exists():
+        with open(JIRA_FILE, encoding="utf-8") as f:
+            raw_jira = json.load(f)
+        for item in raw_jira:
+            key = item.get("key", "")
+            project = key.split("-")[0] if "-" in key else ""
+            if project:
+                project_state = jira_state.setdefault(project, {"seen_keys": [], "last_run": now_iso()})
+                project_state["seen_keys"].append(key)
+
     save_state({
         "pipeline_version": PIPELINE_VERSION,
         "docs":             {"url_hashes": url_hashes, "last_run": now_iso()},
         "community":        {"max_topic_id": max_topic_id, "last_run": now_iso()},
         "github":           github_state,
+        "confluence":       confluence_state,
+        "jira":             jira_state,
     })
     print(f"  Tracked {len(url_hashes)} doc pages, "
           f"max community topic ID: {max_topic_id}, "
-          f"{len(github_state)} GitHub repos")
-    print(f"\nDone - all collections stored in {CHROMA_DIR}")
+          f"{len(github_state)} GitHub repos, "
+          f"{len(confluence_state['page_versions'])} Confluence pages, "
+          f"{len(jira_state)} Jira projects")
+    print(f"\nDone — all collections stored in pgvector ({PG_CONNECTION.split('@')[-1]})")

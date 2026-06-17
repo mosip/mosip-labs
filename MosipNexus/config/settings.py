@@ -14,9 +14,16 @@ load_dotenv()
 # ── Paths ──────────────────────────────────────────────────────────────────────
 ROOT_DIR      = Path(__file__).parent.parent
 DATA_DIR      = ROOT_DIR / "data"
-CHROMA_DIR    = str(ROOT_DIR / "chroma_db")
 DOCS_FILE     = DATA_DIR / "mosip_docs.json"
 COMMUNITY_FILE = DATA_DIR / "mosip_community.json"
+
+# ── pgvector connection ────────────────────────────────────────────────────────
+# Format: postgresql+psycopg://user:password@host:port/dbname
+# On Rancher: set PG_CONNECTION in the nexus-env Secret.
+PG_CONNECTION = os.getenv(
+    "PG_CONNECTION",
+    "postgresql+psycopg://mosip:mosip@localhost:5432/mosipnexus",
+)
 
 DATA_DIR.mkdir(exist_ok=True)
 
@@ -28,7 +35,7 @@ COMMUNITY_BASE_URL = "https://community.mosip.io"
 # ── Embeddings ─────────────────────────────────────────────────────────────────
 EMBED_MODEL = "intfloat/multilingual-e5-base"   # 768-dim, 100+ languages
 
-# ── ChromaDB collections ───────────────────────────────────────────────────────
+# ── pgvector collection names ──────────────────────────────────────────────────
 DOCS_COLLECTION      = "mosip_docs"
 COMMUNITY_COLLECTION = "mosip_community"
 

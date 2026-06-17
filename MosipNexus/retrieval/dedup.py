@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config.settings import CHROMA_DIR, COMMUNITY_COLLECTION, DEDUP_THRESHOLD
+from config.settings import PG_CONNECTION, COMMUNITY_COLLECTION, DEDUP_THRESHOLD
 
 
 def find_similar_question(query: str) -> dict | None:
@@ -25,13 +25,13 @@ def find_similar_question(query: str) -> dict | None:
     Uses similarity_search_with_score so we get the actual distance value
     to compare against DEDUP_THRESHOLD.
     """
-    from langchain_chroma import Chroma
+    from langchain_postgres import PGVector
     from retrieval.retriever import get_embeddings
 
     embeddings = get_embeddings()
-    store = Chroma(
-        persist_directory=CHROMA_DIR,
-        embedding_function=embeddings,
+    store = PGVector(
+        embeddings=embeddings,
+        connection=PG_CONNECTION,
         collection_name=COMMUNITY_COLLECTION,
     )
 

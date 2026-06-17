@@ -49,7 +49,7 @@ def get_pages_in_space(space_key: str, limit: int = 50) -> list[dict]:
             "status": "current",
             "limit": limit,
             "start": start,
-            "expand": "body.storage,metadata.labels",
+            "expand": "body.storage,metadata.labels,version",
         }
         try:
             res = requests.get(url, auth=_auth(), params=params, timeout=30)
@@ -73,6 +73,7 @@ def page_to_dict(page: dict) -> dict | None:
     title     = page.get("title", "")
     html      = page.get("body", {}).get("storage", {}).get("value", "")
     labels    = [lb["name"] for lb in page.get("metadata", {}).get("labels", {}).get("results", [])]
+    version   = page.get("version", {}).get("number", 0)
 
     content = markdownify(html, heading_style="ATX", strip=["script", "style"]).strip()
     if len(content) < 100:
@@ -85,6 +86,9 @@ def page_to_dict(page: dict) -> dict | None:
         "title":       title,
         "labels":      ", ".join(labels),
         "content":     content,
+        # Internal bookkeeping for incremental updates — ignored by ingestion.
+        "_page_id":    page_id,
+        "_version":    version,
     }
 
 
@@ -109,6 +113,55 @@ def crawl_all() -> list[dict]:
             time.sleep(CRAWL_DELAY_SECS)
 
     return results
+
+
+def crawl_incremental(state: dict) -> tuple[list[dict], list[dict], int]:
+    """Crawl only new and changed Confluence pages.
+
+    Confluence's API returns each page's version number directly, so unlike
+    the docs crawler we don't need to hash content to detect a change — we
+    just compare the version number against the one seen last run. Skips the
+    (cheap) markdownify conversion for pages whose version hasn't moved.
+
+    Returns:
+        new_pages:     pages whose ID was not seen in the previous run
+        changed_pages: pages whose version number differs from last run
+        unchanged:     count of pages skipped (no version change)
+    """
+    if not _is_configured():
+        return [], [], 0
+
+    page_versions: dict = state.get("confluence", {}).get("page_versions", {})
+
+    new_pages: list[dict] = []
+    changed_pages: list[dict] = []
+    unchanged = 0
+
+    for space_key in CONFLUENCE_SPACE_KEYS:
+        print(f"\n  Checking Confluence space: {space_key} ...")
+        pages = get_pages_in_space(space_key)
+        print(f"  Found {len(pages)} pages")
+        for page in pages:
+            page_id = page.get("id", "")
+            version = page.get("version", {}).get("number", 0)
+            known_version = page_versions.get(page_id)
+
+            if known_version == version:
+                unchanged += 1
+                time.sleep(CRAWL_DELAY_SECS)
+                continue
+
+            doc = page_to_dict(page)
+            time.sleep(CRAWL_DELAY_SECS)
+            if doc is None:
+                continue
+
+            if known_version is None:
+                new_pages.append(doc)
+            else:
+                changed_pages.append(doc)
+
+    return new_pages, changed_pages, unchanged
 
 
 if __name__ == "__main__":
