@@ -61,6 +61,49 @@ def search_issues(project_key: str, start: int = 0, max_results: int = 100) -> l
         return []
 
 
+def search_issues_since(
+    project_key: str,
+    since_jql: str | None,
+    start: int = 0,
+    max_results: int = 100,
+) -> list[dict]:
+    """Search Jira for resolved issues updated since a given JQL date string.
+
+    Filtering server-side with `updated >= "..."` means only the delta is
+    fetched over the network, rather than re-fetching every issue in the
+    project on every run.
+    """
+    url = f"{JIRA_URL}/rest/api/2/search"
+    jql = f"project = {project_key} AND status in (Resolved, Done, Closed) "
+    if since_jql:
+        jql += f'AND updated >= "{since_jql}" '
+    jql += "ORDER BY updated DESC"
+    params = {
+        "jql":        jql,
+        "startAt":    start,
+        "maxResults": max_results,
+        "fields":     "summary,description,comment,status,labels,issuetype,resolution,updated",
+    }
+    try:
+        res = requests.get(url, auth=_auth(), params=params, timeout=30)
+        res.raise_for_status()
+        return res.json().get("issues", [])
+    except Exception as e:
+        print(f"  Jira incremental search error for {project_key}: {e}")
+        return []
+
+
+def _to_jql_date(iso_str: str) -> str:
+    """Convert a stored ISO-8601 timestamp to JQL's 'yyyy-MM-dd HH:mm' format.
+
+    Note: JQL date comparisons are evaluated in the Jira instance's configured
+    timezone, not UTC. A few hours of overlap at the boundary is harmless —
+    re-fetching an unchanged issue is idempotent — so this isn't corrected for.
+    """
+    from datetime import datetime
+    return datetime.fromisoformat(iso_str).strftime("%Y-%m-%d %H:%M")
+
+
 def _to_text(value) -> str:
     """Extract plain text from a string or an ADF (Atlassian Document Format) object.
 
@@ -162,6 +205,57 @@ def crawl_all() -> list[dict]:
         print(f"  Done: {len(project_results)} issues from {project_key}")
         results.extend(project_results)
     return results
+
+
+def crawl_incremental(state: dict) -> tuple[list[dict], list[dict]]:
+    """Fetch Jira issues created or updated since each project's last run.
+
+    A ticket whose key hasn't been seen before is "new"; one that was seen
+    in a previous run but is fetched again (because its `updated` timestamp
+    moved past the watermark — e.g. a new comment or status change) is
+    "changed" and its stale chunks are replaced.
+
+    Returns:
+        new_issues:     issues with a key not seen in any previous run
+        changed_issues: previously-seen issues that were updated since
+    """
+    if not _is_configured():
+        return [], []
+
+    jira_state: dict = state.get("jira", {})
+    new_issues: list[dict] = []
+    changed_issues: list[dict] = []
+
+    for project_key in JIRA_PROJECT_KEYS:
+        project_state = jira_state.get(project_key, {})
+        known_keys = set(project_state.get("seen_keys", []))
+        since_jql = _to_jql_date(project_state["last_run"]) if project_state.get("last_run") else None
+
+        print(f"\n  Checking Jira project: {project_key} (since {since_jql or 'beginning'}) ...")
+
+        start = 0
+        batch_size = 100
+        while True:
+            batch = search_issues_since(project_key, since_jql, start=start, max_results=batch_size)
+            if not batch:
+                break
+            for issue in batch:
+                doc = issue_to_dict(issue)
+                if doc is None:
+                    continue
+                doc["_project"] = project_key
+                if doc["key"] in known_keys:
+                    changed_issues.append(doc)
+                    print(f"    UPD  {doc['key']}: {doc['title'][:60]}")
+                else:
+                    new_issues.append(doc)
+                    print(f"    NEW  {doc['key']}: {doc['title'][:60]}")
+                time.sleep(CRAWL_DELAY_SECS)
+            if len(batch) < batch_size:
+                break
+            start += batch_size
+
+    return new_issues, changed_issues
 
 
 if __name__ == "__main__":

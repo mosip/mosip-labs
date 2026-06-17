@@ -259,7 +259,7 @@ class SearchResponse(BaseModel):
 
 @app.post("/search", response_model=SearchResponse, tags=["Search"],
           summary="Raw vector search",
-          description="Retrieves matching chunks from ChromaDB without calling the LLM. Useful for exploring the knowledge base or building custom integrations.")
+          description="Retrieves matching chunks from pgvector without calling the LLM. Useful for exploring the knowledge base or building custom integrations.")
 def search(req: SearchRequest) -> SearchResponse:
     try:
         docs, _ = retrieve(req.query, k=req.k)
@@ -529,27 +529,21 @@ class HealthResponse(BaseModel):
 
 @app.get("/health", response_model=HealthResponse, tags=["System"],
          summary="System health check",
-         description="Returns ChromaDB collection chunk counts and active session count.")
+         description="Returns pgvector collection chunk counts and active session count.")
 def health(response: Response) -> HealthResponse:
-    collections: dict[str, Any] = {}
-    degraded = False
     try:
-        docs_store, community_store = _retriever._get_stores()
-        collections["mosip_docs"] = docs_store._collection.count()
-        collections["community"] = community_store._collection.count()
-        if _retriever._github_store:
-            collections["github"] = _retriever._github_store._collection.count()
-        if _retriever._code_store:
-            collections["source_code"] = _retriever._code_store._collection.count()
-    except Exception as e:
-        logger.exception("Error reading ChromaDB collections in /health")
-        collections["error"] = "Unable to read collection stats."
-        degraded = True
-
-    if degraded:
+        _retriever._get_stores()  # ensure embedding model + stores are initialised
+        collections: dict[str, Any] = _retriever.get_collection_counts()
+    except Exception:
+        logger.exception("Error reading pgvector collection counts in /health")
         response.status_code = 503
+        return HealthResponse(
+            status="degraded",
+            collections={"error": "Unable to read collection stats."},
+            active_sessions=len(_sessions),
+        )
     return HealthResponse(
-        status="degraded" if degraded else "ok",
+        status="ok",
         collections=collections,
         active_sessions=len(_sessions),
     )

@@ -1,0 +1,45 @@
+# ── Ingress ────────────────────────────────────────────────────────────────────
+# Replace hostnames with your actual MOSIP domain.
+# Requires nginx ingress controller (default on Rancher / RKE2).
+#
+# Access after deploy:
+#   Streamlit UI  → http://nexus.mosip.io
+#   FastAPI docs  → http://nexus-api.mosip.io/docs
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mosip-nexus
+  namespace: mosip-nexus
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # Streamlit WebSocket support
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: nexus.mosip.io          # Streamlit UI
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nexus-ui
+                port:
+                  number: 8501
+
+    - host: nexus-api.mosip.io      # FastAPI REST + Swagger UI
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nexus-api
+                port:
+                  number: 8000

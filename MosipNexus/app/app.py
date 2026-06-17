@@ -393,7 +393,7 @@ section[data-testid="stSidebar"] { scrollbar-width: none; }
 }
 </style>
 <div class="mosip-footer">
-  Powered by LangChain &nbsp;·&nbsp; Groq Llama 3.3 &nbsp;·&nbsp; ChromaDB &nbsp;·&nbsp; HuggingFace
+  Powered by LangChain &nbsp;·&nbsp; Groq Llama 3.3 &nbsp;·&nbsp; pgvector &nbsp;·&nbsp; HuggingFace
 </div>
 """, unsafe_allow_html=True)
 

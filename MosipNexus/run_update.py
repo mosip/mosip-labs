@@ -2,9 +2,13 @@
 Incremental Update — run this after the initial full pipeline.
 
 What it does in each run:
-  Docs:      fetches sitemap, hashes each page, embeds ONLY new/changed pages.
-  Community: fetches only topics newer than the last known topic ID.
-  GitHub:    fetches only issues newer than the last known issue number per repo.
+  Docs:       fetches sitemap, hashes each page, embeds ONLY new/changed pages.
+  Community:  fetches only topics newer than the last known topic ID.
+  GitHub:     fetches only issues newer than the last known issue number per repo.
+  Confluence: fetches all pages, compares version numbers, embeds ONLY new/changed pages.
+              Skipped automatically if CONFLUENCE_URL/USER/TOKEN aren't set.
+  Jira:       fetches issues updated since each project's last run (server-side JQL
+              filter). Skipped automatically if JIRA_URL/USER/TOKEN aren't set.
 
 Time per update run:
   Full pipeline (first time): 3–4 hours (all chunks embedded)
@@ -21,28 +25,28 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-import shutil
-
 from crawler.community_crawler import crawl_incremental as community_incremental
+from crawler.confluence_crawler import crawl_incremental as confluence_incremental
 from crawler.docs_crawler import crawl_incremental as docs_incremental
 from crawler.github_crawler import crawl_incremental as github_incremental
+from crawler.jira_crawler import crawl_incremental as jira_incremental
 from crawler.state import load, now_iso, save
 from config.settings import (
-    CHROMA_DIR, COMMUNITY_COLLECTION, DOCS_COLLECTION,
-    GITHUB_COLLECTION, GITHUB_REPOS, PIPELINE_VERSION,
+    COMMUNITY_COLLECTION, CONFLUENCE_COLLECTION, DOCS_COLLECTION,
+    GITHUB_COLLECTION, GITHUB_REPOS, JIRA_COLLECTION, JIRA_PROJECT_KEYS,
+    JIRA_TOKEN, JIRA_URL, JIRA_USER, PIPELINE_VERSION, PG_CONNECTION,
 )
 from ingestion.store import build_embeddings, ingest_incremental
 
 
 def _full_rebuild() -> None:
-    """Delete chroma_db + state and re-run the full ingestion pipeline.
+    """Drop all pgvector collections + state and re-run the full ingestion pipeline.
 
     Called automatically when EMBED_MODEL, CHUNK_SIZE, or CHUNK_OVERLAP changes,
     because existing vectors are incompatible with the new pipeline settings.
+    store.py uses pre_delete_collection=True on first batch — no manual SQL needed.
     """
-    print("  Deleting chroma_db/ and crawl_state.json ...")
-    shutil.rmtree(CHROMA_DIR, ignore_errors=True)
-
+    print("  Clearing crawl_state.json (pgvector collections will be reset by store.py) ...")
     from crawler.state import STATE_FILE
     STATE_FILE.unlink(missing_ok=True)
 
@@ -121,8 +125,8 @@ def run() -> None:
         # GitHub issues are ingested as plain documents (not Q&A pairs)
         from langchain_core.documents import Document
         from langchain_text_splitters import RecursiveCharacterTextSplitter
-        from langchain_chroma import Chroma
-        from config.settings import CHROMA_DIR as _CHROMA_DIR, CHUNK_SIZE, CHUNK_OVERLAP
+        from langchain_postgres import PGVector
+        from config.settings import CHUNK_SIZE, CHUNK_OVERLAP
 
         lc_docs = [
             Document(
@@ -142,9 +146,9 @@ def run() -> None:
         splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
         chunks = splitter.split_documents(lc_docs)
         print(f"  → {len(chunks)} chunks to embed")
-        store = Chroma(
-            persist_directory=_CHROMA_DIR,
-            embedding_function=embeddings,
+        store = PGVector(
+            embeddings=embeddings,
+            connection=PG_CONNECTION,
             collection_name=GITHUB_COLLECTION,
         )
         store.add_documents(chunks)
@@ -162,6 +166,53 @@ def run() -> None:
                 repo_state["last_run"] = now_iso()
     else:
         print("GitHub: nothing to update.")
+
+    # ── Confluence (skipped automatically if not configured) ───────────────────
+    print("\n══ CONFLUENCE ════════════════════════════════════════════════════")
+    new_confluence, changed_confluence, unchanged_confluence = confluence_incremental(state)
+    print(f"\nResult: {len(new_confluence)} new | {len(changed_confluence)} changed | "
+          f"{unchanged_confluence} unchanged")
+
+    if new_confluence or changed_confluence:
+        print(f"\nIngesting into '{CONFLUENCE_COLLECTION}'...")
+        ingest_incremental(
+            new_confluence, changed_confluence, CONFLUENCE_COLLECTION, embeddings,
+            source_type="confluence",
+        )
+
+        page_versions = state.setdefault("confluence", {}).setdefault("page_versions", {})
+        for page in new_confluence + changed_confluence:
+            page_versions[page["_page_id"]] = page["_version"]
+        state["confluence"]["last_run"] = now_iso()
+    else:
+        print("Confluence: nothing to update (or not configured).")
+
+    # ── Jira (skipped automatically if not configured) ─────────────────────────
+    print("\n══ JIRA ══════════════════════════════════════════════════════════")
+    new_jira, changed_jira = jira_incremental(state)
+    print(f"\nResult: {len(new_jira)} new | {len(changed_jira)} changed")
+
+    if new_jira or changed_jira:
+        print(f"\nIngesting into '{JIRA_COLLECTION}'...")
+        ingest_incremental(new_jira, changed_jira, JIRA_COLLECTION, embeddings, source_type="jira")
+
+        jira_state = state.setdefault("jira", {})
+        for issue in new_jira + changed_jira:
+            project_state = jira_state.setdefault(issue["_project"], {})
+            seen = set(project_state.get("seen_keys", []))
+            seen.add(issue["key"])
+            project_state["seen_keys"] = sorted(seen)
+    else:
+        print("Jira: nothing to update (or not configured).")
+
+    # Advance the watermark for every configured project even if nothing
+    # changed, so the next run's JQL window narrows instead of re-querying
+    # the same growing range indefinitely. Skipped entirely when Jira isn't
+    # configured, so unrelated deployments don't accumulate meaningless state.
+    if JIRA_URL and JIRA_USER and JIRA_TOKEN:
+        jira_state = state.setdefault("jira", {})
+        for project_key in JIRA_PROJECT_KEYS:
+            jira_state.setdefault(project_key, {})["last_run"] = now_iso()
 
     # ── Persist state ──────────────────────────────────────────────────────────
     save(state)

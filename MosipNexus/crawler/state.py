@@ -2,8 +2,12 @@
 Crawl state — persists between runs to enable incremental updates.
 
 Stored in data/crawl_state.json:
-  docs.url_hashes   : {url -> MD5 of last-fetched content}
-  community.max_topic_id : highest forum topic ID seen so far
+  docs.url_hashes            : {url -> MD5 of last-fetched content}
+  community.max_topic_id     : highest forum topic ID seen so far
+  github.<repo>.max_issue_number  : highest issue number seen per repo
+  confluence.page_versions   : {page_id -> last-seen Confluence version number}
+  jira.<project>.seen_keys   : issue keys already ingested for that project
+  jira.<project>.last_run    : watermark used as the JQL "updated >=" filter
 """
 
 import hashlib
