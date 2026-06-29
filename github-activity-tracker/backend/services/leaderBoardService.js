@@ -1,7 +1,9 @@
 const pool = require('../db/dbPool');
 const { EXCLUDED_GITHUB_LOGINS } = require('../config/excludedGitHubLogins');
-const { buildProjectFilter } = require('../utils/projectFilter');
 
+/* ---------------------------------------------
+   Calculate date ranges
+--------------------------------------------- */
 function getDateRange(period) {
   if (period === "all") {
     return { start: null, end: null };
@@ -23,17 +25,13 @@ function getDateRange(period) {
   return { start, end };
 }
 
-const getLeaderboard = async (projectId = "all", period = "weekly", limit = 10) => {
+/* ---------------------------------------------
+   MAIN SERVICE
+--------------------------------------------- */
+const getLeaderboard = async (orgId, period = "weekly", limit = 10) => {
   limit = parseInt(limit) || 10;
 
   const { start, end } = getDateRange(period);
-
-  const params = [];
-  let paramIndex = 1;
-
-  const projectFilter = buildProjectFilter(projectId, { paramIndex });
-  paramIndex = projectFilter.nextIndex;
-  params.push(...projectFilter.params);
 
   let query = `
     SELECT
@@ -45,27 +43,21 @@ const getLeaderboard = async (projectId = "all", period = "weekly", limit = 10) 
       COUNT(*) AS score
     FROM activity_events e
     JOIN github_users u ON u.id = e.user_id
-    ${projectFilter.joinClause}
   `;
 
+  const params = [];
   const whereClauses = [];
 
   if (Array.isArray(EXCLUDED_GITHUB_LOGINS) && EXCLUDED_GITHUB_LOGINS.length > 0) {
     params.push(EXCLUDED_GITHUB_LOGINS.map((l) => String(l).toLowerCase()));
-    whereClauses.push(`LOWER(u.login) <> ALL($${paramIndex})`);
-    paramIndex += 1;
-  }
-
-  if (projectFilter.whereClause) {
-    whereClauses.push(projectFilter.whereClause.replace(/^ AND /, ''));
+    whereClauses.push(`LOWER(u.login) <> ALL($${params.length})`);
   }
 
   if (start && end) {
     params.push(start.toISOString(), end.toISOString());
     whereClauses.push(
-      `e.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`
+      `e.created_at BETWEEN $${params.length - 1} AND $${params.length}`
     );
-    paramIndex += 2;
   }
 
   if (whereClauses.length) {
@@ -75,13 +67,8 @@ const getLeaderboard = async (projectId = "all", period = "weekly", limit = 10) 
   query += `
     GROUP BY u.id, u.login, u.avatar_url
     ORDER BY score DESC
+    LIMIT ${limit};
   `;
-
-  if (limit > 0) {
-    query += ` LIMIT ${limit}`;
-  }
-
-  query += ';';
 
   const result = await pool.query(query, params);
 
@@ -97,7 +84,6 @@ const getLeaderboard = async (projectId = "all", period = "weekly", limit = 10) 
 
   return {
     period,
-    project: projectId,
     leaderboard,
   };
 };

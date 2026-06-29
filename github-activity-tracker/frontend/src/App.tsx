@@ -9,14 +9,13 @@ import UserProfile from "./components/UserProfile";
 
 import { useGitHubActivity } from "./lib/hooks";
 import {
-  fetchProjects,
+  fetchUsers,
   fetchOrgSummary,
   fetchOrgActivity,
   fetchLeaderboard,
-  downloadExport,
-  type Project,
 } from "./lib/api";
 
+/* SVG ICON IMPORTS */
 import CommitIcon from "./assets/CommitIcon.svg";
 import PRIcon from "./assets/PRIcon.svg";
 import CodeReviewIcon from "./assets/CodeReviewIcon.svg";
@@ -30,14 +29,15 @@ function App() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("weekly");
-  const [project, setProject] = useState("all");
-  const [projects, setProjects] = useState<Project[]>([]);
 
+  const [users, setUsers] = useState<string[]>([]);
   const [summary, setSummary] = useState<any | null>(null);
+
   const [activityChartData, setActivityChartData] = useState<any | null>(null);
+
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
-  const { loading, error } = useGitHubActivity(
+  const { activities, loading, error } = useGitHubActivity(
     "all",
     "all",
     "",
@@ -49,47 +49,52 @@ function App() {
   );
 
   useEffect(() => {
-    async function loadProjects() {
+    async function loadUsers() {
       try {
-        const list = await fetchProjects();
-        setProjects(list);
+        const list = await fetchUsers();
+        setUsers(list);
       } catch (err) {
-        console.error("Error fetching projects:", err);
+        console.error("Error fetching users:", err);
       }
     }
-    loadProjects();
+    loadUsers();
   }, []);
 
   useEffect(() => {
     async function loadSummary() {
       try {
-        const data = await fetchOrgSummary(period, project);
+        const data = await fetchOrgSummary("mosip", period);
         setSummary(data);
+        console.log("ORG SUMMARY:", data);
       } catch (err) {
         console.error("Error fetching org summary:", err);
       }
     }
 
     loadSummary();
-  }, [period, project]);
+  }, [period]);
 
   useEffect(() => {
     async function loadActivity() {
       try {
-        const data = await fetchOrgActivity(period, project);
+        const data = await fetchOrgActivity("mosip", period);
         setActivityChartData(data);
+        console.log("ORG ACTIVITY:", data);
       } catch (err) {
         console.error("Error fetching org activity:", err);
       }
     }
 
     loadActivity();
-  }, [period, project]);
+  }, [period]);
 
   useEffect(() => {
     async function loadLeaderboard() {
       try {
-        const data = await fetchLeaderboard(project, period, 10);
+        const data = await fetchLeaderboard("mosip", period, 10);
+
+        console.log("LEADERBOARD RAW:", data);
+
         const list = Array.isArray(data) ? data : data?.leaderboard || [];
 
         const ranked = list.map((u: any) => ({
@@ -109,27 +114,11 @@ function App() {
     }
 
     loadLeaderboard();
-  }, [period, project]);
+  }, [period]);
 
   const handleSelectUser = (name: string) => {
     setSelectedUser(name);
     setActivePage("profile");
-  };
-
-  const handleDownloadCSV = async () => {
-    try {
-      await downloadExport(project, period, "csv");
-    } catch (err) {
-      console.error("CSV export failed:", err);
-    }
-  };
-
-  const handleDownloadJSON = async () => {
-    try {
-      await downloadExport(project, period, "json");
-    } catch (err) {
-      console.error("JSON export failed:", err);
-    }
   };
 
   return (
@@ -143,18 +132,16 @@ function App() {
           onPeriodChange={setPeriod}
           team="all"
           onTeamChange={() => {}}
-          project={project}
-          onProjectChange={setProject}
-          projects={projects}
-          onDownloadCSV={handleDownloadCSV}
-          onDownloadJSON={handleDownloadJSON}
+          project="all"
+          onProjectChange={() => {}}
+          onDownloadCSV={() => {}}
+          onDownloadJSON={() => {}}
         />
       )}
 
       {activePage === "profile" && selectedUser && (
         <UserProfile
           userName={selectedUser}
-          project={project}
           onBack={() => setActivePage("dashboard")}
         />
       )}
@@ -202,7 +189,7 @@ function App() {
 
               <TeamMembers
                 team="all"
-                project={project}
+                project="all"
                 period={period}
                 onSelectUser={handleSelectUser}
               />

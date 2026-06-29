@@ -1,6 +1,5 @@
 const db = require("../db/dbPool");
 const { EXCLUDED_GITHUB_LOGINS } = require("../config/excludedGitHubLogins");
-const { buildProjectFilter } = require("../utils/projectFilter");
 
 function getDateRanges(period) {
   const now = new Date();
@@ -13,7 +12,7 @@ function getDateRanges(period) {
       previousStart = new Date(currentStart);
       previousStart.setDate(previousStart.getDate() - 1);
 
-      currentEnd = new Date(now);
+      currentEnd = new Date(now); // now
       previousEnd = new Date(currentStart);
       break;
 
@@ -24,7 +23,7 @@ function getDateRanges(period) {
       previousStart = new Date();
       previousStart.setDate(previousStart.getDate() - 14);
 
-      currentEnd = new Date();
+      currentEnd = new Date(); // now
       previousEnd = new Date(currentStart);
       break;
 
@@ -35,7 +34,7 @@ function getDateRanges(period) {
       previousStart = new Date();
       previousStart.setDate(previousStart.getDate() - 60);
 
-      currentEnd = new Date();
+      currentEnd = new Date(); // now
       previousEnd = new Date(currentStart);
       break;
 
@@ -51,37 +50,22 @@ function getDateRanges(period) {
   };
 }
 
-async function fetchCounts(start, end, projectId) {
+async function fetchCounts(start, end) {
   const params = [];
-  let paramIndex = 1;
-
-  const projectFilter = buildProjectFilter(projectId, { paramIndex });
-  paramIndex = projectFilter.nextIndex;
-  params.push(...projectFilter.params);
-
   let query = `
     SELECT event_type, COUNT(*) AS count
     FROM activity_events e
     JOIN github_users u ON u.id = e.user_id
-    ${projectFilter.joinClause}
   `;
 
   const whereClauses = [];
   if (Array.isArray(EXCLUDED_GITHUB_LOGINS) && EXCLUDED_GITHUB_LOGINS.length > 0) {
     params.push(EXCLUDED_GITHUB_LOGINS.map((l) => String(l).toLowerCase()));
-    whereClauses.push(`LOWER(u.login) <> ALL($${paramIndex})`);
-    paramIndex += 1;
-  }
-
-  if (projectFilter.whereClause) {
-    whereClauses.push(projectFilter.whereClause.replace(/^ AND /, ''));
+    whereClauses.push(`LOWER(u.login) <> ALL($${params.length})`);
   }
 
   params.push(start, end);
-  whereClauses.push(
-    `e.created_at >= $${paramIndex} AND e.created_at < $${paramIndex + 1}`
-  );
-  paramIndex += 2;
+  whereClauses.push(`e.created_at BETWEEN $${params.length - 1} AND $${params.length}`);
 
   query += `
     WHERE ${whereClauses.join(" AND ")}
@@ -125,16 +109,12 @@ function calculateChange(current, previous) {
   };
 }
 
-async function getOrgSummary(period, projectId = "all") {
+async function getOrgSummary(period) {
   const { currentStart, currentEnd, previousStart, previousEnd } =
     getDateRanges(period);
 
-  const current = await fetchCounts(
-    currentStart,
-    new Date(currentEnd.getTime() + 1),
-    projectId
-  );
-  const previous = await fetchCounts(previousStart, previousEnd, projectId);
+  const current = await fetchCounts(currentStart, currentEnd);
+  const previous = await fetchCounts(previousStart, previousEnd);
 
   const change = calculateChange(current, previous);
 

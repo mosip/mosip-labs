@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import { StatsCard } from "./StatsCard";
 import ActivityChart from "./ActivityChart";
@@ -12,18 +12,10 @@ import DownloadIcon from "../assets/DownloadIcon.svg";
 
 interface UserProfileProps {
   userName: string;
-  project: string;
   onBack: () => void;
 }
 
-interface DailyActivityRow {
-  date: string;
-  commits: number;
-  prs: number;
-  reviews: number;
-}
-
-const UserProfile = ({ userName, project, onBack }: UserProfileProps) => {
+const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
     "weekly",
   );
@@ -33,7 +25,7 @@ const UserProfile = ({ userName, project, onBack }: UserProfileProps) => {
   useEffect(() => {
     async function loadUser() {
       try {
-        const data = await fetchUserDetails(userName, period, project);
+        const data = await fetchUserDetails("mosip", userName, period);
         setUserData(data);
       } catch (err) {
         console.error("Failed to load user details:", err);
@@ -41,15 +33,15 @@ const UserProfile = ({ userName, project, onBack }: UserProfileProps) => {
     }
 
     loadUser();
-  }, [userName, period, project]);
+  }, [userName, period]);
 
   const profile = {
     name: userData?.login || userName,
     email:
       userData?.email ||
       `${userName.toLowerCase().replace(" ", ".")}@company.com`,
-    team: userData?.team || "—",
-    project: userData?.project || project,
+    team: userData?.team || "Frontend Team",
+    project: userData?.project || "Project Alpha",
   };
 
   const commits = userData?.summary?.commits || 0;
@@ -67,7 +59,7 @@ const UserProfile = ({ userName, project, onBack }: UserProfileProps) => {
     reviews: userData?.overview?.reviews || [],
   };
 
-  const detailed: DailyActivityRow[] = userData?.daily_activity || [];
+  const detailed = userData?.daily_activity || [];
 
   return (
     <div className="min-h-screen bg-gray-100">

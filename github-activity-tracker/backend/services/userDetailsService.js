@@ -1,7 +1,10 @@
 const pool = require('../db/dbPool');
 const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
-const { buildProjectFilter } = require('../utils/projectFilter');
 
+/* -----------------------------------------------
+   Helper: Generate continuous UTC calendar-day keys
+   from startDate (inclusive), matching SQL DATE buckets.
+------------------------------------------------ */
 function generateDateRange(startDate, days) {
   const dates = [];
   for (let i = 0; i < days; i++) {
@@ -12,16 +15,22 @@ function generateDateRange(startDate, days) {
   return dates;
 }
 
+/* ------------------------------------------------
+   Helper: Calculate % change
+------------------------------------------------ */
 function percentChange(current, previous) {
   if (previous === 0) return 0;
   return Number((((current - previous) / previous) * 100).toFixed(1));
 }
 
-async function getUserDetails(login, period, projectId = 'all') {
+/* ------------------------------------------------
+   MAIN SERVICE
+------------------------------------------------ */
+async function getUserDetails(login, period) {
   if (isExcludedGitHubLogin(login)) {
     throw new Error('User not found');
   }
-
+  /* 1. Get user details */
   const userQuery = `
     SELECT id, login, avatar_url, NULL as name, NULL as email
     FROM github_users
@@ -36,7 +45,13 @@ async function getUserDetails(login, period, projectId = 'all') {
   const user = userRes.rows[0];
   const userId = user.id;
 
-  const periods = { daily: 1, weekly: 7, monthly: 30 };
+  /* 2. Determine date ranges */
+  const periods = {
+    daily: 1,
+    weekly: 7,
+    monthly: 30,
+  };
+
   const days = periods[period];
   if (!days) {
     throw new Error('Invalid period');
@@ -50,34 +65,32 @@ async function getUserDetails(login, period, projectId = 'all') {
   start.setUTCHours(0, 0, 0, 0);
 
   const prevEnd = new Date(start.getTime() - 1);
+
   const prevStart = new Date(prevEnd);
   prevStart.setUTCDate(prevEnd.getUTCDate() - (days - 1));
   prevStart.setUTCHours(0, 0, 0, 0);
 
-  const params = [userId];
-  let paramIndex = 2;
-  const projectFilter = buildProjectFilter(projectId, { paramIndex });
-  paramIndex = projectFilter.nextIndex;
-  params.push(...projectFilter.params);
-  params.push(start.toISOString(), end.toISOString());
-
+  /* 3. Fetch daily activity for selected range */
   const dailyQuery = `
     SELECT
-      DATE(e.created_at) as date,
-      COUNT(*) FILTER (WHERE e.event_type = 'commit') AS commits,
-      COUNT(*) FILTER (WHERE e.event_type = 'pr') AS prs,
-      COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews
-    FROM activity_events e
-    ${projectFilter.joinClause}
-    WHERE e.user_id = $1
-      ${projectFilter.whereClause}
-      AND e.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-    GROUP BY DATE(e.created_at)
-    ORDER BY DATE(e.created_at)
+      DATE(created_at) as date,
+      COUNT(*) FILTER (WHERE event_type = 'commit') AS commits,
+      COUNT(*) FILTER (WHERE event_type = 'pr') AS prs,
+      COUNT(*) FILTER (WHERE event_type = 'review') AS reviews
+    FROM activity_events
+    WHERE user_id = $1
+      AND created_at BETWEEN $2 AND $3
+    GROUP BY DATE(created_at)
+    ORDER BY DATE(created_at)
   `;
 
-  const dailyRes = await pool.query(dailyQuery, params);
+  const dailyRes = await pool.query(dailyQuery, [
+    userId,
+    start.toISOString(),
+    end.toISOString(),
+  ]);
 
+  /* 4. Fill missing days */
   const dateRange = generateDateRange(start, days);
   const dailyMap = {};
 
@@ -96,23 +109,30 @@ async function getUserDetails(login, period, projectId = 'all') {
     };
   });
 
+  /* 5. Summary totals */
   const totalCommits = dailyActivity.reduce((a, b) => a + b.commits, 0);
   const totalPRs = dailyActivity.reduce((a, b) => a + b.prs, 0);
   const totalReviews = dailyActivity.reduce((a, b) => a + b.reviews, 0);
 
-  const prevParams = [userId, ...projectFilter.params, prevStart.toISOString(), prevEnd.toISOString()];
-  const prevRes = await pool.query(dailyQuery, prevParams);
+  /* 6. Fetch previous period totals */
+  const prevRes = await pool.query(dailyQuery, [
+    userId,
+    prevStart.toISOString(),
+    prevEnd.toISOString(),
+  ]);
 
   const prevCommits = prevRes.rows.reduce((a, b) => a + Number(b.commits), 0);
   const prevPRs = prevRes.rows.reduce((a, b) => a + Number(b.prs), 0);
   const prevReviews = prevRes.rows.reduce((a, b) => a + Number(b.reviews), 0);
 
+  /* 7. Compute % changes */
   const change = {
     commits: percentChange(totalCommits, prevCommits),
     prs: percentChange(totalPRs, prevPRs),
     reviews: percentChange(totalReviews, prevReviews),
   };
 
+  /* 8. Trend chart data (daily) */
   const trend = {
     labels: dailyActivity.map(d => d.date),
     commits: dailyActivity.map(d => d.commits),
@@ -120,6 +140,7 @@ async function getUserDetails(login, period, projectId = 'all') {
     reviews: dailyActivity.map(d => d.reviews),
   };
 
+  /* 9. Overview (weekly buckets for monthly) */
   let overview = { labels: [], commits: [], prs: [], reviews: [] };
 
   if (period === 'monthly') {
@@ -141,6 +162,7 @@ async function getUserDetails(login, period, projectId = 'all') {
     };
   }
 
+  /* 10. Final response */
   return {
     user: {
       login: user.login,
@@ -157,7 +179,6 @@ async function getUserDetails(login, period, projectId = 'all') {
     overview,
     trend,
     daily_activity: dailyActivity,
-    project: projectId,
   };
 }
 

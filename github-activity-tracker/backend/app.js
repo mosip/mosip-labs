@@ -16,9 +16,6 @@ const orgActivityRoute = require('./routes/orgActivityRoute');
 const orgSummaryRoute = require('./routes/orgSummaryRoute');
 const orgUsersRoute = require('./routes/orgUsersRoute');
 const userDetailsRoute = require('./routes/userDetailsRoute');
-const projectsRoute = require('./routes/projectsRoute');
-const projectSyncRoute = require('./routes/projectSyncRoute');
-const exportRoute = require('./routes/exportRoute');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,14 +30,10 @@ app.get('/', (req, res) => {
   res.json({
     message: 'GitHub Activity Tracker API',
     endpoints: {
-      'GET /projects': 'List configured projects',
-      'POST /admin/sync/all': 'Sync all configured projects (repos, commits, PRs, reviews)',
-      'POST /admin/sync/repos': 'Sync repositories for a project organization',
+      'POST /admin/sync/repos': 'Sync repositories for an organization',
       'POST /admin/sync/commits': 'Sync commits for all repositories in DB',
       'POST /admin/sync/prs': 'Sync PRs for all repositories in DB',
       'POST /admin/sync/reviews': 'Sync PR reviews for all repositories in DB',
-      'GET /orgs/:org_id/summary?project=': 'Dashboard summary (project=all|mosip|inji|...)',
-      'GET /orgs/:org_id/export?project=&format=': 'Export dashboard data as csv or json',
     },
   });
 });
@@ -55,9 +48,6 @@ app.use(orgSummaryRoute);
 app.use(userDetailsRoute);
 app.use(orgActivityRoute);
 app.use(leaderboardRoute);
-app.use(projectsRoute);
-app.use(projectSyncRoute);
-app.use(exportRoute);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
