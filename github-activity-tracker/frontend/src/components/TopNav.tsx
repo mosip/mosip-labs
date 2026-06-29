@@ -6,6 +6,11 @@ import LeaderboardIconWhite from "../assets/LeaderboardIconWhite.svg";
 import LeaderboardIconBlack from "../assets/LeaderboardIconBlack.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
 
+interface ProjectOption {
+  id: string;
+  name: string;
+}
+
 interface TopNavProps {
   activePage: "dashboard" | "leaderboard";
   onChange: (page: "dashboard" | "leaderboard") => void;
@@ -20,6 +25,7 @@ interface TopNavProps {
 
   project: string;
   onProjectChange: (value: string) => void;
+  projects: ProjectOption[];
 
   onDownloadCSV: () => void;
   onDownloadJSON: () => void;
@@ -35,6 +41,7 @@ const TopNav: React.FC<TopNavProps> = ({
   onTeamChange,
   project,
   onProjectChange,
+  projects,
   onDownloadCSV,
   onDownloadJSON,
 }) => {
@@ -172,9 +179,11 @@ const TopNav: React.FC<TopNavProps> = ({
             className="px-4 py-2 border rounded-lg bg-white"
           >
             <option value="all">All Projects</option>
-            <option value="alpha">Project Alpha</option>
-            <option value="beta">Project Beta</option>
-            <option value="gamma">Project Gamma</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
           </select>
         </div>
 

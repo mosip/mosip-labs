@@ -1,0 +1,16 @@
+[
+  {
+    "id": "mosip",
+    "name": "MOSIP",
+    "organizations": [
+      "mosip"
+    ]
+  },
+  {
+    "id": "inji",
+    "name": "INJI",
+    "organizations": [
+      "inji"
+    ]
+  }
+]

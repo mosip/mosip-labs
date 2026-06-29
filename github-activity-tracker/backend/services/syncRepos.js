@@ -7,12 +7,16 @@ const pool = require('../db/dbPool');
  * - Upserts on github_repo_id
  * - Requires migrations to be run first (e.g. npm run migrate) so the repos table exists.
  *
- * @param {string} org GitHub organization login (e.g., "mosip")
+ * @param {string} org GitHub organization login
+ * @param {string} projectId Project identifier to associate repos with
  * @returns {Promise<number>} total number of repos processed
  */
-async function syncRepos(org) {
+async function syncRepos(org, projectId) {
   if (!org) {
     throw new Error('Organization name is required for syncRepos');
+  }
+  if (!projectId) {
+    throw new Error('Project id is required for syncRepos');
   }
 
   const perPage = 100;
@@ -57,15 +61,16 @@ async function syncRepos(org) {
           // Insert or update by GitHub repo id so re-syncs stay idempotent
           await pool.query(
             `
-              INSERT INTO repos (github_repo_id, owner, name, full_name)
-              VALUES ($1, $2, $3, $4)
+              INSERT INTO repos (github_repo_id, owner, name, full_name, project_id)
+              VALUES ($1, $2, $3, $4, $5)
               ON CONFLICT (github_repo_id)
               DO UPDATE SET
                 owner = EXCLUDED.owner,
                 name = EXCLUDED.name,
-                full_name = EXCLUDED.full_name;
+                full_name = EXCLUDED.full_name,
+                project_id = EXCLUDED.project_id;
             `,
-            [github_repo_id, ownerLogin, name, full_name]
+            [github_repo_id, ownerLogin, name, full_name, projectId]
           );
 
           totalProcessed += 1;

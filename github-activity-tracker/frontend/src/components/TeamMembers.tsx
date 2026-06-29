@@ -36,7 +36,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
   useEffect(() => {
     async function loadUsers() {
       try {
-        const data = await fetchOrgUsers("mosip", period, page, limit);
+        const data = await fetchOrgUsers(project, period, page, limit);
 
         console.log("API RESPONSE:", data);
 
@@ -61,17 +61,13 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
     }
 
     loadUsers();
-  }, [period, page, limit]);
+  }, [period, page, limit, project]);
 
   const filtered = members.filter((m) => {
     const matchTeam =
       team === "all" || (m.team || "").toLowerCase() === team.toLowerCase();
 
-    const matchProject =
-      project === "all" ||
-      (m.project || "").toLowerCase() === project.toLowerCase();
-
-    return matchTeam && matchProject;
+    return matchTeam;
   });
 
   const startItem = totalUsers === 0 ? 0 : (page - 1) * limit + 1;

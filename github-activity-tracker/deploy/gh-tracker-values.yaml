@@ -5,6 +5,8 @@ ghtrackerservice:
       rds_database: "<db_name>"   # provide db name
       rds_port: "5432"
       rds_username: "<username>"   # provide username
+    github:
+      projects: '[{"id":"mosip","name":"MOSIP","organizations":["mosip"]},{"id":"inji","name":"INJI","organizations":["inji"]}]'
   secrets:
     rds-secret:
       rds_password: <your_password>    # Provide rds password
@@ -14,7 +16,6 @@ ghtrackerservice:
 cronjob:
   enabled: true
   schedule: "0 */6 * * *"              # every 6 hours
-  org: "mosip"                         # GitHub org to sync
   backendUrl: "http://gh-tracker-service:80"
 
 ## Admin swagger should have only internal access. Hence linked to internal gateway

@@ -15,3 +15,4 @@ data:
   rds-database: {{ .Values.ghtrackerservice.configmaps.rds.rds_database | quote }}
   rds-port: {{ .Values.ghtrackerservice.configmaps.rds.rds_port | quote }}
   rds-username: {{ .Values.ghtrackerservice.configmaps.rds.rds_username | quote }}
+  github-projects: {{ .Values.ghtrackerservice.configmaps.github.projects | quote }}

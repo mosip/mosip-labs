@@ -26,24 +26,9 @@ spec:
                 - |
                   set -e
                   BACKEND={{ .Values.cronjob.backendUrl | quote }}
-                  ORG={{ .Values.cronjob.org | quote }}
 
-                  echo "1/4 Syncing repos..."
-                  curl -sS -X POST "$BACKEND/admin/sync/repos" \
-                    -H "Content-Type: application/json" \
-                    -d "{\"org\":\"$ORG\"}"
-                  echo
-
-                  echo "2/4 Syncing commits..."
-                  curl -sS -X POST "$BACKEND/admin/sync/commits"
-                  echo
-
-                  echo "3/4 Syncing PRs..."
-                  curl -sS -X POST "$BACKEND/admin/sync/prs"
-                  echo
-
-                  echo "4/4 Syncing reviews..."
-                  curl -sS -X POST "$BACKEND/admin/sync/reviews"
+                  echo "Syncing all configured projects..."
+                  curl -sS -X POST "$BACKEND/admin/sync/all"
                   echo
 
                   echo "Done."

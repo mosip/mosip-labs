@@ -1,27 +1,44 @@
 /**
  * Route: POST /admin/sync/repos
  * Syncs all public repositories for a GitHub organization into the repos table.
- * Body: { "org": "owner" } (e.g. { "org": "mosip" }).
+ * Body: { "org": "owner", "project": "project_id" } or { "project": "project_id" }.
  */
 const express = require('express');
 const { syncRepos } = require('../services/syncRepos');
+const { getProjectById } = require('../config/projects');
 const { HTTP, STATUS } = require('../config/errorCodes');
 
 const router = express.Router();
 
 router.post('/admin/sync/repos', async (req, res) => {
-  const { org } = req.body || {};
+  const { org, project: projectId } = req.body || {};
 
-  if (!org) {
+  if (!projectId) {
     return res.status(HTTP.BAD_REQUEST).json({
       status: STATUS.ERROR,
-      message: 'Missing required field: org',
+      message: 'Missing required field: project',
       repos_processed: 0,
     });
   }
 
+  let project;
   try {
-    const reposProcessed = await syncRepos(org);
+    project = getProjectById(projectId);
+  } catch (err) {
+    return res.status(HTTP.BAD_REQUEST).json({
+      status: STATUS.ERROR,
+      message: err.message,
+      repos_processed: 0,
+    });
+  }
+
+  const orgsToSync = org ? [org] : project.organizations;
+
+  try {
+    let reposProcessed = 0;
+    for (const orgLogin of orgsToSync) {
+      reposProcessed += await syncRepos(orgLogin, project.id);
+    }
 
     return res.json({
       status: STATUS.SUCCESS,
