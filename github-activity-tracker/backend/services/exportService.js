@@ -7,8 +7,8 @@ async function getExportData(projectId, period) {
   const [summary, activity, leaderboard, users] = await Promise.all([
     getOrgSummary(period, projectId),
     getOrgActivity(period, projectId),
-    getLeaderboard(projectId, period, 1000),
-    getOrgUsers(projectId, period, 1, 10000),
+    getLeaderboard(projectId, period, 0),
+    getOrgUsers(projectId, period, 1, 0),
   ]);
 
   return {

@@ -32,7 +32,23 @@ router.post('/admin/sync/repos', async (req, res) => {
     });
   }
 
-  const orgsToSync = org ? [org] : project.organizations;
+  if (!project) {
+    return res.status(HTTP.BAD_REQUEST).json({
+      status: STATUS.ERROR,
+      message: 'A concrete project id is required',
+      repos_processed: 0,
+    });
+  }
+
+  if (org && !project.organizations.includes(org.trim().toLowerCase())) {
+    return res.status(HTTP.BAD_REQUEST).json({
+      status: STATUS.ERROR,
+      message: `Organization ${org} is not configured for project ${project.id}`,
+      repos_processed: 0,
+    });
+  }
+
+  const orgsToSync = org ? [org.trim().toLowerCase()] : project.organizations;
 
   try {
     let reposProcessed = 0;

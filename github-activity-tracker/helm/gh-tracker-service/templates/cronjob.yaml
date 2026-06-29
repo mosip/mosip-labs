@@ -28,7 +28,10 @@ spec:
                   BACKEND={{ .Values.cronjob.backendUrl | quote }}
 
                   echo "Syncing all configured projects..."
-                  curl -sS -X POST "$BACKEND/admin/sync/all"
+                  curl --fail-with-body --show-error --silent \
+                    --connect-timeout 5 \
+                    --max-time 3600 \
+                    -X POST "$BACKEND/admin/sync/all"
                   echo
 
                   echo "Done."

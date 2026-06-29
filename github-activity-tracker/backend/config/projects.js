@@ -34,7 +34,8 @@ function validateProjects(projects) {
   }
 
   const seen = new Set();
-  return projects.map((project, index) => {
+  const orgOwners = new Map();
+  const validated = projects.map((project, index) => {
     const id = String(project.id || '').trim().toLowerCase();
     const name = String(project.name || '').trim();
     const organizations = Array.isArray(project.organizations)
@@ -57,6 +58,20 @@ function validateProjects(projects) {
     seen.add(id);
     return { id, name, organizations };
   });
+
+  for (const project of validated) {
+    for (const org of project.organizations) {
+      const existingProjectId = orgOwners.get(org);
+      if (existingProjectId) {
+        throw new Error(
+          `Organization "${org}" is configured for multiple projects: "${existingProjectId}" and "${project.id}"`
+        );
+      }
+      orgOwners.set(org, project.id);
+    }
+  }
+
+  return validated;
 }
 
 let cachedProjects = null;

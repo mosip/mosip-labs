@@ -81,7 +81,7 @@ async function getOrgActivity(period, projectId = "all") {
     total.push(c + p + r);
   }
 
-  return { labels, commits, prs, reviews, total };
+  return { labels, commits, prs, reviews, total, project: projectId };
 }
 
 module.exports = { getOrgActivity };

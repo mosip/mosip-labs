@@ -78,7 +78,9 @@ async function fetchCounts(start, end, projectId) {
   }
 
   params.push(start, end);
-  whereClauses.push(`e.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
+  whereClauses.push(
+    `e.created_at >= $${paramIndex} AND e.created_at < $${paramIndex + 1}`
+  );
   paramIndex += 2;
 
   query += `
@@ -127,7 +129,11 @@ async function getOrgSummary(period, projectId = "all") {
   const { currentStart, currentEnd, previousStart, previousEnd } =
     getDateRanges(period);
 
-  const current = await fetchCounts(currentStart, currentEnd, projectId);
+  const current = await fetchCounts(
+    currentStart,
+    new Date(currentEnd.getTime() + 1),
+    projectId
+  );
   const previous = await fetchCounts(previousStart, previousEnd, projectId);
 
   const change = calculateChange(current, previous);

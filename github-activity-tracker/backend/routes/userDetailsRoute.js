@@ -14,7 +14,6 @@ function resolveProject(req) {
 router.get('/orgs/:org_id/users/:login', async (req, res) => {
   const { login } = req.params;
   const { period = 'weekly' } = req.query;
-  const project = resolveProject(req);
 
   if (!login) {
     return res.status(400).json({ error: 'Missing user login' });
@@ -25,6 +24,7 @@ router.get('/orgs/:org_id/users/:login', async (req, res) => {
   }
 
   try {
+    const project = resolveProject(req);
     const data = await getUserDetails(login, period, project);
     return res.json(data);
   } catch (err) {

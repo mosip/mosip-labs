@@ -111,6 +111,23 @@ async function collectProjectData(project) {
     }
   }
 
+  if (orgErrors.length > 0) {
+    console.error(
+      `[${project.id}] Skipping commits/PRs/reviews: repo sync failed for ${orgErrors.length} org(s)`
+    );
+    return {
+      project_id: project.id,
+      project_name: project.name,
+      organizations: project.organizations,
+      repos_processed: reposProcessed,
+      commits_processed: 0,
+      prs_processed: 0,
+      reviews_processed: 0,
+      org_errors: orgErrors,
+      status: 'failed',
+    };
+  }
+
   const commits = await syncCommitsForProject(project.id);
   const prs = await syncPRsForProject(project.id);
   const reviews = await syncReviewsForProject(project.id);
@@ -124,6 +141,7 @@ async function collectProjectData(project) {
     prs_processed: prs.prsProcessed,
     reviews_processed: reviews.reviewsProcessed,
     org_errors: orgErrors,
+    status: 'success',
   };
 }
 

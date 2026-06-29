@@ -75,8 +75,13 @@ const getLeaderboard = async (projectId = "all", period = "weekly", limit = 10) 
   query += `
     GROUP BY u.id, u.login, u.avatar_url
     ORDER BY score DESC
-    LIMIT ${limit};
   `;
+
+  if (limit > 0) {
+    query += ` LIMIT ${limit}`;
+  }
+
+  query += ';';
 
   const result = await pool.query(query, params);
 

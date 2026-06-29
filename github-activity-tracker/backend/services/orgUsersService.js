@@ -76,8 +76,9 @@ const getOrgUsers = async (
   page = 1,
   limit = DEFAULT_LIMIT,
 ) => {
-  page = parseInt(page) || 1;
-  limit = parseInt(limit) || DEFAULT_LIMIT;
+  page = Math.max(1, parseInt(page, 10) || 1);
+  const parsedLimit = parseInt(limit, 10);
+  limit = parsedLimit === 0 ? 0 : Math.max(1, parsedLimit || DEFAULT_LIMIT);
 
   const { start, end, prevStart, prevEnd } = getDateRanges(period);
   const { query: activityQuery, baseParams } = buildActivityQuery(projectId);
@@ -158,13 +159,13 @@ const getOrgUsers = async (
   final.sort((a, b) => b.total_activity - a.total_activity);
 
   const totalUsers = final.length;
-  const totalPages = Math.ceil(totalUsers / limit);
-  const startIndex = (page - 1) * limit;
+  const totalPages = limit > 0 ? Math.ceil(totalUsers / limit) : 1;
+  const startIndex = limit > 0 ? (page - 1) * limit : 0;
 
   return {
-    users: final.slice(startIndex, startIndex + limit),
+    users: limit > 0 ? final.slice(startIndex, startIndex + limit) : final,
     page,
-    limit,
+    limit: limit > 0 ? limit : totalUsers,
     totalUsers,
     totalPages,
     project: projectId,

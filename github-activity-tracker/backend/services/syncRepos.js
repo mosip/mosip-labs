@@ -58,20 +58,36 @@ async function syncRepos(org, projectId) {
 
           const ownerLogin = owner && owner.login ? owner.login : null;
 
-          // Insert or update by GitHub repo id so re-syncs stay idempotent
-          await pool.query(
-            `
-              INSERT INTO repos (github_repo_id, owner, name, full_name, project_id)
-              VALUES ($1, $2, $3, $4, $5)
-              ON CONFLICT (github_repo_id)
-              DO UPDATE SET
-                owner = EXCLUDED.owner,
-                name = EXCLUDED.name,
-                full_name = EXCLUDED.full_name,
-                project_id = EXCLUDED.project_id;
-            `,
-            [github_repo_id, ownerLogin, name, full_name, projectId]
+          const existing = await pool.query(
+            'SELECT project_id FROM repos WHERE github_repo_id = $1',
+            [github_repo_id]
           );
+
+          if (existing.rowCount > 0) {
+            const existingProjectId = existing.rows[0].project_id;
+            if (existingProjectId !== projectId) {
+              throw new Error(
+                `Repo ${full_name} is already assigned to project "${existingProjectId}" and cannot be reassigned to "${projectId}"`
+              );
+            }
+
+            await pool.query(
+              `
+                UPDATE repos
+                SET owner = $2, name = $3, full_name = $4
+                WHERE github_repo_id = $1
+              `,
+              [github_repo_id, ownerLogin, name, full_name]
+            );
+          } else {
+            await pool.query(
+              `
+                INSERT INTO repos (github_repo_id, owner, name, full_name, project_id)
+                VALUES ($1, $2, $3, $4, $5)
+              `,
+              [github_repo_id, ownerLogin, name, full_name, projectId]
+            );
+          }
 
           totalProcessed += 1;
         } catch (dbError) {
