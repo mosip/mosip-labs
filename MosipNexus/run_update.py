@@ -28,13 +28,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 from crawler.community_crawler import crawl_incremental as community_incremental
 from crawler.confluence_crawler import crawl_incremental as confluence_incremental
 from crawler.docs_crawler import crawl_incremental as docs_incremental
+from crawler.esignet_crawler import crawl_esignet
 from crawler.github_crawler import crawl_incremental as github_incremental
 from crawler.jira_crawler import crawl_incremental as jira_incremental
 from crawler.state import load, now_iso, save
 from config.settings import (
     COMMUNITY_COLLECTION, CONFLUENCE_COLLECTION, DOCS_COLLECTION,
     GITHUB_COLLECTION, GITHUB_REPOS, JIRA_COLLECTION, JIRA_PROJECT_KEYS,
-    JIRA_TOKEN, JIRA_URL, JIRA_USER, PIPELINE_VERSION, PG_CONNECTION,
+    JIRA_TOKEN, JIRA_URL, JIRA_USER, PIPELINE_VERSION, ESIGNET_COLLECTION,
+ESIGNET_FILE, PG_CONNECTION,
 )
 from ingestion.store import build_embeddings, ingest_incremental
 
@@ -92,8 +94,25 @@ def run() -> None:
         state["docs"]["last_run"] = now_iso()
     else:
         print("Docs: nothing to update.")
+           # ── eSignet ───────────────────────────────────────────────────────────────
+    print("\n══ ESIGNET ═══════════════════════════════════════════════════════")
 
-    # ── Community ──────────────────────────────────────────────────────────────
+    crawl_esignet()
+
+    print(f"\nIngesting into '{ESIGNET_COLLECTION}'...")
+
+    from ingestion.store import ingest_json_file
+
+    ingest_json_file(
+        ESIGNET_FILE,
+        ESIGNET_COLLECTION,
+        embeddings,
+        source_type="esignet",
+    )
+
+    state.setdefault("esignet", {})["last_run"] = now_iso()
+
+    # ── Community ─────────────────────────────
     print("\n══ COMMUNITY ═════════════════════════════════════════════════════")
     new_topics = community_incremental(state)
     print(f"\nResult: {len(new_topics)} new topics")

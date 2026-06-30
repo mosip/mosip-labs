@@ -27,10 +27,24 @@ from sqlalchemy import create_engine, text as sql_text
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.settings import (
-    PG_CONNECTION, CHUNK_OVERLAP, CHUNK_SIZE, CODE_COLLECTION, CODE_FILE,
-    COMMUNITY_COLLECTION, COMMUNITY_FILE, CONFLUENCE_COLLECTION, CONFLUENCE_FILE,
-    DOCS_COLLECTION, DOCS_FILE, EMBED_MODEL,
-    GITHUB_COLLECTION, GITHUB_FILE, JIRA_COLLECTION, JIRA_FILE,
+    PG_CONNECTION,
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
+    CODE_COLLECTION,
+    CODE_FILE,
+    COMMUNITY_COLLECTION,
+    COMMUNITY_FILE,
+    CONFLUENCE_COLLECTION,
+    CONFLUENCE_FILE,
+    DOCS_COLLECTION,
+    DOCS_FILE,
+    EMBED_MODEL,
+    ESIGNET_COLLECTION,
+    ESIGNET_FILE,
+    GITHUB_COLLECTION,
+    GITHUB_FILE,
+    JIRA_COLLECTION,
+    JIRA_FILE,
 )
 
 BATCH_SIZE = 100
@@ -41,7 +55,7 @@ def build_embeddings() -> HuggingFaceEmbeddings:
     """Load the multilingual embedding model (shared across both collections)."""
     return HuggingFaceEmbeddings(
         model_name=EMBED_MODEL,
-        encode_kwargs={"batch_size": 64},
+        encode_kwargs={"batch_size": 4},
         show_progress=True,
     )
 
@@ -50,23 +64,38 @@ def build_embeddings() -> HuggingFaceEmbeddings:
 
 def prepare_doc_documents() -> list[Document]:
     """Load docs JSON and convert to LangChain Documents with URL-prefixed content."""
+
+    data = []
+
+    # Load MOSIP docs
     with open(DOCS_FILE, encoding="utf-8") as f:
-        data = json.load(f)
+        data.extend(json.load(f))
+
+    # Load eSignet docs if available
+    if ESIGNET_FILE.exists():
+        with open(ESIGNET_FILE, encoding="utf-8") as f:
+            data.extend(json.load(f))
 
     docs = []
+
     for item in data:
         if not item.get("content", "").strip():
             continue
+
         # Prepend URL so the chunk embedding encodes the page it came from.
         content = f"Page: {item['url']}\n\n{item['content']}"
-        docs.append(Document(
-            page_content=content,
-            metadata={
-                "source":      item["url"],
-                "source_type": "docs",
-                "title":       item.get("title", ""),
-            },
-        ))
+
+        docs.append(
+            Document(
+                page_content=content,
+                metadata={
+                    "source": item["url"],
+                    "source_type": "docs",
+                    "title": item.get("title", ""),
+                },
+            )
+        )
+
     return docs
 
 
@@ -376,7 +405,27 @@ def prepare_generic_documents(file_path, source_type_label: str) -> list[Documen
                 "title":       item.get("title", ""),
             },
         ))
+        
     return docs
+def ingest_json_file(
+    json_file,
+    collection_name,
+    embeddings,
+    source_type="generic",
+):
+    """
+    Load a JSON file, convert it to LangChain Documents,
+    and ingest it into the specified collection.
+    """
+
+    documents = prepare_generic_documents(json_file, source_type)
+
+    if not documents:
+        print(f"No documents found in {json_file}")
+        return
+
+    print(f"  Loaded {len(documents)} {source_type} pages")
+    ingest(documents, collection_name, embeddings)
 
 
 if __name__ == "__main__":
@@ -387,8 +436,7 @@ if __name__ == "__main__":
     embeddings = build_embeddings()
 
     print(f"\n-- Ingesting DOCS -> '{DOCS_COLLECTION}' --")
-    with open(DOCS_FILE, encoding="utf-8") as f:
-        raw_docs = json.load(f)
+    
     doc_documents = prepare_doc_documents()
     print(f"  Loaded {len(doc_documents)} doc pages")
     ingest(doc_documents, DOCS_COLLECTION, embeddings)
@@ -423,6 +471,19 @@ if __name__ == "__main__":
     if jira_documents:
         print(f"  Loaded {len(jira_documents)} Jira tickets")
         ingest(jira_documents, JIRA_COLLECTION, embeddings)
+        print(f"\n-- Ingesting ESIGNET -> '{ESIGNET_COLLECTION}' --")
+    esignet_documents = prepare_generic_documents(
+        ESIGNET_FILE,
+        "esignet",
+    )
+
+    if esignet_documents:
+        print(f"  Loaded {len(esignet_documents)} eSignet pages")
+        ingest(
+            esignet_documents,
+            ESIGNET_COLLECTION,
+            embeddings,
+        )
 
     # ── Seed crawl state so run_update.py knows what's already ingested ────────
     print("\nSeeding crawl state for future incremental updates...")
@@ -474,14 +535,29 @@ if __name__ == "__main__":
             if project:
                 project_state = jira_state.setdefault(project, {"seen_keys": [], "last_run": now_iso()})
                 project_state["seen_keys"].append(key)
+                esignet_hashes = {}
+
+    if ESIGNET_FILE.exists():
+        with open(ESIGNET_FILE, encoding="utf-8") as f:
+            raw_esignet = json.load(f)
+
+        esignet_hashes = {
+            doc["url"]: content_hash(doc.get("content", ""))
+            for doc in raw_esignet
+            if doc.get("content", "").strip()
+        }
 
     save_state({
         "pipeline_version": PIPELINE_VERSION,
-        "docs":             {"url_hashes": url_hashes, "last_run": now_iso()},
-        "community":        {"max_topic_id": max_topic_id, "last_run": now_iso()},
-        "github":           github_state,
-        "confluence":       confluence_state,
-        "jira":             jira_state,
+        "docs": {"url_hashes": url_hashes, "last_run": now_iso()},
+        "esignet": {
+            "url_hashes": esignet_hashes,
+            "last_run": now_iso(),
+        },
+        "community": {"max_topic_id": max_topic_id, "last_run": now_iso()},
+        "github": github_state,
+        "confluence": confluence_state,
+        "jira": jira_state,
     })
     print(f"  Tracked {len(url_hashes)} doc pages, "
           f"max community topic ID: {max_topic_id}, "

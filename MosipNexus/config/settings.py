@@ -12,10 +12,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-ROOT_DIR      = Path(__file__).parent.parent
-DATA_DIR      = ROOT_DIR / "data"
-DOCS_FILE     = DATA_DIR / "mosip_docs.json"
+# ── Paths ──────────────────────────────────────────────────────────────────────
+ROOT_DIR       = Path(__file__).parent.parent
+DATA_DIR       = ROOT_DIR / "data"
+DOCS_FILE      = DATA_DIR / "mosip_docs.json"
 COMMUNITY_FILE = DATA_DIR / "mosip_community.json"
+ESIGNET_FILE   = DATA_DIR / "esignet_docs.json"
+ESIGNET_COLLECTION = "esignet_docs"
 
 # ── pgvector connection ────────────────────────────────────────────────────────
 # Format: postgresql+psycopg://user:password@host:port/dbname
@@ -31,6 +34,7 @@ DATA_DIR.mkdir(exist_ok=True)
 DOCS_BASE_URL    = "https://docs.mosip.io/1.2.0"
 DOCS_SITEMAP_URL = f"{DOCS_BASE_URL}/sitemap.xml"
 COMMUNITY_BASE_URL = "https://community.mosip.io"
+ESIGNET_BASE_URL = "https://docs.esignet.io"
 
 # ── Embeddings ─────────────────────────────────────────────────────────────────
 EMBED_MODEL = "intfloat/multilingual-e5-base"   # 768-dim, 100+ languages
@@ -38,6 +42,7 @@ EMBED_MODEL = "intfloat/multilingual-e5-base"   # 768-dim, 100+ languages
 # ── pgvector collection names ──────────────────────────────────────────────────
 DOCS_COLLECTION      = "mosip_docs"
 COMMUNITY_COLLECTION = "mosip_community"
+ESIGNET_COLLECTION   = "esignet_docs"
 
 # ── Chunking ───────────────────────────────────────────────────────────────────
 CHUNK_SIZE    = 900

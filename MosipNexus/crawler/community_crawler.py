@@ -52,7 +52,9 @@ def get_topic_ids(max_pages: int = COMMUNITY_MAX_PAGES) -> list[int]:
     return ids
 
 
-def fetch_topic(topic_id: int) -> dict | None:
+from typing import Optional
+
+def fetch_topic(topic_id: int) -> Optional[dict]:
     """Fetch a full topic and structure it for ingestion.
 
     Returns a dict with:
