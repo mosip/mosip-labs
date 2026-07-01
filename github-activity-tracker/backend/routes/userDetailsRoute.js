@@ -4,7 +4,7 @@ const { getUserDetails } = require('../services/userDetailsService');
 
 // GET /orgs/:org_id/users/:login?period=daily|weekly|monthly
 router.get('/orgs/:org_id/users/:login', async (req, res) => {
-  const { login } = req.params;
+  const { org_id, login } = req.params;
   const { period="weekly" } = req.query;
 
   if (!login) {
@@ -16,7 +16,7 @@ router.get('/orgs/:org_id/users/:login', async (req, res) => {
   }
 
   try {
-    const data = await getUserDetails(login, period);
+    const data = await getUserDetails(org_id, login, period);
     return res.json(data);
   } catch (err) {
     console.error('Error in User Details API:', err);
