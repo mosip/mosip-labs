@@ -16,6 +16,8 @@ const orgActivityRoute = require('./routes/orgActivityRoute');
 const orgSummaryRoute = require('./routes/orgSummaryRoute');
 const orgUsersRoute = require('./routes/orgUsersRoute');
 const userDetailsRoute = require('./routes/userDetailsRoute');
+const userNameSyncRoute = require('./routes/userNameSyncRoute');
+const userRoleRoute = require('./routes/userRoleRoute');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +36,9 @@ app.get('/', (req, res) => {
       'POST /admin/sync/commits': 'Sync commits for all repositories in DB',
       'POST /admin/sync/prs': 'Sync PRs for all repositories in DB',
       'POST /admin/sync/reviews': 'Sync PR reviews for all repositories in DB',
+      'POST /admin/sync/user-names': 'Backfill GitHub profile names for users in DB',
+      'POST /admin/users/role': 'Assign job role to a GitHub user',
+      'GET /admin/users/:login/role': 'Fetch job role for a GitHub user',
     },
   });
 });
@@ -43,6 +48,8 @@ app.use(repoSyncRoute);
 app.use(commitSyncRoute);
 app.use(prSyncRoute);
 app.use(reviewSyncRoute);
+app.use(userNameSyncRoute);
+app.use(userRoleRoute);
 app.use(orgUsersRoute);
 app.use(orgSummaryRoute);
 app.use(userDetailsRoute);

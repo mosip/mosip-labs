@@ -5,7 +5,7 @@ const { EXCLUDED_GITHUB_LOGINS } = require("../config/excludedGitHubLogins");
 /**
  * Returns org-wide daily activity for chosen period, scoped to repos owned by orgId.
  */
-async function getOrgActivity(orgId, period) {
+async function getOrgActivity(orgId, period, role) {
   const periods = { daily: 1, weekly: 7, monthly: 30 };
   const days = periods[period];
   if (!days) {
@@ -21,6 +21,11 @@ async function getOrgActivity(orgId, period) {
   if (Array.isArray(EXCLUDED_GITHUB_LOGINS) && EXCLUDED_GITHUB_LOGINS.length > 0) {
     params.push(EXCLUDED_GITHUB_LOGINS.map((l) => String(l).toLowerCase()));
     whereClauses.push(`LOWER(u.login) <> ALL($${params.length})`);
+  }
+
+  if (role) {
+    params.push(role);
+    whereClauses.push(`u.role = $${params.length}`);
   }
 
   params.push(start.toDate(), end.toDate());

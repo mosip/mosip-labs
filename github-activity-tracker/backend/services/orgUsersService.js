@@ -62,7 +62,9 @@ const getOrgUsers = async (
     SELECT
       u.id,
       u.login AS login,
-      u.avatar_url AS avatar
+      u.name AS name,
+      u.avatar_url AS avatar,
+      u.role AS role
     FROM github_users u
   `;
 
@@ -145,7 +147,9 @@ const getOrgUsers = async (
 
     return {
       login: u.login,
+      name: u.name || null,
       avatar: u.avatar,
+      role: u.role || null,
 
       commits: current.commits,
       prs: current.prs,

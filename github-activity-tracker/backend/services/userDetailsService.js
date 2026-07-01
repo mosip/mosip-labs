@@ -32,7 +32,7 @@ async function getUserDetails(orgId, login, period) {
   }
   /* 1. Get user details */
   const userQuery = `
-    SELECT id, login, avatar_url, NULL as name, NULL as email
+    SELECT id, login, avatar_url, name, role, NULL as email
     FROM github_users
     WHERE login = $1
   `;
@@ -175,6 +175,7 @@ async function getUserDetails(orgId, login, period) {
       name: user.name || null,
       email: user.email || null,
       avatar: user.avatar_url,
+      role: user.role || null,
     },
     summary: {
       commits: totalCommits,

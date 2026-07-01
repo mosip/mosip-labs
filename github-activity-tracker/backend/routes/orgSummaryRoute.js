@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { getOrgSummary } = require('../services/orgSummaryService');
+const { isValidUserRole } = require('../config/userRoles');
 
 router.get('/orgs/:org_id/summary', async (req, res) => {
   try {
     const { org_id } = req.params;
-    const { period = 'weekly' } = req.query;
+    const { period = 'weekly', role } = req.query;
 
     if (!org_id) {
       return res.status(400).json({ error: 'Invalid org_id' });
@@ -15,7 +16,12 @@ router.get('/orgs/:org_id/summary', async (req, res) => {
       return res.status(400).json({ error: 'Invalid period value' });
     }
 
-    const summary = await getOrgSummary(org_id, period);
+    if (role && role !== 'all' && !isValidUserRole(role)) {
+      return res.status(400).json({ error: 'Invalid role value' });
+    }
+
+    const roleFilter = role && role !== 'all' ? role : null;
+    const summary = await getOrgSummary(org_id, period, roleFilter);
 
     return res.status(200).json(summary);
   } catch (err) {

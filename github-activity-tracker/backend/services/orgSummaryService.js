@@ -50,7 +50,7 @@ function getDateRanges(period) {
   };
 }
 
-async function fetchCounts(orgId, start, end) {
+async function fetchCounts(orgId, start, end, role) {
   const params = [];
   let query = `
     SELECT event_type, COUNT(*) AS count
@@ -67,6 +67,11 @@ async function fetchCounts(orgId, start, end) {
   if (Array.isArray(EXCLUDED_GITHUB_LOGINS) && EXCLUDED_GITHUB_LOGINS.length > 0) {
     params.push(EXCLUDED_GITHUB_LOGINS.map((l) => String(l).toLowerCase()));
     whereClauses.push(`LOWER(u.login) <> ALL($${params.length})`);
+  }
+
+  if (role) {
+    params.push(role);
+    whereClauses.push(`u.role = $${params.length}`);
   }
 
   params.push(start, end);
@@ -114,12 +119,12 @@ function calculateChange(current, previous) {
   };
 }
 
-async function getOrgSummary(orgId, period) {
+async function getOrgSummary(orgId, period, role) {
   const { currentStart, currentEnd, previousStart, previousEnd } =
     getDateRanges(period);
 
-  const current = await fetchCounts(orgId, currentStart, currentEnd);
-  const previous = await fetchCounts(orgId, previousStart, previousEnd);
+  const current = await fetchCounts(orgId, currentStart, currentEnd, role);
+  const previous = await fetchCounts(orgId, previousStart, previousEnd, role);
 
   const change = calculateChange(current, previous);
 

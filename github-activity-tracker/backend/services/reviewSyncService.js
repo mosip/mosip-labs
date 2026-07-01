@@ -3,6 +3,7 @@ require('dotenv').config();
 const pool = require('../db/dbPool');
 const { POSTGRES } = require('../config/errorCodes');
 const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
+const { upsertGitHubUser } = require('./githubUserService');
 
 const GRAPHQL_URL = 'https://api.github.com/graphql';
 const PR_PAGE_SIZE = 50;
@@ -50,7 +51,7 @@ const QUERY_PR_PAGE = `
               author {
                 __typename
                 login
-                ... on User { databaseId avatarUrl url }
+                ... on User { databaseId avatarUrl url name }
                 ... on Bot { databaseId avatarUrl url }
               }
             }
@@ -74,7 +75,7 @@ const QUERY_PR_REVIEWS_PAGE = `
             author {
               login
               __typename
-              ... on User { databaseId avatarUrl url }
+              ... on User { databaseId avatarUrl url name }
               ... on Bot { databaseId avatarUrl url }
             }
           }
@@ -179,23 +180,16 @@ async function syncReviews(repoId) {
             const avatarUrl = reviewer.avatarUrl || null;
             const htmlUrl = reviewer.url || null;
             const type = reviewer.__typename === 'Bot' ? 'Bot' : 'User';
+            const profileName = reviewer.name || null;
 
-            // Upsert reviewer into github_users
-            const userResult = await pool.query(
-              `
-              INSERT INTO github_users (github_user_id, login, avatar_url, html_url, type)
-              VALUES ($1, $2, $3, $4, $5)
-              ON CONFLICT (github_user_id)
-              DO UPDATE SET
-                login = EXCLUDED.login,
-                avatar_url = EXCLUDED.avatar_url,
-                html_url = EXCLUDED.html_url,
-                type = EXCLUDED.type
-              RETURNING id
-            `,
-              [githubUserId, login, avatarUrl, htmlUrl, type]
-            );
-            const userId = userResult.rows[0].id;
+            const userId = await upsertGitHubUser({
+              github_user_id: githubUserId,
+              login,
+              avatar_url: avatarUrl,
+              html_url: htmlUrl,
+              type,
+              name: profileName,
+            });
 
             // Insert event first; only increment reviews_count if this review is new.
             const eventInsert = await pool.query(
