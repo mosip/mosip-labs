@@ -7,14 +7,22 @@ import LeaderboardIconWhite from "../assets/LeaderboardIconWhite.svg";
 import LeaderboardIconBlack from "../assets/LeaderboardIconBlack.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
 
+const PERIOD_OPTIONS = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+] as const;
+
+type PeriodValue = (typeof PERIOD_OPTIONS)[number]["value"];
+
 interface TopNavProps {
   activePage: "dashboard" | "leaderboard";
   onChange: (page: "dashboard" | "leaderboard") => void;
 
   title: string;
 
-  period: "daily" | "weekly" | "monthly";
-  onPeriodChange: (p: "daily" | "weekly" | "monthly") => void;
+  period: PeriodValue;
+  onPeriodChange: (p: PeriodValue) => void;
 
   organization: string;
   onOrganizationChange: (value: string) => void;
@@ -130,26 +138,15 @@ const TopNav: React.FC<TopNavProps> = ({
             </label>
 
             <div className="flex items-center gap-2">
-              <button
-                className={periodBtn(period === "daily")}
-                onClick={() => onPeriodChange("daily")}
-              >
-                Daily
-              </button>
-
-              <button
-                className={periodBtn(period === "weekly")}
-                onClick={() => onPeriodChange("weekly")}
-              >
-                Weekly
-              </button>
-
-              <button
-                className={periodBtn(period === "monthly")}
-                onClick={() => onPeriodChange("monthly")}
-              >
-                Monthly
-              </button>
+              {PERIOD_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  className={periodBtn(period === value)}
+                  onClick={() => onPeriodChange(value)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
