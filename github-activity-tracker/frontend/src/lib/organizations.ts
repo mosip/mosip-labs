@@ -5,7 +5,9 @@ export interface Organization {
 
 // Org IDs are read from VITE_ORGANIZATIONS (comma-separated) in frontend/.env.
 // IDs are kept lowercase to match the `owner` column; labels are uppercased for display.
-export const ORGANIZATIONS: Organization[] = import.meta.env.VITE_ORGANIZATIONS!
+const organizationsEnv = import.meta.env.VITE_ORGANIZATIONS!;
+
+export const ORGANIZATIONS: Organization[] = organizationsEnv
   .split(",")
   .map((id: string) => id.trim().toLowerCase())
   .filter((id: string) => id.length > 0)
