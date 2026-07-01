@@ -88,15 +88,18 @@ const getOrgUsers = async (
       COUNT(*) FILTER (WHERE event_type = 'review') AS reviews
     FROM activity_events e
     JOIN github_users u ON u.id = e.user_id
+    JOIN repos r ON r.github_repo_id = e.repo_id
   `;
+
+  activityParamsBase.push(String(orgId).toLowerCase());
+  activityQuery += ` WHERE LOWER(r.owner) = $${activityParamsBase.length} `;
 
   if (Array.isArray(EXCLUDED_GITHUB_LOGINS) && EXCLUDED_GITHUB_LOGINS.length > 0) {
     activityParamsBase.push(EXCLUDED_GITHUB_LOGINS.map((l) => String(l).toLowerCase()));
-    activityQuery += ` WHERE LOWER(u.login) <> ALL($${activityParamsBase.length}) `;
-    activityQuery += ` AND e.created_at BETWEEN $${activityParamsBase.length + 1} AND $${activityParamsBase.length + 2} `;
-  } else {
-    activityQuery += ` WHERE e.created_at BETWEEN $1 AND $2 `;
+    activityQuery += ` AND LOWER(u.login) <> ALL($${activityParamsBase.length}) `;
   }
+
+  activityQuery += ` AND e.created_at BETWEEN $${activityParamsBase.length + 1} AND $${activityParamsBase.length + 2} `;
 
   activityQuery += `
     GROUP BY e.user_id;

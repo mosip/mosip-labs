@@ -15,7 +15,7 @@ router.get('/orgs/:org_id/summary', async (req, res) => {
       return res.status(400).json({ error: 'Invalid period value' });
     }
 
-    const summary = await getOrgSummary(period);
+    const summary = await getOrgSummary(org_id, period);
 
     return res.status(200).json(summary);
   } catch (err) {

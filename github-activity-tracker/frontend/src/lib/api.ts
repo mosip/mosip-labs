@@ -26,10 +26,10 @@ export const fetchRepository = async (id: string) => {
   }
 };
 
-// Fetch unique users
-export const fetchUsers = async () => {
+// Fetch unique users for an organization
+export const fetchUsers = async (org: string) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/orgs/mosip/users`);
+    const response = await axios.get(`${API_BASE_URL}/orgs/${org}/users`);
     return response.data;
   } catch (error) {
     throw new Error("Failed to fetch users");

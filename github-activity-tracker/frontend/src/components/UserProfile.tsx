@@ -11,11 +11,19 @@ import CodeReviewIcon from "../assets/CodeReviewIcon.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
 
 interface UserProfileProps {
+  org: string;
   userName: string;
   onBack: () => void;
 }
 
-const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
+interface DailyActivityRow {
+  date: string;
+  commits: number;
+  prs: number;
+  reviews: number;
+}
+
+const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
     "weekly",
   );
@@ -25,7 +33,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
   useEffect(() => {
     async function loadUser() {
       try {
-        const data = await fetchUserDetails("mosip", userName, period);
+        const data = await fetchUserDetails(org, userName, period);
         setUserData(data);
       } catch (err) {
         console.error("Failed to load user details:", err);
@@ -33,7 +41,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
     }
 
     loadUser();
-  }, [userName, period]);
+  }, [org, userName, period]);
 
   const profile = {
     name: userData?.login || userName,
@@ -59,7 +67,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
     reviews: userData?.overview?.reviews || [],
   };
 
-  const detailed = userData?.daily_activity || [];
+  const detailed: DailyActivityRow[] = userData?.daily_activity || [];
 
   return (
     <div className="min-h-screen bg-gray-100">

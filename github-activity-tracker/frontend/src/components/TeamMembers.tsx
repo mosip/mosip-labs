@@ -8,6 +8,7 @@ const UserIcon = () => (
 );
 
 interface TeamMembersProps {
+  org: string;
   team: string;
   project: string;
   period: "daily" | "weekly" | "monthly";
@@ -21,6 +22,7 @@ const getDiffColor = (diff: number) => {
 };
 
 const TeamMembers: React.FC<TeamMembersProps> = ({
+  org,
   team,
   project,
   period,
@@ -36,7 +38,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
   useEffect(() => {
     async function loadUsers() {
       try {
-        const data = await fetchOrgUsers("mosip", period, page, limit);
+        const data = await fetchOrgUsers(org, period, page, limit);
 
         console.log("API RESPONSE:", data);
 
@@ -61,7 +63,11 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
     }
 
     loadUsers();
-  }, [period, page, limit]);
+  }, [org, period, page, limit]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [org]);
 
   const filtered = members.filter((m) => {
     const matchTeam =

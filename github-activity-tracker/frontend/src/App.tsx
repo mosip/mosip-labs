@@ -7,9 +7,8 @@ import TeamMembers from "./components/TeamMembers";
 import LeaderboardCard from "./components/LeaderboardCard";
 import UserProfile from "./components/UserProfile";
 
-import { useGitHubActivity } from "./lib/hooks";
+import { DEFAULT_ORG } from "./lib/organizations";
 import {
-  fetchUsers,
   fetchOrgSummary,
   fetchOrgActivity,
   fetchLeaderboard,
@@ -28,72 +27,53 @@ function App() {
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
+  const [selectedOrg, setSelectedOrg] = useState<string>(DEFAULT_ORG);
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("weekly");
+  const [team, setTeam] = useState("all");
+  const [project, setProject] = useState("all");
 
-  const [users, setUsers] = useState<string[]>([]);
   const [summary, setSummary] = useState<any | null>(null);
-
   const [activityChartData, setActivityChartData] = useState<any | null>(null);
-
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
-
-  const { activities, loading, error } = useGitHubActivity(
-    "all",
-    "all",
-    "",
-    "",
-    false,
-    "",
-    [],
-    [],
-  );
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadUsers() {
-      try {
-        const list = await fetchUsers();
-        setUsers(list);
-      } catch (err) {
-        console.error("Error fetching users:", err);
-      }
-    }
-    loadUsers();
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    async function loadSummary() {
+    async function loadDashboard() {
+      setDashboardLoading(true);
+      setDashboardError(null);
+
       try {
-        const data = await fetchOrgSummary("mosip", period);
-        setSummary(data);
-        console.log("ORG SUMMARY:", data);
-      } catch (err) {
-        console.error("Error fetching org summary:", err);
+        const [summaryData, activityData] = await Promise.all([
+          fetchOrgSummary(selectedOrg, period),
+          fetchOrgActivity(selectedOrg, period),
+        ]);
+
+        if (cancelled) return;
+
+        setSummary(summaryData);
+        setActivityChartData(activityData);
+      } catch (err: any) {
+        if (cancelled) return;
+        console.error("Error loading dashboard:", err);
+        setDashboardError(err.message || "Failed to load dashboard data");
+      } finally {
+        if (!cancelled) setDashboardLoading(false);
       }
     }
 
-    loadSummary();
-  }, [period]);
-
-  useEffect(() => {
-    async function loadActivity() {
-      try {
-        const data = await fetchOrgActivity("mosip", period);
-        setActivityChartData(data);
-        console.log("ORG ACTIVITY:", data);
-      } catch (err) {
-        console.error("Error fetching org activity:", err);
-      }
-    }
-
-    loadActivity();
-  }, [period]);
+    loadDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedOrg, period]);
 
   useEffect(() => {
     async function loadLeaderboard() {
       try {
-        const data = await fetchLeaderboard("mosip", period, 10);
-
-        console.log("LEADERBOARD RAW:", data);
+        const data = await fetchLeaderboard(selectedOrg, period, 10);
 
         const list = Array.isArray(data) ? data : data?.leaderboard || [];
 
@@ -114,7 +94,12 @@ function App() {
     }
 
     loadLeaderboard();
-  }, [period]);
+  }, [selectedOrg, period]);
+
+  const handleOrganizationChange = (org: string) => {
+    setSelectedOrg(org);
+    setProject("all");
+  };
 
   const handleSelectUser = (name: string) => {
     setSelectedUser(name);
@@ -128,12 +113,14 @@ function App() {
           activePage={activePage}
           onChange={setActivePage}
           title="GitHub Activity Tracker"
+          organization={selectedOrg}
+          onOrganizationChange={handleOrganizationChange}
           period={period}
           onPeriodChange={setPeriod}
-          team="all"
-          onTeamChange={() => {}}
-          project="all"
-          onProjectChange={() => {}}
+          team={team}
+          onTeamChange={setTeam}
+          project={project}
+          onProjectChange={setProject}
           onDownloadCSV={() => {}}
           onDownloadJSON={() => {}}
         />
@@ -141,6 +128,7 @@ function App() {
 
       {activePage === "profile" && selectedUser && (
         <UserProfile
+          org={selectedOrg}
           userName={selectedUser}
           onBack={() => setActivePage("dashboard")}
         />
@@ -148,10 +136,10 @@ function App() {
 
       {activePage === "dashboard" && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {loading && <p>Loading...</p>}
-          {error && <p className="text-red-500">{error}</p>}
+          {dashboardLoading && <p>Loading...</p>}
+          {dashboardError && <p className="text-red-500">{dashboardError}</p>}
 
-          {!loading && !error && (
+          {!dashboardLoading && !dashboardError && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
                 <StatsCard
@@ -188,8 +176,9 @@ function App() {
               </div>
 
               <TeamMembers
-                team="all"
-                project="all"
+                org={selectedOrg}
+                team={team}
+                project={project}
                 period={period}
                 onSelectUser={handleSelectUser}
               />

@@ -26,7 +26,7 @@ function percentChange(current, previous) {
 /* ------------------------------------------------
    MAIN SERVICE
 ------------------------------------------------ */
-async function getUserDetails(login, period) {
+async function getUserDetails(orgId, login, period) {
   if (isExcludedGitHubLogin(login)) {
     throw new Error('User not found');
   }
@@ -70,24 +70,29 @@ async function getUserDetails(login, period) {
   prevStart.setUTCDate(prevEnd.getUTCDate() - (days - 1));
   prevStart.setUTCHours(0, 0, 0, 0);
 
-  /* 3. Fetch daily activity for selected range */
+  /* 3. Fetch daily activity for selected range (scoped to org repos) */
   const dailyQuery = `
     SELECT
-      DATE(created_at) as date,
-      COUNT(*) FILTER (WHERE event_type = 'commit') AS commits,
-      COUNT(*) FILTER (WHERE event_type = 'pr') AS prs,
-      COUNT(*) FILTER (WHERE event_type = 'review') AS reviews
-    FROM activity_events
-    WHERE user_id = $1
-      AND created_at BETWEEN $2 AND $3
-    GROUP BY DATE(created_at)
-    ORDER BY DATE(created_at)
+      DATE(e.created_at) as date,
+      COUNT(*) FILTER (WHERE e.event_type = 'commit') AS commits,
+      COUNT(*) FILTER (WHERE e.event_type = 'pr') AS prs,
+      COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews
+    FROM activity_events e
+    JOIN repos r ON r.github_repo_id = e.repo_id
+    WHERE e.user_id = $1
+      AND LOWER(r.owner) = $4
+      AND e.created_at BETWEEN $2 AND $3
+    GROUP BY DATE(e.created_at)
+    ORDER BY DATE(e.created_at)
   `;
+
+  const orgOwner = String(orgId).toLowerCase();
 
   const dailyRes = await pool.query(dailyQuery, [
     userId,
     start.toISOString(),
     end.toISOString(),
+    orgOwner,
   ]);
 
   /* 4. Fill missing days */
@@ -119,6 +124,7 @@ async function getUserDetails(login, period) {
     userId,
     prevStart.toISOString(),
     prevEnd.toISOString(),
+    orgOwner,
   ]);
 
   const prevCommits = prevRes.rows.reduce((a, b) => a + Number(b.commits), 0);

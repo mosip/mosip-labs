@@ -43,10 +43,14 @@ const getLeaderboard = async (orgId, period = "weekly", limit = 10) => {
       COUNT(*) AS score
     FROM activity_events e
     JOIN github_users u ON u.id = e.user_id
+    JOIN repos r ON r.github_repo_id = e.repo_id
   `;
 
   const params = [];
   const whereClauses = [];
+
+  params.push(String(orgId).toLowerCase());
+  whereClauses.push(`LOWER(r.owner) = $${params.length}`);
 
   if (Array.isArray(EXCLUDED_GITHUB_LOGINS) && EXCLUDED_GITHUB_LOGINS.length > 0) {
     params.push(EXCLUDED_GITHUB_LOGINS.map((l) => String(l).toLowerCase()));

@@ -1,5 +1,6 @@
 import React from "react";
 
+import { ORGANIZATIONS } from "../lib/organizations";
 import DashboardIconWhite from "../assets/DashboardIconWhite.svg";
 import DashboardIconBlack from "../assets/DashboardIconBlack.svg";
 import LeaderboardIconWhite from "../assets/LeaderboardIconWhite.svg";
@@ -14,6 +15,9 @@ interface TopNavProps {
 
   period: "daily" | "weekly" | "monthly";
   onPeriodChange: (p: "daily" | "weekly" | "monthly") => void;
+
+  organization: string;
+  onOrganizationChange: (value: string) => void;
 
   team: string;
   onTeamChange: (value: string) => void;
@@ -31,6 +35,8 @@ const TopNav: React.FC<TopNavProps> = ({
   title,
   period,
   onPeriodChange,
+  organization,
+  onOrganizationChange,
   team,
   onTeamChange,
   project,
@@ -51,6 +57,9 @@ const TopNav: React.FC<TopNavProps> = ({
         ? "bg-blue-600 font-arimo text-white shadow"
         : "bg-gray-100 font-arimo text-gray-700 hover:bg-gray-200"
     }`;
+
+  const filterSelectClass =
+    "w-44 px-4 py-2 border rounded-lg bg-white";
 
   return (
     <div className="w-full bg-white border-b shadow-sm pb-6 font-arimo">
@@ -110,36 +119,58 @@ const TopNav: React.FC<TopNavProps> = ({
         </h1>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 mt-4 flex flex-wrap items-start gap-10">
+      <div className="max-w-7xl mx-auto px-6 mt-4 flex flex-wrap items-end gap-10">
 
-        {/* PERIOD */}
-        <div className="flex flex-col">
-          <label className="text-gray-600 text-sm font-medium mb-2">
-            Period
-          </label>
+        {/* PERIOD + ORGANIZATION */}
+        <div className="flex items-end gap-6">
 
-          <div className="flex items-center gap-2">
-            <button
-              className={periodBtn(period === "daily")}
-              onClick={() => onPeriodChange("daily")}
-            >
-              Daily
-            </button>
+          <div className="flex flex-col">
+            <label className="text-gray-600 text-sm font-medium mb-2">
+              Period
+            </label>
 
-            <button
-              className={periodBtn(period === "weekly")}
-              onClick={() => onPeriodChange("weekly")}
-            >
-              Weekly
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className={periodBtn(period === "daily")}
+                onClick={() => onPeriodChange("daily")}
+              >
+                Daily
+              </button>
 
-            <button
-              className={periodBtn(period === "monthly")}
-              onClick={() => onPeriodChange("monthly")}
-            >
-              Monthly
-            </button>
+              <button
+                className={periodBtn(period === "weekly")}
+                onClick={() => onPeriodChange("weekly")}
+              >
+                Weekly
+              </button>
+
+              <button
+                className={periodBtn(period === "monthly")}
+                onClick={() => onPeriodChange("monthly")}
+              >
+                Monthly
+              </button>
+            </div>
           </div>
+
+          <div className="flex flex-col">
+            <label className="text-gray-600 text-sm font-medium mb-2">
+              Organization
+            </label>
+
+            <select
+              value={organization}
+              onChange={(e) => onOrganizationChange(e.target.value)}
+              className={filterSelectClass}
+            >
+              {ORGANIZATIONS.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
         </div>
 
         {/* TEAM */}
@@ -151,7 +182,7 @@ const TopNav: React.FC<TopNavProps> = ({
           <select
             value={team}
             onChange={(e) => onTeamChange(e.target.value)}
-            className="px-4 py-2 border rounded-lg bg-white"
+            className={filterSelectClass}
           >
             <option value="all">All Teams</option>
             <option value="frontend">Frontend Team</option>
@@ -169,7 +200,7 @@ const TopNav: React.FC<TopNavProps> = ({
           <select
             value={project}
             onChange={(e) => onProjectChange(e.target.value)}
-            className="px-4 py-2 border rounded-lg bg-white"
+            className={filterSelectClass}
           >
             <option value="all">All Projects</option>
             <option value="alpha">Project Alpha</option>
