@@ -3,9 +3,9 @@ const dayjs = require("dayjs");
 const { EXCLUDED_GITHUB_LOGINS } = require("../config/excludedGitHubLogins");
 
 /**
- * Returns org-wide daily activity for chosen period
+ * Returns org-wide daily activity for chosen period, scoped to repos owned by orgId.
  */
-async function getOrgActivity(period) {
+async function getOrgActivity(orgId, period) {
   const periods = { daily: 1, weekly: 7, monthly: 30 };
   const days = periods[period];
   if (!days) {
@@ -15,8 +15,8 @@ async function getOrgActivity(period) {
   const end = dayjs().endOf("day");
   const start = end.subtract(days - 1, "day").startOf("day");
 
-  const params = [];
-  const whereClauses = [];
+  const params = [String(orgId).toLowerCase()];
+  const whereClauses = [`LOWER(r.owner) = $${params.length}`];
 
   if (Array.isArray(EXCLUDED_GITHUB_LOGINS) && EXCLUDED_GITHUB_LOGINS.length > 0) {
     params.push(EXCLUDED_GITHUB_LOGINS.map((l) => String(l).toLowerCase()));
@@ -35,6 +35,7 @@ async function getOrgActivity(period) {
       COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews
     FROM activity_events e
     JOIN github_users u ON u.id = e.user_id
+    JOIN repos r ON r.github_repo_id = e.repo_id
     WHERE ${whereClauses.join(" AND ")}
     GROUP BY DATE(e.created_at)
     ORDER BY DATE(e.created_at);
