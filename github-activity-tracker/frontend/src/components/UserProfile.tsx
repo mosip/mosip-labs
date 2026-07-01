@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { StatsCard } from "./StatsCard";
 import ActivityChart from "./ActivityChart";
@@ -10,17 +11,34 @@ import PRIcon from "../assets/PRIcon.svg";
 import CodeReviewIcon from "../assets/CodeReviewIcon.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
 
+type Period = "daily" | "weekly" | "monthly";
+
+function parsePeriod(value: string | null): Period {
+  return value === "daily" || value === "weekly" || value === "monthly"
+    ? value
+    : "weekly";
+}
+
 interface UserProfileProps {
   userName: string;
   onBack: () => void;
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
-    "weekly",
-  );
-
+  const [searchParams, setSearchParams] = useSearchParams();
+  const periodParam = searchParams.get("period");
+  const period = parsePeriod(periodParam);
   const [userData, setUserData] = useState<any>(null);
+
+  useEffect(() => {
+    if (periodParam === period) return;
+
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("period", period);
+      return params;
+    }, { replace: true });
+  }, [period, periodParam, setSearchParams]);
 
   useEffect(() => {
     async function loadUser() {
@@ -34,6 +52,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
 
     loadUser();
   }, [userName, period]);
+
+  const handlePeriodChange = (nextPeriod: Period) => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("period", nextPeriod);
+      return params;
+    });
+  };
 
   const profile = {
     name: userData?.login || userName,
@@ -91,7 +117,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
         <div className="flex justify-between items-center mt-8">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setPeriod("daily")}
+              onClick={() => handlePeriodChange("daily")}
               className={`px-5 py-2 rounded-lg ${
                 period === "daily"
                   ? "bg-blue-600 text-white"
@@ -102,7 +128,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
             </button>
 
             <button
-              onClick={() => setPeriod("weekly")}
+              onClick={() => handlePeriodChange("weekly")}
               className={`px-5 py-2 rounded-lg ${
                 period === "weekly"
                   ? "bg-blue-600 text-white"
@@ -113,7 +139,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
             </button>
 
             <button
-              onClick={() => setPeriod("monthly")}
+              onClick={() => handlePeriodChange("monthly")}
               className={`px-5 py-2 rounded-lg ${
                 period === "monthly"
                   ? "bg-blue-600 text-white"
@@ -139,7 +165,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6">
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-10">
           <StatsCard
             title="Commits"
@@ -163,7 +188,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
           />
         </div>
 
-        {/* Activity Chart */}
         <div className="bg-white border rounded-xl p-6 mb-8 shadow-sm">
           <h2 className="text-xl font-semibold mb-4">
             Activity Overview –{" "}
@@ -173,7 +197,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
           <ActivityChart data={chartData} period={period} showTitle={false} />
         </div>
 
-        {/* Activity Trend */}
         <ActivityTrend
           data={
             userData?.trend?.labels?.map((label: string, i: number) => ({
@@ -185,7 +208,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ userName, onBack }) => {
           }
         />
 
-        {/* Detailed Activity Table */}
         <div className="bg-white border rounded-xl p-6 shadow-sm mb-10">
           <h2 className="text-xl font-semibold mb-4">Detailed Activity</h2>
 

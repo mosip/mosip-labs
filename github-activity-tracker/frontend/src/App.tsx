@@ -1,4 +1,14 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+  useSearchParams,
+  matchPath,
+} from "react-router-dom";
 
 import { StatsCard } from "./components/StatsCard";
 import ActivityChart from "./components/ActivityChart";
@@ -8,12 +18,7 @@ import LeaderboardCard from "./components/LeaderboardCard";
 import UserProfile from "./components/UserProfile";
 
 import { useGitHubActivity } from "./lib/hooks";
-import {
-  fetchUsers,
-  fetchOrgSummary,
-  fetchOrgActivity,
-  fetchLeaderboard,
-} from "./lib/api";
+import { useDashboardData, useLeaderboardData } from "./lib/usePageData";
 
 /* SVG ICON IMPORTS */
 import CommitIcon from "./assets/CommitIcon.svg";
@@ -21,23 +26,38 @@ import PRIcon from "./assets/PRIcon.svg";
 import CodeReviewIcon from "./assets/CodeReviewIcon.svg";
 import TotalActivityIcon from "./assets/TotalActivityIcon.svg";
 
-function App() {
-  const [activePage, setActivePage] = useState<
-    "dashboard" | "leaderboard" | "profile"
-  >("dashboard");
+type Period = "daily" | "weekly" | "monthly";
 
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+function parsePeriod(value: string | null): Period {
+  return value === "daily" || value === "weekly" || value === "monthly"
+    ? value
+    : "weekly";
+}
 
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("weekly");
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [users, setUsers] = useState<string[]>([]);
-  const [summary, setSummary] = useState<any | null>(null);
+  const isDashboard = location.pathname.startsWith("/dashboard");
+  const isLeaderboard = location.pathname.startsWith("/leaderboard");
+  const isProfile = location.pathname.startsWith("/profile");
+  const username = matchPath(
+    "/profile/:username",
+    location.pathname,
+  )?.params.username;
+  const activePage: "dashboard" | "leaderboard" | "profile" = isDashboard
+    ? "dashboard"
+    : isLeaderboard
+      ? "leaderboard"
+      : "profile";
+  const periodParam = searchParams.get("period");
+  const period = parsePeriod(periodParam);
 
-  const [activityChartData, setActivityChartData] = useState<any | null>(null);
+  const { summary, activityChartData } = useDashboardData(period, isDashboard);
 
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
-
-  const { activities, loading, error } = useGitHubActivity(
+  const { leaderboard } = useLeaderboardData(period, isLeaderboard);
+  const { loading, error } = useGitHubActivity(
     "all",
     "all",
     "",
@@ -49,87 +69,41 @@ function App() {
   );
 
   useEffect(() => {
-    async function loadUsers() {
-      try {
-        const list = await fetchUsers();
-        setUsers(list);
-      } catch (err) {
-        console.error("Error fetching users:", err);
-      }
-    }
-    loadUsers();
-  }, []);
+    if (periodParam === period) return;
 
-  useEffect(() => {
-    async function loadSummary() {
-      try {
-        const data = await fetchOrgSummary("mosip", period);
-        setSummary(data);
-        console.log("ORG SUMMARY:", data);
-      } catch (err) {
-        console.error("Error fetching org summary:", err);
-      }
-    }
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("period", period);
+      return params;
+    }, { replace: true });
+  }, [period, periodParam, setSearchParams]);
 
-    loadSummary();
-  }, [period]);
-
-  useEffect(() => {
-    async function loadActivity() {
-      try {
-        const data = await fetchOrgActivity("mosip", period);
-        setActivityChartData(data);
-        console.log("ORG ACTIVITY:", data);
-      } catch (err) {
-        console.error("Error fetching org activity:", err);
-      }
-    }
-
-    loadActivity();
-  }, [period]);
-
-  useEffect(() => {
-    async function loadLeaderboard() {
-      try {
-        const data = await fetchLeaderboard("mosip", period, 10);
-
-        console.log("LEADERBOARD RAW:", data);
-
-        const list = Array.isArray(data) ? data : data?.leaderboard || [];
-
-        const ranked = list.map((u: any) => ({
-          name: u.login,
-          team: "—",
-          project: "—",
-          commits: u.commits,
-          prs: u.prs,
-          reviews: u.reviews,
-          total: u.score,
-        }));
-
-        setLeaderboard(ranked);
-      } catch (err) {
-        console.error("Error loading leaderboard:", err);
-      }
-    }
-
-    loadLeaderboard();
-  }, [period]);
+  const handlePeriodChange = (nextPeriod: Period) => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("period", nextPeriod);
+      return params;
+    });
+  };
 
   const handleSelectUser = (name: string) => {
-    setSelectedUser(name);
-    setActivePage("profile");
+    navigate(`/profile/${name}?period=${period}`);
+  };
+
+  const handlePageChange = (page: "dashboard" | "leaderboard" | "profile") => {
+    if (page === "dashboard") navigate(`/dashboard?period=${period}`);
+    if (page === "leaderboard") navigate(`/leaderboard?period=${period}`);
   };
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {activePage !== "profile" && (
+      {!isProfile && (
         <TopNav
           activePage={activePage}
-          onChange={setActivePage}
+          onChange={handlePageChange}
           title="GitHub Activity Tracker"
           period={period}
-          onPeriodChange={setPeriod}
+          onPeriodChange={handlePeriodChange}
           team="all"
           onTeamChange={() => {}}
           project="all"
@@ -139,14 +113,14 @@ function App() {
         />
       )}
 
-      {activePage === "profile" && selectedUser && (
+      {isProfile && username && (
         <UserProfile
-          userName={selectedUser}
-          onBack={() => setActivePage("dashboard")}
+          userName={username}
+          onBack={() => navigate(`/dashboard?period=${period}`)}
         />
       )}
 
-      {activePage === "dashboard" && (
+      {isDashboard && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {loading && <p>Loading...</p>}
           {error && <p className="text-red-500">{error}</p>}
@@ -160,21 +134,18 @@ function App() {
                   change={summary?.change?.commits}
                   icon={CommitIcon}
                 />
-
                 <StatsCard
                   title="Pull Requests"
                   value={summary?.total_prs ?? 0}
                   change={summary?.change?.prs}
                   icon={PRIcon}
                 />
-
                 <StatsCard
                   title="Reviews"
                   value={summary?.total_reviews ?? 0}
                   change={summary?.change?.reviews}
                   icon={CodeReviewIcon}
                 />
-
                 <StatsCard
                   title="Total Activity"
                   value={summary?.total_activity ?? 0}
@@ -198,14 +169,28 @@ function App() {
         </main>
       )}
 
-      {activePage === "leaderboard" && (
+      {isLeaderboard && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-3xl font-arimo font-bold mb-6">Leaderboard</h1>
-
           <LeaderboardCard leaders={leaderboard} />
         </main>
       )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route element={<AppContent />}>
+          <Route path="/dashboard" />
+          <Route path="/leaderboard" />
+          <Route path="/profile/:username" />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
 
