@@ -484,11 +484,14 @@ if __name__ == "__main__":
 
     # ── Seed crawl state so run_update.py knows what's already ingested ────────
     print("\nSeeding crawl state for future incremental updates...")
+    with open(DOCS_FILE, encoding="utf-8") as f:
+        raw_docs_for_state = json.load(f)
+
     url_hashes = {
-    doc.metadata["source"]: _hash_content(doc.page_content)
-    for doc in doc_documents
-    if doc.page_content.strip()
-}
+        doc["url"]: content_hash(doc.get("content", ""))
+        for doc in raw_docs_for_state
+        if doc.get("content", "").strip()
+    }
     max_topic_id = 0
     for topic in raw_community:
         try:
