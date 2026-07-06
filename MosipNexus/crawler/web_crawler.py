@@ -59,7 +59,11 @@ def get_all_page_urls(sitemap_url: str, visited: Optional[set] = None) -> list[s
         return []
 
     xml_text = res.text
-    locs = _get_locs(xml_text)
+    try:
+        locs = _get_locs(xml_text)
+    except ET.ParseError as e:
+        print(f"  Sitemap parse error {sitemap_url}: {e}")
+        return []
 
     if "<sitemapindex" in xml_text:
         pages: list[str] = []
