@@ -535,7 +535,7 @@ if __name__ == "__main__":
             if project:
                 project_state = jira_state.setdefault(project, {"seen_keys": [], "last_run": now_iso()})
                 project_state["seen_keys"].append(key)
-                esignet_hashes = {}
+    esignet_hashes = {}
 
     if ESIGNET_FILE.exists():
         with open(ESIGNET_FILE, encoding="utf-8") as f:
