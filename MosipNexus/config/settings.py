@@ -18,7 +18,7 @@ DATA_DIR       = ROOT_DIR / "data"
 DOCS_FILE      = DATA_DIR / "mosip_docs.json"
 COMMUNITY_FILE = DATA_DIR / "mosip_community.json"
 ESIGNET_FILE   = DATA_DIR / "esignet_docs.json"
-ESIGNET_COLLECTION = "esignet_docs"
+
 
 # ── pgvector connection ────────────────────────────────────────────────────────
 # Format: postgresql+psycopg://user:password@host:port/dbname

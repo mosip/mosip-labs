@@ -55,7 +55,7 @@ def build_embeddings() -> HuggingFaceEmbeddings:
     """Load the multilingual embedding model (shared across both collections)."""
     return HuggingFaceEmbeddings(
         model_name=EMBED_MODEL,
-        encode_kwargs={"batch_size": 4},
+        encode_kwargs={"batch_size": 64},
         show_progress=True,
     )
 
@@ -71,10 +71,7 @@ def prepare_doc_documents() -> list[Document]:
     with open(DOCS_FILE, encoding="utf-8") as f:
         data.extend(json.load(f))
 
-    # Load eSignet docs if available
-    if ESIGNET_FILE.exists():
-        with open(ESIGNET_FILE, encoding="utf-8") as f:
-            data.extend(json.load(f))
+    
 
     docs = []
 
@@ -488,10 +485,10 @@ if __name__ == "__main__":
     # ── Seed crawl state so run_update.py knows what's already ingested ────────
     print("\nSeeding crawl state for future incremental updates...")
     url_hashes = {
-        doc["url"]: content_hash(doc.get("content", ""))
-        for doc in raw_docs
-        if doc.get("content", "").strip()
-    }
+    doc.metadata["source"]: _hash_content(doc.page_content)
+    for doc in doc_documents
+    if doc.page_content.strip()
+}
     max_topic_id = 0
     for topic in raw_community:
         try:

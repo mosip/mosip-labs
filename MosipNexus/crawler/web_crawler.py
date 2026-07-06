@@ -20,7 +20,7 @@ import argparse
 import json
 import sys
 import time
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -110,13 +110,30 @@ def fetch_page(url: str) -> tuple[str, str]:
 def crawl_fallback(base_url: str, depth: int = 3) -> list[dict]:
     """Depth-first crawl from the given base URL."""
     visited, docs = set(), []
+    base = urlparse(base_url)
 
     def _crawl(url: str, d: int) -> None:
         if d == 0 or url in visited:
             return
+
         visited.add(url)
+
         try:
-            title, content = fetch_page(url)
+            response = requests.get(
+                url,
+                headers=HTTP_HEADERS,
+                timeout=30,
+            )
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            title = soup.title.get_text(strip=True) if soup.title else ""
+
+            for tag in soup(["script", "style", "nav", "header", "footer"]):
+                tag.decompose()
+
+            content = soup.get_text("\n", strip=True)
 
             if len(content.strip()) > 100:
                 docs.append(
@@ -127,22 +144,20 @@ def crawl_fallback(base_url: str, depth: int = 3) -> list[dict]:
                     }
                 )
 
-            soup = BeautifulSoup(
-                requests.get(
-                    url,
-                    headers=HTTP_HEADERS,
-                    timeout=30,
-                ).text,
-                "html.parser",
-            )
             for a in soup.find_all("a", href=True):
                 next_url = urljoin(url, str(a["href"])).split("#")[0]
                 cand = urlparse(next_url)
-                base = urlparse(base_url)
-                if cand.scheme in {"http", "https"} and cand.netloc == base.netloc:
+
+                if (
+                    cand.scheme in {"http", "https"}
+                    and cand.netloc == base.netloc
+                ):
+                    time.sleep(CRAWL_DELAY_SECS)
                     _crawl(next_url, d - 1)
+
         except Exception as e:
             print(f"  SKIP {url}: {e}")
+
     _crawl(base_url, depth)
     return docs
 

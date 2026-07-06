@@ -94,24 +94,27 @@ def run() -> None:
         state["docs"]["last_run"] = now_iso()
     else:
         print("Docs: nothing to update.")
-           # ── eSignet ───────────────────────────────────────────────────────────────
+    # ── eSignet ───────────────────────────────────────────────────────────────
     print("\n══ ESIGNET ═══════════════════════════════════════════════════════")
 
-    crawl_esignet()
+    try:
+        print(f"\nIngesting into '{ESIGNET_COLLECTION}'...")
 
-    print(f"\nIngesting into '{ESIGNET_COLLECTION}'...")
+        from ingestion.store import ingest_json_file
 
-    from ingestion.store import ingest_json_file
+        ingest_json_file(
+            ESIGNET_FILE,
+            ESIGNET_COLLECTION,
+            embeddings,
+            source_type="esignet",
+        )
 
-    ingest_json_file(
-        ESIGNET_FILE,
-        ESIGNET_COLLECTION,
-        embeddings,
-        source_type="esignet",
-    )
+        state.setdefault("esignet", {})["last_run"] = now_iso()
 
-    state.setdefault("esignet", {})["last_run"] = now_iso()
+    except Exception as e:
+        print(f"eSignet: update failed, continuing with other sources: {e}")
 
+    
     # ── Community ─────────────────────────────
     print("\n══ COMMUNITY ═════════════════════════════════════════════════════")
     new_topics = community_incremental(state)
