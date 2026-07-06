@@ -98,6 +98,7 @@ def run() -> None:
     print("\n══ ESIGNET ═══════════════════════════════════════════════════════")
 
     try:
+        crawl_esignet()
         print(f"\nIngesting into '{ESIGNET_COLLECTION}'...")
 
         from ingestion.store import ingest_json_file
