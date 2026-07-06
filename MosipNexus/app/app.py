@@ -199,6 +199,7 @@ _SOURCE_LABEL = {
     "code":        "Source Code",
     "confluence":  "Confluence",
     "jira":        "Jira Tickets",
+    "esignet":     "eSignet Docs",
     "mixed":       "Docs · Community · GitHub · Code",
     "web":         "Web Sources",
     "none":        "",
@@ -262,6 +263,7 @@ _SIDEBAR_SOURCES_HTML = (
         f'<div>{_SVG_ICON[k]} {label}</div>'
         for k, label in [
             ("docs",        "MOSIP Documentation"),
+            ("docs", "eSignet Docs"),
             ("community",   "Community Forum"),
             ("github",      "GitHub Issues"),
             ("confluence",  "Confluence"),

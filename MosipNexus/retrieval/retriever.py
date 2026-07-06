@@ -23,7 +23,7 @@ from config.settings import (
     COMMUNITY_COLLECTION, CONFLUENCE_COLLECTION, CONFIDENCE_HIGH,
     CONFIDENCE_MEDIUM, DOCS_COLLECTION, EMBED_MODEL,
     GITHUB_COLLECTION, GITHUB_RETRIEVAL_K, JIRA_COLLECTION,
-    RETRIEVAL_FETCH_K, RETRIEVAL_K,
+    RETRIEVAL_FETCH_K, RETRIEVAL_K, ESIGNET_COLLECTION,
 )
 
 _ERROR_CODE_RE = re.compile(r'\b[A-Z]{2,}-[A-Z]{2,}-\d{3,}\b')
@@ -42,7 +42,9 @@ _docs_store: PGVector | None = None
 _community_store: PGVector | None = None
 _github_store: PGVector | None = None
 _code_store: PGVector | None = None
+_esignet_store: PGVector | None = None
 _pg_engine = None
+
 
 
 def _get_pg_engine():
@@ -76,7 +78,7 @@ def _try_load_optional_store(collection_name: str, embeddings: HuggingFaceEmbedd
 
 
 def _build() -> None:
-    global _embeddings, _docs_store, _community_store, _github_store, _code_store
+    global _embeddings, _docs_store, _community_store, _github_store, _code_store, _esignet_store
     _embeddings = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
     _docs_store = PGVector(
         embeddings=_embeddings,
@@ -88,6 +90,10 @@ def _build() -> None:
         connection=PG_CONNECTION,
         collection_name=COMMUNITY_COLLECTION,
     )
+    _esignet_store = _try_load_optional_store(
+    ESIGNET_COLLECTION,
+    _embeddings,
+)
     _github_store = _try_load_optional_store(GITHUB_COLLECTION, _embeddings)
     _code_store   = _try_load_optional_store(CODE_COLLECTION, _embeddings)
 
@@ -101,6 +107,7 @@ def get_collection_counts() -> dict[str, int]:
         CODE_COLLECTION:      "code",
         CONFLUENCE_COLLECTION:"confluence",
         JIRA_COLLECTION:      "jira",
+        ESIGNET_COLLECTION: "esignet",
     }
     counts: dict[str, int] = {}
     with _get_pg_engine().connect() as conn:
@@ -155,6 +162,14 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
 
     doc_results       = docs_retriever.invoke(query)
     community_results = community_retriever.invoke(query)
+    esignet_results: list[Document] = []
+
+    if _esignet_store is not None:
+        esignet_retriever = _esignet_store.as_retriever(
+            search_type="mmr",
+            search_kwargs={"k": k, "fetch_k": RETRIEVAL_FETCH_K},
+        )
+        esignet_results = esignet_retriever.invoke(query)
 
     github_results: list[Document] = []
     if _github_store is not None:
@@ -183,6 +198,8 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
         (docs_store, 1.0),
         (community_store, 1.0),
     ]
+    if _esignet_store is not None:
+        _score_stores.append((_esignet_store, 1.0))
     if _github_store is not None:
         _score_stores.append((_github_store, 1.0))
     if _code_store is not None:
@@ -195,7 +212,6 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
                 best_score = max(best_score, top[0][1])
         except Exception:
             pass
-
     if best_score >= CONFIDENCE_HIGH:
         confidence = "high"
     elif best_score >= CONFIDENCE_MEDIUM:
@@ -203,4 +219,13 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
     else:
         confidence = "low"
 
-    return doc_results + community_results + github_results + code_results, confidence
+    return (
+        doc_results
+        + esignet_results
+        + community_results
+        + github_results
+        + code_results,
+        confidence,
+    )        
+
+               
