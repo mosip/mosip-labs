@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from crawler.community_crawler import crawl_incremental as community_incremental
 from crawler.confluence_crawler import crawl_incremental as confluence_incremental
 from crawler.docs_crawler import crawl_incremental as docs_incremental
-from crawler.esignet_crawler import crawl_esignet
+from crawler.esignet_crawler import crawl_incremental as esignet_incremental
 from crawler.github_crawler import crawl_incremental as github_incremental
 from crawler.jira_crawler import crawl_incremental as jira_incremental
 from crawler.state import load, now_iso, save
@@ -36,7 +36,7 @@ from config.settings import (
     COMMUNITY_COLLECTION, CONFLUENCE_COLLECTION, DOCS_COLLECTION,
     GITHUB_COLLECTION, GITHUB_REPOS, JIRA_COLLECTION, JIRA_PROJECT_KEYS,
     JIRA_TOKEN, JIRA_URL, JIRA_USER, PIPELINE_VERSION, ESIGNET_COLLECTION,
-ESIGNET_FILE, PG_CONNECTION,
+    PG_CONNECTION,
 )
 from ingestion.store import build_embeddings, ingest_incremental
 
@@ -96,26 +96,29 @@ def run() -> None:
         print("Docs: nothing to update.")
     # ── eSignet ───────────────────────────────────────────────────────────────
     print("\n══ ESIGNET ═══════════════════════════════════════════════════════")
+    new_esignet, changed_esignet, unchanged_esignet = esignet_incremental(state)
+    print(
+        f"\nResult: {len(new_esignet)} new | "
+        f"{len(changed_esignet)} changed | "
+        f"{unchanged_esignet} unchanged"
+    )
 
-    try:
-        crawl_esignet()
+    if new_esignet or changed_esignet:
         print(f"\nIngesting into '{ESIGNET_COLLECTION}'...")
-
-        from ingestion.store import ingest_json_file
-
-        ingest_json_file(
-            ESIGNET_FILE,
+        ingest_incremental(
+            new_esignet,
+            changed_esignet,
             ESIGNET_COLLECTION,
             embeddings,
             source_type="esignet",
         )
 
-        state.setdefault("esignet", {})["last_run"] = now_iso()
-
-    except Exception as e:
-        print(f"eSignet: update failed, continuing with other sources: {e}")
-
-    
+        url_hashes = state.setdefault("esignet", {}).setdefault("url_hashes", {})
+        for page in new_esignet + changed_esignet:
+            url_hashes[page["url"]] = page["_hash"]
+        state["esignet"]["last_run"] = now_iso()
+    else:
+        print("eSignet: nothing to update.")
     # ── Community ─────────────────────────────
     print("\n══ COMMUNITY ═════════════════════════════════════════════════════")
     new_topics = community_incremental(state)

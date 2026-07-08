@@ -468,7 +468,7 @@ if __name__ == "__main__":
     if jira_documents:
         print(f"  Loaded {len(jira_documents)} Jira tickets")
         ingest(jira_documents, JIRA_COLLECTION, embeddings)
-        print(f"\n-- Ingesting ESIGNET -> '{ESIGNET_COLLECTION}' --")
+    print(f"\n-- Ingesting ESIGNET -> '{ESIGNET_COLLECTION}' --")
     esignet_documents = prepare_generic_documents(
         ESIGNET_FILE,
         "esignet",
