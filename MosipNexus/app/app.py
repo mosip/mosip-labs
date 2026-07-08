@@ -221,6 +221,10 @@ _SVG_ICON = {
         '<polyline points="14 2 14 8 20 8"/>'
         '<line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'
     ),
+    "esignet": _svg(
+        '<circle cx="12" cy="12" r="9"/>'
+        '<path d="M8 12h8M12 8v8"/>'
+    ),
     "community": _svg(
         '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'
     ),
@@ -263,7 +267,7 @@ _SIDEBAR_SOURCES_HTML = (
         f'<div>{_SVG_ICON[k]} {label}</div>'
         for k, label in [
             ("docs",        "MOSIP Documentation"),
-            ("docs", "eSignet Docs"),
+            ("esignet",     "eSignet Docs"),
             ("community",   "Community Forum"),
             ("github",      "GitHub Issues"),
             ("confluence",  "Confluence"),

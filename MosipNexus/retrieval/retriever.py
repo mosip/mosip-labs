@@ -226,6 +226,6 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
         + github_results
         + code_results,
         confidence,
-    )        
+    )
 
-               
+
