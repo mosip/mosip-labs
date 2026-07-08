@@ -50,6 +50,9 @@ def crawl_esignet() -> list[dict]:
             time.sleep(CRAWL_DELAY_SECS)
     else:
         docs = crawl_fallback(ESIGNET_BASE_URL, depth=3)
+    if not docs:
+        print("eSignet crawl produced no documents; preserving existing snapshot.")
+        return []
 
     with open(ESIGNET_FILE, "w", encoding="utf-8") as f:
         json.dump(docs, f, indent=2, ensure_ascii=False)
