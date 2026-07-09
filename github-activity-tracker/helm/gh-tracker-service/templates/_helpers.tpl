@@ -35,6 +35,52 @@ Compile all warnings into a single message.
 */}}
 
 {{/*
+Shared backend environment variables for app and migration job.
+*/}}
+{{- define "gh-tracker-service.env" -}}
+- name: RDS_HOST
+  valueFrom:
+    configMapKeyRef:
+      key: rds-host
+      name: rds-config
+- name: RDS_PORT
+  valueFrom:
+    configMapKeyRef:
+      key: rds-port
+      name: rds-config
+- name: RDS_DATABASE
+  valueFrom:
+    configMapKeyRef:
+      key: rds-database
+      name: rds-config
+- name: RDS_USER
+  valueFrom:
+    configMapKeyRef:
+      key: rds-username
+      name: rds-config
+- name: RDS_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      key: rds_password
+      name: rds-secret
+- name: GITHUB_TOKEN
+  valueFrom:
+    secretKeyRef:
+      key: token
+      name: github-token
+- name: GITHUB_ORG
+  valueFrom:
+    secretKeyRef:
+      key: github_org
+      name: app-config
+- name: USER_ROLES
+  valueFrom:
+    secretKeyRef:
+      key: user_roles
+      name: app-config
+{{- end -}}
+
+{{/*
 Return podAnnotations
 */}}
 {{- define "gh-tracker-service.podAnnotations" -}}

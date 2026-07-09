@@ -7,15 +7,15 @@ import TeamMembers from "./components/TeamMembers";
 import LeaderboardCard from "./components/LeaderboardCard";
 import UserProfile from "./components/UserProfile";
 
-import { DEFAULT_ORG } from "./lib/organizations";
+import { DEFAULT_PERIOD, type PeriodValue } from "./lib/periods";
 import {
   fetchOrgSummary,
   fetchOrgActivity,
   fetchLeaderboard,
+  fetchOrganizations,
 } from "./lib/api";
 
 /* SVG ICON IMPORTS */
-import CommitIcon from "./assets/CommitIcon.svg";
 import PRIcon from "./assets/PRIcon.svg";
 import CodeReviewIcon from "./assets/CodeReviewIcon.svg";
 import TotalActivityIcon from "./assets/TotalActivityIcon.svg";
@@ -27,9 +27,9 @@ function App() {
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
-  const [selectedOrg, setSelectedOrg] = useState<string>(DEFAULT_ORG);
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("weekly");
-  const [team, setTeam] = useState("all");
+  const [selectedOrg, setSelectedOrg] = useState<string>("");
+  const [period, setPeriod] = useState<PeriodValue>(DEFAULT_PERIOD);
+  const [role, setRole] = useState("all");
   const [project, setProject] = useState("all");
 
   const [summary, setSummary] = useState<any | null>(null);
@@ -41,14 +41,36 @@ function App() {
   useEffect(() => {
     let cancelled = false;
 
+    async function loadOrganizations() {
+      try {
+        const orgs = await fetchOrganizations();
+        if (!cancelled && orgs.length > 0) {
+          setSelectedOrg((current) => current || orgs[0]!.slug);
+        }
+      } catch (err) {
+        console.error("Error loading organizations:", err);
+      }
+    }
+
+    loadOrganizations();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedOrg) return;
+
+    let cancelled = false;
+
     async function loadDashboard() {
       setDashboardLoading(true);
       setDashboardError(null);
 
       try {
         const [summaryData, activityData] = await Promise.all([
-          fetchOrgSummary(selectedOrg, period),
-          fetchOrgActivity(selectedOrg, period),
+          fetchOrgSummary(selectedOrg, period, role),
+          fetchOrgActivity(selectedOrg, period, role),
         ]);
 
         if (cancelled) return;
@@ -68,9 +90,11 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [selectedOrg, period]);
+  }, [selectedOrg, period, role]);
 
   useEffect(() => {
+    if (!selectedOrg) return;
+
     async function loadLeaderboard() {
       try {
         const data = await fetchLeaderboard(selectedOrg, period, 10);
@@ -81,7 +105,6 @@ function App() {
           name: u.login,
           team: "—",
           project: "—",
-          commits: u.commits,
           prs: u.prs,
           reviews: u.reviews,
           total: u.score,
@@ -99,6 +122,7 @@ function App() {
   const handleOrganizationChange = (org: string) => {
     setSelectedOrg(org);
     setProject("all");
+    setRole("all");
   };
 
   const handleSelectUser = (name: string) => {
@@ -117,8 +141,8 @@ function App() {
           onOrganizationChange={handleOrganizationChange}
           period={period}
           onPeriodChange={setPeriod}
-          team={team}
-          onTeamChange={setTeam}
+          role={role}
+          onRoleChange={setRole}
           project={project}
           onProjectChange={setProject}
           onDownloadCSV={() => {}}
@@ -141,14 +165,7 @@ function App() {
 
           {!dashboardLoading && !dashboardError && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                <StatsCard
-                  title="Total Commits"
-                  value={summary?.total_commits ?? 0}
-                  change={summary?.change?.commits}
-                  icon={CommitIcon}
-                />
-
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <StatsCard
                   title="Pull Requests"
                   value={summary?.total_prs ?? 0}
@@ -177,7 +194,7 @@ function App() {
 
               <TeamMembers
                 org={selectedOrg}
-                team={team}
+                role={role}
                 project={project}
                 period={period}
                 onSelectUser={handleSelectUser}

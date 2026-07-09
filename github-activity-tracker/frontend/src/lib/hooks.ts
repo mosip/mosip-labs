@@ -63,11 +63,11 @@ export function useGitHubActivity(
         if (signal.aborted) return;
 
         // Map Activity to ActivityItem
-        const mappedActivities: ActivityItem[] = data.map((activity: Activity) => ({
+        const mappedActivities: ActivityItem[] = data
+          .filter((activity: Activity) => activity.type !== 'commit')
+          .map((activity: Activity) => ({
           type:
-            activity.type === 'commit'
-              ? 'commit'
-              : activity.type === 'pull_request'
+            activity.type === 'pull_request'
               ? 'pull_request'
               : activity.type === 'issue'
               ? 'issue'

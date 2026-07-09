@@ -9,7 +9,7 @@ function getDateRange(period) {
     return { start: null, end: null };
   }
 
-  const periods = { daily: 1, weekly: 7, monthly: 30 };
+  const periods = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
   const days = periods[period];
   if (!days) {
     throw new Error('Invalid period');
@@ -36,6 +36,7 @@ const getLeaderboard = async (orgId, period = "weekly", limit = 10) => {
   let query = `
     SELECT
       u.login,
+      u.name AS name,
       u.avatar_url AS avatar,
       COUNT(*) FILTER (WHERE e.event_type = 'commit') AS commits,
       COUNT(*) FILTER (WHERE e.event_type = 'pr') AS prs,
@@ -69,7 +70,7 @@ const getLeaderboard = async (orgId, period = "weekly", limit = 10) => {
   }
 
   query += `
-    GROUP BY u.id, u.login, u.avatar_url
+    GROUP BY u.id, u.login, u.name, u.avatar_url
     ORDER BY score DESC
     LIMIT ${limit};
   `;
@@ -79,6 +80,7 @@ const getLeaderboard = async (orgId, period = "weekly", limit = 10) => {
   const leaderboard = result.rows.map((row, index) => ({
     rank: index + 1,
     login: row.login,
+    name: row.name || null,
     avatar: row.avatar,
     commits: Number(row.commits),
     prs: Number(row.prs),

@@ -244,36 +244,7 @@ updateStrategy:
 ##     value: "bar"
 ##
 extraEnvVars:
-  - name: RDS_HOST
-    valueFrom:
-      configMapKeyRef:
-        key: rds-host
-        name: rds-config
-  - name: RDS_PORT
-    valueFrom:
-      configMapKeyRef:
-        key: rds-port
-        name: rds-config
-  - name: RDS_DATABASE
-    valueFrom:
-      configMapKeyRef:
-        key: rds-database
-        name: rds-config
-  - name: RDS_USER
-    valueFrom:
-      configMapKeyRef:
-        key: rds-username
-        name: rds-config
-  - name: RDS_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        key: rds_password
-        name: rds-secret
-  - name: GITHUB_TOKEN
-    valueFrom:
-      secretKeyRef:
-        key: token
-        name: github-token
+  {{- include "gh-tracker-service.env" . | nindent 2 }}
 
 ## ConfigMap with extra environment variables
 ##
@@ -302,6 +273,17 @@ extraVolumeMounts: []
 ##         containerPort: 1234
 ##
 initContainers: {}
+
+migration:
+  enabled: true
+  backoffLimit: 3
+  resources:
+    limits:
+      cpu: 300m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
 
 ## Add sidecars to the  pods.
 ## Example:
@@ -450,6 +432,9 @@ ghtrackerservice:
       rds_port: "5432"
       rds_username: "<username>"   # provide username
   secrets:
+    app-config:
+      github_org: <github_org_csv>    # e.g. mosip,inji
+      user_roles: <user_roles_csv>    # e.g. Developer,Tech Lead,QA Engineer
     rds-secret:
       rds_password: <your_password>    # Provide rds password
     github-token:
