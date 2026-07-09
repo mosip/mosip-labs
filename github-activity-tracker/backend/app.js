@@ -2,7 +2,7 @@
  * GitHub Activity Tracker – Backend API
  *
  * Express server that exposes admin sync endpoints to pull repository, commit,
- * PR, and review data from GitHub into PostgreSQL. Run migrations first (npm run migrate).
+ * PR, and review data from GitHub into PostgreSQL.
  */
 require('dotenv').config();
 const express = require('express');
@@ -18,6 +18,9 @@ const orgUsersRoute = require('./routes/orgUsersRoute');
 const userDetailsRoute = require('./routes/userDetailsRoute');
 const userNameSyncRoute = require('./routes/userNameSyncRoute');
 const userRoleRoute = require('./routes/userRoleRoute');
+const userRolesRoute = require('./routes/userRolesRoute');
+const organizationsRoute = require('./routes/organizationsRoute');
+const { ensureLookupTables } = require('./db/initLookupTables');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,8 +40,10 @@ app.get('/', (req, res) => {
       'POST /admin/sync/prs': 'Sync PRs for all repositories in DB',
       'POST /admin/sync/reviews': 'Sync PR reviews for all repositories in DB',
       'POST /admin/sync/user-names': 'Backfill GitHub profile names for users in DB',
-      'POST /admin/users/role': 'Assign job role to a GitHub user',
+      'POST /admin/users/role': 'Assign or change job role for a GitHub user',
       'GET /admin/users/:login/role': 'Fetch job role for a GitHub user',
+      'GET /user-roles': 'List assignable user job roles',
+      'GET /organizations': 'List tracked GitHub organizations',
     },
   });
 });
@@ -50,12 +55,31 @@ app.use(prSyncRoute);
 app.use(reviewSyncRoute);
 app.use(userNameSyncRoute);
 app.use(userRoleRoute);
+app.use(userRolesRoute);
+app.use(organizationsRoute);
 app.use(orgUsersRoute);
 app.use(orgSummaryRoute);
 app.use(userDetailsRoute);
 app.use(orgActivityRoute);
 app.use(leaderboardRoute);
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  try {
+    const result = await ensureLookupTables();
+
+    if (result.createdTables.length > 0) {
+      console.log(`Created tables: ${result.createdTables.join(', ')}`);
+    }
+
+    if (result.rolesAdded > 0 || result.orgsAdded > 0) {
+      console.log(`Added from .env: ${result.rolesAdded} role(s), ${result.orgsAdded} organization(s)`);
+    } else if (result.createdTables.length === 0) {
+      console.log('Lookup tables already exist; no new roles or organizations to add.');
+    }
+  } catch (error) {
+    console.error('Failed to initialize lookup tables:', error.message);
+    process.exit(1);
+  }
+
   console.log(`Server running on http://localhost:${PORT}`);
 });

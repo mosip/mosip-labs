@@ -1,11 +1,12 @@
 /**
  * Routes:
  *   GET  /admin/users/:login/role  – fetch role for a GitHub user
- *   POST /admin/users/role         – assign role to a GitHub user
+ *   POST /admin/users/role         – assign or change role for a GitHub user
  */
 const express = require('express');
 const { getUserRole, setUserRole } = require('../services/userRoleService');
-const { USER_ROLES } = require('../config/userRoles');
+const { getUserRoleNames } = require('../config/userRoles');
+const { getOrganizationNames } = require('../config/organizations');
 const { HTTP, STATUS } = require('../config/errorCodes');
 
 const router = express.Router();
@@ -47,7 +48,7 @@ router.get('/admin/users/:login/role', async (req, res) => {
 
 router.post('/admin/users/role', async (req, res) => {
   try {
-    const { login, role } = req.body || {};
+    const { login, role, organization } = req.body || {};
 
     if (!login) {
       return res.status(HTTP.BAD_REQUEST).json({
@@ -60,11 +61,19 @@ router.post('/admin/users/role', async (req, res) => {
       return res.status(HTTP.BAD_REQUEST).json({
         status: STATUS.ERROR,
         message: 'role is required in request body',
-        allowed_roles: USER_ROLES,
+        allowed_roles: await getUserRoleNames(),
       });
     }
 
-    const user = await setUserRole({ login, role });
+    if (!organization) {
+      return res.status(HTTP.BAD_REQUEST).json({
+        status: STATUS.ERROR,
+        message: 'organization is required in request body',
+        allowed_organizations: await getOrganizationNames(),
+      });
+    }
+
+    const user = await setUserRole({ login, role, organization });
 
     if (!user) {
       return res.status(HTTP.NOT_FOUND).json({
@@ -83,7 +92,15 @@ router.post('/admin/users/role', async (req, res) => {
       return res.status(HTTP.BAD_REQUEST).json({
         status: STATUS.ERROR,
         message: 'Invalid role value',
-        allowed_roles: USER_ROLES,
+        allowed_roles: await getUserRoleNames(),
+      });
+    }
+
+    if (error.message === 'Invalid organization value') {
+      return res.status(HTTP.BAD_REQUEST).json({
+        status: STATUS.ERROR,
+        message: 'Invalid organization value',
+        allowed_organizations: await getOrganizationNames(),
       });
     }
 

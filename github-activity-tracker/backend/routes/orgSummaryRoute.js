@@ -12,11 +12,11 @@ router.get('/orgs/:org_id/summary', async (req, res) => {
       return res.status(400).json({ error: 'Invalid org_id' });
     }
 
-    if (!['daily', 'weekly', 'monthly'].includes(period)) {
+    if (!['daily', 'weekly', 'monthly', 'yearly'].includes(period)) {
       return res.status(400).json({ error: 'Invalid period value' });
     }
 
-    if (role && role !== 'all' && !isValidUserRole(role)) {
+    if (role && role !== 'all' && !(await isValidUserRole(role))) {
       return res.status(400).json({ error: 'Invalid role value' });
     }
 

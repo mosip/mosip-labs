@@ -1,5 +1,6 @@
 const pool = require('../db/dbPool');
 const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
+const { userDetailsJoinSql } = require('../utils/userRoleSql');
 
 /* -----------------------------------------------
    Helper: Generate continuous UTC calendar-day keys
@@ -26,15 +27,23 @@ function percentChange(current, previous) {
 /* ------------------------------------------------
    MAIN SERVICE
 ------------------------------------------------ */
-async function getUserDetails(orgId, login, period) {
+async function getUserDetails(orgId, login, period, role = null) {
   if (isExcludedGitHubLogin(login)) {
     throw new Error('User not found');
   }
   /* 1. Get user details */
   const userQuery = `
-    SELECT id, login, avatar_url, name, role, NULL as email
-    FROM github_users
-    WHERE login = $1
+    SELECT
+      u.id,
+      u.login,
+      u.avatar_url,
+      u.name,
+      ur.name AS role,
+      NULL AS email
+    FROM github_users u
+    LEFT JOIN user_details ud ON ud.user_id = u.id AND ud.active = true
+    LEFT JOIN user_roles ur ON ur.id = ud.role_id
+    WHERE u.login = $1
   `;
   const userRes = await pool.query(userQuery, [login]);
 
@@ -50,6 +59,7 @@ async function getUserDetails(orgId, login, period) {
     daily: 1,
     weekly: 7,
     monthly: 30,
+    yearly: 365,
   };
 
   const days = periods[period];
@@ -70,30 +80,40 @@ async function getUserDetails(orgId, login, period) {
   prevStart.setUTCDate(prevEnd.getUTCDate() - (days - 1));
   prevStart.setUTCHours(0, 0, 0, 0);
 
+  const orgOwner = String(orgId).toLowerCase();
+
   /* 3. Fetch daily activity for selected range (scoped to org repos) */
-  const dailyQuery = `
+  let dailyQuery = `
     SELECT
       DATE(e.created_at) as date,
       COUNT(*) FILTER (WHERE e.event_type = 'commit') AS commits,
       COUNT(*) FILTER (WHERE e.event_type = 'pr') AS prs,
       COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews
     FROM activity_events e
+    JOIN github_users u ON u.id = e.user_id
     JOIN repos r ON r.github_repo_id = e.repo_id
+  `;
+
+  const dailyParams = [userId, start.toISOString(), end.toISOString(), orgOwner];
+
+  dailyQuery += userDetailsJoinSql(role ? '$5' : null);
+
+  if (role) {
+    dailyParams.push(role);
+  }
+
+  dailyQuery += `
     WHERE e.user_id = $1
       AND LOWER(r.owner) = $4
       AND e.created_at BETWEEN $2 AND $3
+  `;
+
+  dailyQuery += `
     GROUP BY DATE(e.created_at)
     ORDER BY DATE(e.created_at)
   `;
 
-  const orgOwner = String(orgId).toLowerCase();
-
-  const dailyRes = await pool.query(dailyQuery, [
-    userId,
-    start.toISOString(),
-    end.toISOString(),
-    orgOwner,
-  ]);
+  const dailyRes = await pool.query(dailyQuery, dailyParams);
 
   /* 4. Fill missing days */
   const dateRange = generateDateRange(start, days);
@@ -120,12 +140,11 @@ async function getUserDetails(orgId, login, period) {
   const totalReviews = dailyActivity.reduce((a, b) => a + b.reviews, 0);
 
   /* 6. Fetch previous period totals */
-  const prevRes = await pool.query(dailyQuery, [
-    userId,
-    prevStart.toISOString(),
-    prevEnd.toISOString(),
-    orgOwner,
-  ]);
+  const prevParams = [userId, prevStart.toISOString(), prevEnd.toISOString(), orgOwner];
+  if (role) {
+    prevParams.push(role);
+  }
+  const prevRes = await pool.query(dailyQuery, prevParams);
 
   const prevCommits = prevRes.rows.reduce((a, b) => a + Number(b.commits), 0);
   const prevPRs = prevRes.rows.reduce((a, b) => a + Number(b.prs), 0);

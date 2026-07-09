@@ -4,7 +4,7 @@ import type { ActivityItem } from '../lib/database.types';
 import Modal from './Modal';
 
 interface DetailViewProps {
-  type: 'commit' | 'pull_request' | 'issue' | 'review' | null;
+  type: 'pull_request' | 'issue' | 'review' | null;
   data: ActivityItem[] | null;
   onClose: () => void;
 }
@@ -22,7 +22,6 @@ const DetailView: React.FC<DetailViewProps> = ({ type, data, onClose }) => {
   }
 
   const typeLabels: Record<NonNullable<DetailViewProps['type']>, string> = {
-    commit: 'Commits',
     pull_request: 'Pull Requests',
     issue: 'Issues',
     review: 'Reviews',

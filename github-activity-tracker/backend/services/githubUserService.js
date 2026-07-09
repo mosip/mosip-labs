@@ -11,6 +11,14 @@ function isBotType(type) {
   return String(type || '').toLowerCase() === 'bot';
 }
 
+function normalizeDisplayName(name) {
+  if (!name || !String(name).trim()) {
+    return null;
+  }
+
+  return String(name).trim();
+}
+
 /**
  * Fetch GitHub profile display name for a login. Returns null when unset or on failure.
  */
@@ -33,11 +41,12 @@ async function fetchGitHubUserName(login) {
 }
 
 /**
- * Resolve display name: use provided value, existing DB value, or fetch from GitHub.
+ * Resolve display name: use provided value, existing github_users value, or fetch from GitHub.
  */
 async function resolveGitHubUserName({ github_user_id, login, type, name }) {
-  if (name && String(name).trim()) {
-    return String(name).trim();
+  const providedName = normalizeDisplayName(name);
+  if (providedName) {
+    return providedName;
   }
 
   if (!login || isBotType(type)) {
@@ -45,16 +54,46 @@ async function resolveGitHubUserName({ github_user_id, login, type, name }) {
   }
 
   const existing = await pool.query(
-    'SELECT name FROM github_users WHERE github_user_id = $1',
+    `
+      SELECT name
+      FROM github_users
+      WHERE github_user_id = $1
+    `,
     [github_user_id]
   );
 
-  const storedName = existing.rows[0]?.name;
-  if (storedName && String(storedName).trim()) {
-    return String(storedName).trim();
+  const storedName = normalizeDisplayName(existing.rows[0]?.name);
+  if (storedName) {
+    return storedName;
   }
 
   return fetchGitHubUserName(login);
+}
+
+/**
+ * Ensure the user has an active user_details row.
+ */
+async function ensureActiveUserDetails(userId) {
+  const activeResult = await pool.query(
+    `
+      SELECT id
+      FROM user_details
+      WHERE user_id = $1 AND active = true
+    `,
+    [userId]
+  );
+
+  if (activeResult.rows[0]) {
+    return;
+  }
+
+  await pool.query(
+    `
+      INSERT INTO user_details (user_id, role_id, active, active_from, active_to)
+      VALUES ($1, NULL, true, '1970-01-01'::timestamp, NULL)
+    `,
+    [userId]
+  );
 }
 
 /**
@@ -99,21 +138,23 @@ async function upsertGitHubUser({
     ]
   );
 
-  return userResult.rows[0].id;
+  const userId = userResult.rows[0].id;
+  await ensureActiveUserDetails(userId);
+  return userId;
 }
 
 /**
- * Backfill profile names for users that do not have one stored yet.
+ * Backfill profile names for users that do not have one stored in github_users yet.
  */
 async function backfillMissingUserNames() {
   const result = await pool.query(
     `
-      SELECT id, login, type
-      FROM github_users
-      WHERE name IS NULL
-        AND login IS NOT NULL
-        AND (type IS NULL OR LOWER(type) <> 'bot')
-      ORDER BY id
+      SELECT u.id, u.login, u.type, u.github_user_id
+      FROM github_users u
+      WHERE u.name IS NULL
+        AND u.login IS NOT NULL
+        AND (u.type IS NULL OR LOWER(u.type) <> 'bot')
+      ORDER BY u.id
     `
   );
 
@@ -121,18 +162,20 @@ async function backfillMissingUserNames() {
 
   for (const user of result.rows) {
     const name = await fetchGitHubUserName(user.login);
-    await pool.query(
-      `
-        UPDATE github_users
-        SET name = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `,
-      [name, user.id]
-    );
 
     if (name) {
+      await pool.query(
+        `
+          UPDATE github_users
+          SET name = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `,
+        [name, user.id]
+      );
       namesFetched += 1;
     }
+
+    await ensureActiveUserDetails(user.id);
 
     await sleep(NAME_FETCH_DELAY_MS);
   }
@@ -147,4 +190,5 @@ module.exports = {
   fetchGitHubUserName,
   upsertGitHubUser,
   backfillMissingUserNames,
+  ensureActiveUserDetails,
 };
