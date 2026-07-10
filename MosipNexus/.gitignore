@@ -18,8 +18,9 @@ data/crawl_state.json
 data/mosip_confluence.json
 data/mosip_jira.json
 
-# ── pg_dump for team sharing — large binary, not for git ──────────────────────
+# ── pg_dump / zip exports — large binaries, not for git ──────────────────────
 nexus_vectors.dump
+nexus_vectors.zip
 
 # ── Virtual environment (managed at monorepo root) ────────────────────────────
 .venv/

@@ -5,7 +5,7 @@ Pipeline for each user question:
   1. Pure greeting → direct friendly reply (no RAG).
   2. Message starting with greeting → RAG answer prefixed with a brief greeting.
   3. Condense follow-up questions using chat history (LCEL condenser chain).
-  4. Retrieve top-K chunks from both ChromaDB collections via MMR.
+  4. Retrieve top-K chunks from all pgvector collections via MMR.
   5. Score confidence from the best chunk's cosine distance.
   6. Generate answer grounded strictly in context (Groq Llama 3.3).
   7. If retrieved context is irrelevant → emit [NO_DOC_SOURCE] marker.
@@ -18,6 +18,7 @@ and LANGCHAIN_API_KEY are set in the environment — no code changes needed.
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -25,14 +26,70 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_groq import ChatGroq
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.settings import GROQ_API_KEY, GROQ_MODEL
 from retrieval.retriever import retrieve, _ERROR_CODE_RE, _CODE_QUERY_RE
 
+# Detects "works locally but fails in hosted/staging/synergy/production" debugging questions.
+# These require a fundamentally different answer shape: focus on environmental differences,
+# not generic troubleshooting steps.
+_ENV_DEBUG_RE = re.compile(
+    r"work(?:s|ed|ing)?\s+(?:fine\s+)?(?:locally|local|on\s+local)|"
+    r"local(?:ly)?\s+(?:it\s+)?work(?:s|ed)|"
+    r"(?:synergy|hosted|production|staging|remote)\s+(?:env(?:ironment)?|setup)",
+    re.IGNORECASE,
+)
+
 _llm: ChatGroq | None = None
 _condenser = None
+
+
+def build_llm(
+    provider: str = "groq",
+    api_key: str | None = None,
+    model: str | None = None,
+) -> BaseChatModel:
+    """Factory — returns a chat model for the given provider and key.
+
+    api_key is required for all providers. For internal backend use (ingestion,
+    summarizer) the server's GROQ_API_KEY is used as fallback; user-facing
+    ask() enforces BYOK before reaching here.
+    """
+    if provider == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(
+            model=model or "claude-haiku-4-5-20251001",
+            api_key=api_key,  # type: ignore[arg-type]
+        )
+    if provider == "openai":
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=model or "gpt-4o-mini",
+            api_key=api_key,  # type: ignore[arg-type]
+        )
+    # groq — api_key required for user queries; backend falls back to server key
+    return ChatGroq(
+        model=model or GROQ_MODEL,
+        api_key=api_key or GROQ_API_KEY,
+    )
+
+
+_NO_LLM_RESPONSE: dict = {
+    "answer": (
+        "⚙️ **No LLM configured.**\n\n"
+        "To use the web interface, go to **⚙️ Settings** (sidebar) and enter your own "
+        "API key for Claude (Anthropic), OpenAI, or Groq.\n\n"
+        "Alternatively, use **Claude Desktop** with the MCP integration — "
+        "no API key needed, queries run on your own Claude subscription."
+    ),
+    "sources": [],
+    "source_type": "none",
+    "confidence": "n/a",
+    "similar_questions": [],
+}
 
 _GREETINGS = {
     "hi", "hello", "hey", "hola", "bonjour", "namaste", "vanakkam",
@@ -75,22 +132,23 @@ language.\
 _NO_SOURCE_MARKER = "[NO_DOC_SOURCE]"
 
 
+_CONDENSE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system",
+     "Given the conversation history and the latest question, rewrite the question "
+     "as a standalone search query that captures all necessary context. "
+     "Return ONLY the rewritten question, nothing else."),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+
+
 def _build() -> None:
     global _llm, _condenser
-    _llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY)
-
-    condense_prompt = ChatPromptTemplate.from_messages([
-        ("system",
-         "Given the conversation history and the latest question, rewrite the question "
-         "as a standalone search query that captures all necessary context. "
-         "Return ONLY the rewritten question, nothing else."),
-        MessagesPlaceholder("chat_history"),
-        ("human", "{input}"),
-    ])
-    _condenser = condense_prompt | _llm | StrOutputParser()
+    _llm = build_llm()
+    _condenser = _CONDENSE_PROMPT | _llm | StrOutputParser()
 
 
-def _get_llm() -> ChatGroq:
+def _get_llm() -> BaseChatModel:
     if _llm is None:
         _build()
     assert _llm is not None
@@ -125,6 +183,7 @@ def _web_fallback_or_none(
     question: str,
     language: str,
     fallback_answer: str | None = None,
+    llm: BaseChatModel | None = None,
 ) -> dict[str, Any]:
     """Try a web search when the knowledge base has no usable context; otherwise
     return a plain "not available" response instead of letting the LLM guess."""
@@ -134,7 +193,7 @@ def _web_fallback_or_none(
             f"[{h.get('title', '')}]({h['href']})\n{h['body']}"
             for h in web_hits
         )
-        llm = _get_llm()
+        assert llm is not None, "llm must be provided to _web_fallback_or_none"
         web_response = llm.invoke([
             SystemMessage(content=(
                 f"You are a helpful assistant. The MOSIP knowledge base did not have "
@@ -182,18 +241,64 @@ def _build_system_prompt(
     has_greeting: bool,
     is_error_query: bool = False,
     is_code_query: bool = False,
+    is_env_debug: bool = False,
 ) -> str:
+    """Build the system prompt for one RAG turn.
+
+    is_env_debug and is_error_query can both be true simultaneously
+    (e.g. an error code that only appears in a hosted environment).
+    In that case env_debug takes format priority and error rules are appended.
+    """
     greeting_rule = (
         "Start with one warm sentence acknowledging the greeting, then answer directly.\n"
         if has_greeting else ""
     )
-    if is_error_query:
+    if is_env_debug:
+        answer_format = (
+            "This is an environment-comparison debugging question — the user says the same thing "
+            "works locally but fails in a hosted/remote environment (Synergy, production, staging, etc.). "
+            "Structure your answer as:\n"
+            "  1. Confirm the key insight: the biometric data / request payload itself is NOT the problem "
+            "(it works locally). The failure is in the hosted environment's configuration or version.\n"
+            "  2. IMPORTANT — do NOT treat HTTP status codes (401, 500, 403, etc.) as MOSIP error codes "
+            "(like IDA-MLC-009 or KER-ATH-401). In this context, 401 means the hosted service returned "
+            "HTTP 401 Unauthorized, and 500 means the hosted service threw an internal error. "
+            "Treat them as HTTP-level responses from that specific service (BQAT, SBI, biosdk-service, etc.).\n"
+            "  3. List what differs between local and hosted environments — focus on: "
+            "version/image tag mismatch, credential or API key requirements in the hosted env, "
+            "network policies or IP allowlists, config drift in values.yaml or application.properties.\n"
+            "  4. Give specific next steps to narrow down which env difference is causing it. "
+            "For 401 from a remote service: check whether the hosted service requires auth headers "
+            "the local Docker image does not. "
+            "For 500 from a remote service: check the hosted service pod logs for the actual stack trace.\n"
+            "  5. If the retrieved context includes community threads about this exact issue, "
+            "cite them by name. If those threads have no accepted answer, say so explicitly — "
+            "do not invent a resolution that isn't in the context.\n\n"
+        )
+        if is_error_query:
+            answer_format += (
+                "Additionally, this query references a specific MOSIP error code — "
+                "apply the error code rules: quote the exact constant, flag %s/%d as "
+                "runtime placeholders, and compare sibling error codes if present.\n\n"
+            )
+    elif is_error_query:
         answer_format = (
             "For this error code question, structure your answer as:\n"
-            "  1. What the error means (one clear sentence)\n"
-            "  2. Most likely root cause(s) — list in order of likelihood\n"
-            "  3. Step-by-step resolution\n"
-            "  4. How to verify the fix worked\n\n"
+            "  1. Exact error definition — quote the constant from source code if available. "
+            "CRITICAL: if the message contains %s, %d, or any Java format specifier, state "
+            "explicitly that this is a runtime placeholder substituted with the actual offending "
+            "value in the API response. NEVER replace %s with a specific example value and present "
+            "it as the definition. Tell the user to read their actual error response to see what "
+            "field name was substituted.\n"
+            "  2. How this differs from sibling error codes in the same file — e.g. 'missing' vs "
+            "'present but invalid' — if sibling constants appear in the retrieved context.\n"
+            "  3. Most likely root causes specific to this error, ranked by likelihood. "
+            "Do NOT list generic causes that apply to any error — only causes grounded in the "
+            "retrieved context or in how this specific constant is used in the codebase.\n"
+            "  4. Step-by-step resolution — first step MUST be: check your actual error response "
+            "for the substituted field name (%s value), since that tells you exactly which "
+            "parameter is failing.\n"
+            "  5. How to verify the fix worked.\n\n"
         )
     elif is_code_query:
         answer_format = (
@@ -203,7 +308,13 @@ def _build_system_prompt(
             "  - Mention key methods if they are in the context.\n"
             "  - If multiple classes share the responsibility, list them in order of importance.\n"
             "  - If the exact class is not in the context, name the closest class you CAN identify "
-            "and clearly state what aspect of the question it covers.\n\n"
+            "and clearly state what aspect of the question it covers.\n"
+            "  - CRITICAL: if the only matching class in the retrieved context is from a demo, "
+            "test, sample, mock, or simulator package (e.g. io.mosip.*.demo.*, SampleSDK, "
+            "DemoService), you MUST state explicitly: 'This class is from the demo/test "
+            "application, NOT the production implementation.' Then describe what the production "
+            "class likely does based on the pattern, but make clear the exact production class "
+            "name is not in the available context.\n\n"
         )
     else:
         answer_format = (
@@ -257,6 +368,11 @@ def _build_system_prompt(
         f"- Prioritise content marked [ACCEPTED ANSWER] — these are verified solutions.\n"
         f"- GitHub Issues in the context show real error reports with real solutions — use them.\n"
         f"- When source code file names appear in context, cite them by name and explain their role.\n"
+        f"- When community threads appear in the context about the same issue as the query, "
+        f"ALWAYS cite them explicitly by their exact title from the context. "
+        f"If the thread contains a resolution or ACCEPTED ANSWER, summarise it. "
+        f"If the thread has no accepted answer, say so explicitly — "
+        f"this signals an unresolved known issue the user should follow or escalate.\n"
         f"- ONLY output {_NO_SOURCE_MARKER} at the very start if the question is completely "
         f"unrelated to MOSIP (e.g. weather, sports, general coding unrelated to MOSIP). "
         f"For any MOSIP question — even with limited context — give your best answer.\n"
@@ -269,6 +385,9 @@ def ask(
     question: str,
     chat_history: list,
     language: str = "English",
+    llm_provider: str = "groq",
+    llm_api_key: str | None = None,
+    llm_model: str | None = None,
 ) -> dict[str, Any]:
     """Run the full RAG pipeline for one user turn.
 
@@ -276,6 +395,9 @@ def ask(
         question:     Raw user message.
         chat_history: LangChain HumanMessage / AIMessage objects from prior turns.
         language:     Human-readable language name for the LLM response language.
+        llm_provider: "groq" | "anthropic" | "openai" — defaults to server Groq key.
+        llm_api_key:  User-supplied API key (BYOK); None uses server default.
+        llm_model:    Optional model override (e.g. "claude-haiku-4-5-20251001").
 
     Returns:
         answer      (str):       generated response text.
@@ -284,7 +406,12 @@ def ask(
         confidence  (str):       "high" | "medium" | "low" | "n/a".
         similar_questions (list[str]): titles of related community threads (may be empty).
     """
-    llm = _get_llm()
+    # Require the user to supply their own API key — no server fallback.
+    if not llm_api_key:
+        return _NO_LLM_RESPONSE
+
+    llm = build_llm(llm_provider, llm_api_key, llm_model)
+    condenser = _CONDENSE_PROMPT | llm | StrOutputParser()
 
     # ── Pure greeting ──────────────────────────────────────────────────────────
     if _is_greeting(question):
@@ -314,13 +441,9 @@ def ask(
         }
 
     # ── Condense follow-up questions ───────────────────────────────────────────
-    if _condenser is None:
-        _build()
-    assert _condenser is not None
-
     try:
         standalone = (
-            _condenser.invoke({"input": question, "chat_history": chat_history})
+            condenser.invoke({"input": question, "chat_history": chat_history})
             if chat_history
             else question
         )
@@ -336,13 +459,24 @@ def ask(
     # No chunks retrieved at all — don't let the LLM guess from pretrained
     # knowledge, go straight to the same web-fallback path as [NO_DOC_SOURCE].
     if not docs:
-        return _web_fallback_or_none(question, language)
+        return _web_fallback_or_none(question, language, llm=llm)
 
     # ── Build QA chain ─────────────────────────────────────────────────────────
     has_greeting = _starts_with_greeting(question)
+    # Check both original question and condensed form — condensation can strip env signals
+    # (e.g. "Synergy environment", "works locally") from a long community-post paste
+    is_env_debug   = bool(_ENV_DEBUG_RE.search(question)) or bool(_ENV_DEBUG_RE.search(standalone))
     is_error_query = bool(_ERROR_CODE_RE.search(standalone))
-    is_code_query = not is_error_query and bool(_CODE_QUERY_RE.search(standalone))
-    system_prompt = _build_system_prompt(language, has_greeting, is_error_query, is_code_query)
+    # env_debug + error_query can both be true (e.g. "IDA-MLC-009 in Synergy, works locally")
+    # env_debug takes format priority but error_query rules still apply inside that format.
+    # code_query is mutually exclusive with both since code analysis ≠ debugging/error context.
+    is_code_query  = not is_error_query and not is_env_debug and bool(_CODE_QUERY_RE.search(standalone))
+    system_prompt = _build_system_prompt(
+        language, has_greeting,
+        is_error_query=is_error_query,
+        is_code_query=is_code_query,
+        is_env_debug=is_env_debug,
+    )
 
     qa_prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
@@ -380,7 +514,7 @@ def ask(
     # ── [NO_DOC_SOURCE] → try DuckDuckGo web search fallback ─────────────────
     if _NO_SOURCE_MARKER in answer:
         fallback_answer = answer.replace(_NO_SOURCE_MARKER, "").lstrip()
-        return _web_fallback_or_none(question, language, fallback_answer)
+        return _web_fallback_or_none(question, language, fallback_answer, llm=llm)
 
     # ── Classify sources ───────────────────────────────────────────────────────
     source_types = {d.metadata.get("source_type", "") for d in docs}

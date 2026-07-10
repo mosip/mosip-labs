@@ -43,6 +43,25 @@ services:
       postgres:
         condition: service_healthy
 
+  # ── MCP Server (Claude Desktop integration) ────────────────────────────────
+  nexus-mcp:
+    build: .
+    command:
+      - uv
+      - run
+      - python
+      - mcp_server/server.py
+    env_file: .env
+    environment:
+      PG_CONNECTION: "postgresql+psycopg://mosip:mosip@postgres:5432/mosipnexus"
+      PYTHONPATH: /app/MosipNexus
+      MCP_PORT: "8002"
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # ── Streamlit UI ────────────────────────────────────────────────────────────
   nexus-ui:
     build: .

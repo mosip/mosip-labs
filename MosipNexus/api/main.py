@@ -105,17 +105,34 @@ class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Question to ask about MOSIP.")
     session_id: str | None = Field(None, description="Pass previous session_id to continue conversation.")
     language: str = Field("English", description="Response language e.g. English, Tamil, Hindi.")
+    llm_provider: str = Field("groq", description="LLM provider: 'groq' (default) | 'anthropic' | 'openai'.")
+    llm_api_key: str | None = Field(None, description="User's own API key (BYOK). Never logged or stored.")
+    llm_model: str | None = Field(None, description="Optional model override e.g. 'claude-haiku-4-5-20251001'.")
 
 
 @app.post("/chat", response_model=ChatResponse, tags=["Chat"],
           summary="Ask a MOSIP question",
           description="Main RAG endpoint. Returns answer + sources + confidence. Pass `session_id` from the response back to maintain conversation context.")
 def chat(req: ChatRequest) -> ChatResponse:
+    if not req.llm_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "llm_api_key is required. Provide your own Groq, Anthropic, or OpenAI API key. "
+                "No server-side LLM key is available."
+            ),
+        )
+
     session_id = req.session_id or str(uuid.uuid4())
     memory = _get_session(session_id)
 
     try:
-        result = ask(req.question, memory.messages, req.language)
+        result = ask(
+            req.question, memory.messages, req.language,
+            llm_provider=req.llm_provider,
+            llm_api_key=req.llm_api_key,
+            llm_model=req.llm_model,
+        )
     except Exception as e:
         logger.exception("Error in /chat for session %s", session_id)
         raise HTTPException(status_code=500, detail="An internal error occurred. Please try again.")
@@ -463,6 +480,9 @@ class BatchRequest(BaseModel):
     questions: list[str] = Field(..., min_length=1, max_length=10, description="List of questions (max 10).")
     session_id: str | None = Field(None, description="Shared session — questions are answered sequentially, each aware of previous.")
     language: str = Field("English", description="Response language for all questions.")
+    llm_provider: str = Field("groq", description="LLM provider: 'groq' | 'anthropic' | 'openai'.")
+    llm_api_key: str | None = Field(None, description="User's own API key (BYOK). Never logged or stored.")
+    llm_model: str | None = Field(None, description="Optional model override.")
 
 
 class BatchResponse(BaseModel):
@@ -475,6 +495,15 @@ class BatchResponse(BaseModel):
           summary="Ask multiple questions at once",
           description="Process up to 10 questions sequentially in a single request. Each question is aware of the previous answers (shared session context).")
 def batch(req: BatchRequest) -> BatchResponse:
+    if not req.llm_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "llm_api_key is required. Provide your own Groq, Anthropic, or OpenAI API key. "
+                "No server-side LLM key is available."
+            ),
+        )
+
     session_id = req.session_id or str(uuid.uuid4())
     memory = _get_session(session_id)
 
@@ -485,7 +514,12 @@ def batch(req: BatchRequest) -> BatchResponse:
 
     for i, question in enumerate(req.questions):
         try:
-            result = ask(question, temp_messages, req.language)
+            result = ask(
+                question, temp_messages, req.language,
+                llm_provider=req.llm_provider,
+                llm_api_key=req.llm_api_key,
+                llm_model=req.llm_model,
+            )
         except Exception as e:
             logger.exception("Error in /batch on question index %d", i)
             raise HTTPException(status_code=500, detail="An internal error occurred. Please try again.")

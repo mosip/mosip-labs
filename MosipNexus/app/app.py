@@ -344,7 +344,12 @@ if query:
 # Collapse default Streamlit sidebar top padding
 st.markdown("""
 <style>
-[data-testid="stSidebarContent"] { padding-top: 1rem !important; }
+/* Hide Streamlit's auto-generated multi-page nav links ("app", "settings") */
+[data-testid="stSidebarNav"] { display: none !important; }
+/* Remove all top space above logo */
+[data-testid="stSidebarContent"] { padding-top: 0 !important; }
+section[data-testid="stSidebar"] > div:first-child { padding-top: 0 !important; }
+[data-testid="stSidebarContent"] > div:first-child { margin-top: -0.75rem !important; }
 /* Section spacing */
 [data-testid="stSidebarContent"] hr { margin: 1.4rem 0 !important; border-color: #e5e7eb !important; }
 [data-testid="stSidebarContent"] .stMarkdown p { margin-bottom: 0.3rem !important; }
@@ -392,10 +397,26 @@ section[data-testid="stSidebar"] { scrollbar-width: none; }
     left: 19rem;
 }
 </style>
-<div class="mosip-footer">
-  Powered by LangChain &nbsp;·&nbsp; Groq Llama 3.3 &nbsp;·&nbsp; pgvector &nbsp;·&nbsp; HuggingFace
-</div>
 """, unsafe_allow_html=True)
+
+_provider_key = st.session_state.get("llm_provider", "groq")
+_has_key = bool(st.session_state.get("llm_api_key"))
+_active_provider_label = {
+    "anthropic": "Claude (Anthropic)",
+    "openai": "OpenAI",
+    "groq": "Groq",
+}.get(_provider_key, "Groq") if _has_key else None
+
+_footer_parts = ["LangChain", "pgvector", "HuggingFace"]
+if _active_provider_label:
+    _footer_parts.insert(1, _active_provider_label)
+
+st.markdown(
+    f'<div class="mosip-footer">Powered by &nbsp;'
+    f'{"&nbsp; · &nbsp;".join(_footer_parts)}'
+    f'</div>',
+    unsafe_allow_html=True,
+)
 
 _logo_data: str | None = base64.b64encode(_LOGO.read_bytes()).decode() if _LOGO.exists() else None
 
@@ -465,6 +486,9 @@ with st.sidebar:
     st.markdown("**Sources searched**")
     st.markdown(_SIDEBAR_SOURCES_HTML, unsafe_allow_html=True)
 
+    st.divider()
+    st.page_link("pages/settings.py", label="⚙️ Settings")
+
 # ── Main title ─────────────────────────────────────────────────────────────────
 if _logo_data:
     st.markdown(
@@ -482,6 +506,25 @@ st.markdown(
     '</p>',
     unsafe_allow_html=True,
 )
+
+# ── Persistent session state defaults (must match settings.py) ────────────────
+if "llm_api_key" not in st.session_state:
+    st.session_state["llm_api_key"] = ""
+if "llm_provider" not in st.session_state:
+    st.session_state["llm_provider"] = "groq"
+
+# ── No-LLM banner ─────────────────────────────────────────────────────────────
+if not st.session_state.get("llm_api_key"):
+    st.markdown(
+        '<div style="background:#fffbeb; border:1px solid #fcd34d; border-radius:8px; '
+        'padding:0.7rem 1rem; font-size:0.875rem; color:#92400e; margin-bottom:0.5rem;">'
+        '⚠️ &nbsp;<strong>No LLM configured.</strong> &nbsp;Go to '
+        '<a href="/settings" target="_self" style="color:#6366f1; font-weight:600; '
+        'text-decoration:none;">Settings</a> '
+        'to add your own Claude, OpenAI, or Groq API key — or use Claude Desktop with the MCP integration.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 # ── Scroll-to-bottom button + auto-scroll ─────────────────────────────────────
 import streamlit.components.v1 as _components
@@ -612,7 +655,12 @@ if query:
     # ── Generate answer ────────────────────────────────────────────────────────
     with st.chat_message("assistant"):
         with st.spinner("Searching docs and community forum..."):
-            result = ask(query, memory.messages, memory.language)
+            result = ask(
+                query, memory.messages, memory.language,
+                llm_provider=st.session_state.get("llm_provider", "groq"),
+                llm_api_key=st.session_state.get("llm_api_key"),
+                llm_model=st.session_state.get("llm_model"),
+            )
 
         answer       = result["answer"]
         sources      = result["sources"]
