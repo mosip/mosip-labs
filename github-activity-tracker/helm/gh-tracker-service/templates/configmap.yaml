@@ -30,3 +30,4 @@ metadata:
   {{- end }}
 data:
   github_org: {{ .Values.ghtrackerservice.configmaps.app_config.github_org | quote }}
+  user_roles: {{ .Values.ghtrackerservice.configmaps.app_config.user_roles | quote }}

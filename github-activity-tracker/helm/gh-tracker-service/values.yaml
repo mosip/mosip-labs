@@ -432,6 +432,7 @@ ghtrackerservice:
       rds_username: "<username>"   # provide username
     app_config:
       github_org: "mosip,inji"
+      user_roles: "Developer,Tech Lead,Architect,Product Owner,Leadership,QA Engineer,DevOps Engineer"
   secrets:
     rds-secret:
       rds_password: <your_password>    # Provide rds password

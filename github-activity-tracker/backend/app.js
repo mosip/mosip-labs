@@ -19,6 +19,7 @@ const userDetailsRoute = require('./routes/userDetailsRoute');
 const userRoleRoute = require('./routes/userRoleRoute');
 const userRolesRoute = require('./routes/userRolesRoute');
 const organizationsRoute = require('./routes/organizationsRoute');
+const { ensureLookupTables } = require('./db/initLookupTables');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -59,6 +60,19 @@ app.use(userDetailsRoute);
 app.use(orgActivityRoute);
 app.use(leaderboardRoute);
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  try {
+    const result = await ensureLookupTables();
+
+    if (result.rolesAdded > 0 || result.orgsAdded > 0) {
+      console.log(
+        `Seeded from .env: ${result.rolesAdded} role(s), ${result.orgsAdded} organization(s)`
+      );
+    }
+  } catch (error) {
+    console.error('Failed to seed lookup tables from .env:', error.message);
+    process.exit(1);
+  }
+
   console.log(`Server running on http://localhost:${PORT}`);
 });

@@ -27,6 +27,7 @@ services:
       RDS_PASSWORD: ${RDS_PASSWORD:-github_password}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
       GITHUB_ORG: ${GITHUB_ORG}
+      USER_ROLES: ${USER_ROLES}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
       NODE_ENV: production
     depends_on:

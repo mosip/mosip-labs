@@ -73,6 +73,11 @@ Shared backend environment variables for app and migration job.
     configMapKeyRef:
       key: github_org
       name: app-config
+- name: USER_ROLES
+  valueFrom:
+    configMapKeyRef:
+      key: user_roles
+      name: app-config
 {{- end -}}
 
 {{/*
