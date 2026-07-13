@@ -21,7 +21,6 @@ ChartJS.register(
 
 interface TrendPoint {
   date: string;
-  commits: number;
   prs: number;
   reviews: number;
 }
@@ -36,15 +35,6 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
   const chartData = {
     labels,
     datasets: [
-      {
-        label: "Commits",
-        data: data.map((d) => d.commits),
-        borderColor: "#3b82f6",
-        backgroundColor: "#3b82f6",
-        tension: 0.4,
-        pointRadius: 4,
-        pointBorderWidth: 2,
-      },
       {
         label: "Pull Requests",
         data: data.map((d) => d.prs),

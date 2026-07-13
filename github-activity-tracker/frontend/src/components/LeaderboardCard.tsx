@@ -6,9 +6,9 @@ import BronzeIcon from "../assets/BronzeIcon.svg";
 
 interface Leader {
   name: string;
+  login?: string;
   team: string;
   project: string;
-  commits: number;
   prs: number;
   reviews: number;
   total: number;
@@ -68,7 +68,7 @@ const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaders }) => {
                   <h2 className="font-semibold text-lg">{user.name}</h2>
 
                   <p className="text-gray-500 text-sm">
-                    {user.team} • {user.project}
+                    {user.login ? `@${user.login}` : `${user.team} • ${user.project}`}
                   </p>
                 </div>
               </div>
@@ -81,13 +81,6 @@ const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaders }) => {
 
             {/* METRICS ROW */}
             <div className="flex mt-4 text-sm pl-10 w-full">
-              <div className="flex justify-between flex-1 pr-10">
-                <span style={{ color: "#4A5565" }}>Commits:</span>
-                <span style={{ color: "#155DFC", fontWeight: 600 }}>
-                  {user.commits}
-                </span>
-              </div>
-
               <div className="flex justify-between flex-1 pr-10">
                 <span style={{ color: "#4A5565" }}>PRs:</span>
                 <span style={{ color: "#00A63E", fontWeight: 600 }}>

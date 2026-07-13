@@ -1,5 +1,5 @@
 import React from 'react';
-import { GitCommit, GitPullRequest, AlertCircle, MessageSquare, User } from 'lucide-react';
+import { GitPullRequest, AlertCircle, MessageSquare, User } from 'lucide-react';
 import type { ActivityItem } from '../lib/database.types';
 
 interface ActivityItemProps {
@@ -11,7 +11,6 @@ interface ActivityItemProps {
 }
 
 const icons = {
-  commit: GitCommit,
   pull_request: GitPullRequest,
   issue: AlertCircle,
   review: MessageSquare,

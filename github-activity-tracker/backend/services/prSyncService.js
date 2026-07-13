@@ -2,6 +2,7 @@ const githubClient = require('../utils/githubClient');
 const pool = require('../db/dbPool');
 const { GITHUB, POSTGRES } = require('../config/errorCodes');
 const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
+const { upsertGitHubUser } = require('./githubUserService');
 
 /**
  * Sync pull requests for a single repository.
@@ -102,23 +103,13 @@ async function syncPRs(repoId) {
             type,
           } = author;
 
-          // Upsert into github_users using github_user_id as unique key
-          const userResult = await pool.query(
-            `
-              INSERT INTO github_users (github_user_id, login, avatar_url, html_url, type)
-              VALUES ($1, $2, $3, $4, $5)
-              ON CONFLICT (github_user_id)
-              DO UPDATE SET
-                login = EXCLUDED.login,
-                avatar_url = EXCLUDED.avatar_url,
-                html_url = EXCLUDED.html_url,
-                type = EXCLUDED.type
-              RETURNING id
-            `,
-            [github_user_id, login, avatar_url || null, html_url || null, type || null]
-          );
-
-          const userId = userResult.rows[0].id;
+          const userId = await upsertGitHubUser({
+            github_user_id,
+            login,
+            avatar_url,
+            html_url,
+            type,
+          });
 
           // Insert event first; only increment prs_count if this PR is new.
           const eventInsert = await pool.query(

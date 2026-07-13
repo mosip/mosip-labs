@@ -1,5 +1,5 @@
 import React from 'react';
-import { GitCommit, GitPullRequest, AlertCircle, MessageSquare, User, Calendar } from 'lucide-react';
+import { GitPullRequest, AlertCircle, MessageSquare, User, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import type { ActivityItem } from '../lib/database.types';
 
@@ -8,13 +8,13 @@ interface ActivityTableProps {
 }
 
 const icons = {
-  commit: GitCommit,
   pull_request: GitPullRequest,
   issue: AlertCircle,
   review: MessageSquare,
 };
 
 export function ActivityTable({ activities }: ActivityTableProps) {
+  const visibleActivities = activities.filter((activity) => activity.type !== 'commit');
   console.log('Activities received in UI:', activities);
 
   return (
@@ -47,14 +47,14 @@ export function ActivityTable({ activities }: ActivityTableProps) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {activities.length === 0 ? (
+            {visibleActivities.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
                   No activities found
                 </td>
               </tr>
             ) : (
-              activities.map((activity, index) => {
+              visibleActivities.map((activity, index) => {
                 const Icon = icons[activity.type];
                 return (
                   <tr key={`${activity.type}-${index}`} className="hover:bg-gray-50">

@@ -1,10 +1,9 @@
 import React from 'react';
-import { User, GitCommit, GitPullRequest, MessageSquare } from 'lucide-react';
+import { User, GitPullRequest, MessageSquare } from 'lucide-react';
 import type { ActivityItem } from '../lib/database.types';
 
 interface UserStats {
   name: string;
-  commits: number;
   pullRequests: number;
   reviews: number;
 }
@@ -16,19 +15,17 @@ interface UserActivityStatsProps {
 export function UserActivityStats({ activities }: UserActivityStatsProps) {
   
   const userStats = activities.reduce<Record<string, UserStats>>((acc, activity) => {
+    if (activity.type === 'commit') return acc;
+
     if (!acc[activity.author]) {
       acc[activity.author] = {
         name: activity.author,
-        commits: 0,
         pullRequests: 0,
         reviews: 0,
       };
     }
 
     switch (activity.type) {
-      case 'commit':
-        acc[activity.author].commits++;
-        break;
       case 'pull_request':
         acc[activity.author].pullRequests++;
         break;
@@ -42,8 +39,8 @@ export function UserActivityStats({ activities }: UserActivityStatsProps) {
 
   
   const sortedUsers = Object.values(userStats).sort((a, b) => {
-    const totalA = a.commits + a.pullRequests + a.reviews;
-    const totalB = b.commits + b.pullRequests + b.reviews;
+    const totalA = a.pullRequests + a.reviews;
+    const totalB = b.pullRequests + b.reviews;
     return totalB - totalA;
   });
 
@@ -60,9 +57,6 @@ export function UserActivityStats({ activities }: UserActivityStatsProps) {
                 User
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Commits
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Pull Requests
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -73,7 +67,7 @@ export function UserActivityStats({ activities }: UserActivityStatsProps) {
           <tbody className="bg-white divide-y divide-gray-200">
             {sortedUsers.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
                   No user activity found
                 </td>
               </tr>
@@ -84,12 +78,6 @@ export function UserActivityStats({ activities }: UserActivityStatsProps) {
                     <div className="flex items-center">
                       <User className="w-5 h-5 text-gray-400 mr-2" />
                       <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <GitCommit className="w-4 h-4 text-gray-400 mr-2" />
-                      <span className="text-sm text-gray-900">{user.commits}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
