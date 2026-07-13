@@ -238,6 +238,9 @@ updateStrategy:
   type: RollingUpdate
 
 ## Additional environment variables to set
+## Core backend env vars (RDS_*, GITHUB_TOKEN, GITHUB_ORG, USER_ROLES) are defined in
+## templates/_helpers.tpl (gh-tracker-service.env) and injected by deployment/migrate templates.
+## Use extraEnvVars only for additional optional variables.
 ## Example:
 ## extraEnvVars:
 ##   - name: FOO
