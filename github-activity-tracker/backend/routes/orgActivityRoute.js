@@ -15,12 +15,12 @@ router.get("/orgs/:org_id/activity", async (req, res) => {
     return res.status(400).json({ error: "Invalid period value" });
   }
 
-  const { error, roleFilter } = await resolveRoleFilter(role);
-  if (error) {
-    return res.status(400).json({ error });
-  }
-
   try {
+    const { error, roleFilter } = await resolveRoleFilter(role);
+    if (error) {
+      return res.status(400).json({ error });
+    }
+
     const data = await getOrgActivity(org_id, period, roleFilter);
     return res.json(data);
   } catch (err) {

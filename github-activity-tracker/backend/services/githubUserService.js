@@ -4,6 +4,7 @@ const {
   NAME_FETCH_DELAY_MS,
   NAME_BACKFILL_BATCH_SIZE,
   NAME_BACKFILL_MAX_BATCH_SIZE,
+  NAME_FETCH_RETRY_MS,
 } = require('../config/syncConfig');
 
 function sleep(ms) {
@@ -77,23 +78,11 @@ async function resolveGitHubUserName({ github_user_id, login, type, name }) {
  * Ensure the user has an active user_details row.
  */
 async function ensureActiveUserDetails(userId) {
-  const activeResult = await pool.query(
-    `
-      SELECT id
-      FROM user_details
-      WHERE user_id = $1 AND active = true
-    `,
-    [userId]
-  );
-
-  if (activeResult.rows[0]) {
-    return;
-  }
-
   await pool.query(
     `
       INSERT INTO user_details (user_id, role_id, active, active_from, active_to)
       VALUES ($1, NULL, true, '1970-01-01'::timestamp, NULL)
+      ON CONFLICT (user_id) WHERE active = true DO NOTHING
     `,
     [userId]
   );
@@ -164,10 +153,11 @@ async function backfillMissingUserNames({ limit } = {}) {
       WHERE u.name IS NULL
         AND u.login IS NOT NULL
         AND (u.type IS NULL OR LOWER(u.type) <> 'bot')
-      ORDER BY u.id
+        AND u.updated_at <= NOW() - ($2::int * interval '1 millisecond')
+      ORDER BY u.updated_at ASC, u.id ASC
       LIMIT $1
     `,
-    [batchSize]
+    [batchSize, NAME_FETCH_RETRY_MS]
   );
 
   let namesFetched = 0;
@@ -187,12 +177,33 @@ async function backfillMissingUserNames({ limit } = {}) {
           [name, user.id]
         );
         namesFetched += 1;
+      } else {
+        await pool.query(
+          `
+            UPDATE github_users
+            SET updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+          `,
+          [user.id]
+        );
       }
 
       await ensureActiveUserDetails(user.id);
     } catch (error) {
       errors += 1;
       console.error(`Failed to backfill user ${user.login}:`, error.message);
+      try {
+        await pool.query(
+          `
+            UPDATE github_users
+            SET updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+          `,
+          [user.id]
+        );
+      } catch (updateError) {
+        console.error(`Failed to defer retry for user ${user.login}:`, updateError.message);
+      }
     }
 
     await sleep(NAME_FETCH_DELAY_MS);

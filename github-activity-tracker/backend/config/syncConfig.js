@@ -14,9 +14,13 @@ const NAME_FETCH_DELAY_MS = 120;
 /** Maximum batch size allowed for a single user-name backfill request. */
 const NAME_BACKFILL_MAX_BATCH_SIZE = 500;
 
+/** Delay in ms before retrying a user whose GitHub name could not be resolved. */
+const NAME_FETCH_RETRY_MS = 24 * 60 * 60 * 1000;
+
 module.exports = {
   DELAY_BETWEEN_REPOS_MS,
   NAME_BACKFILL_BATCH_SIZE,
   NAME_FETCH_DELAY_MS,
   NAME_BACKFILL_MAX_BATCH_SIZE,
+  NAME_FETCH_RETRY_MS,
 };

@@ -60,6 +60,38 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user_details'
+      AND column_name = 'role'
+  ) THEN
+    RAISE NOTICE 'Unmigrated user_details roles: %',
+      (SELECT string_agg(DISTINCT ud.role, ', ')
+       FROM user_details ud
+       WHERE ud.role IS NOT NULL AND ud.role_id IS NULL);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user_details'
+      AND column_name = 'organization'
+  ) THEN
+    RAISE NOTICE 'Unmigrated user_details organizations: %',
+      (SELECT string_agg(DISTINCT ud.organization, ', ')
+       FROM user_details ud
+       WHERE ud.organization IS NOT NULL AND ud.organization_id IS NULL);
+  END IF;
+END $$;
+
 ALTER TABLE user_details
   DROP COLUMN IF EXISTS role,
   DROP COLUMN IF EXISTS organization;
@@ -109,6 +141,30 @@ BEGIN
       AND NOT EXISTS (
         SELECT 1 FROM user_details ud WHERE ud.user_id = u.id AND ud.active = true
       );
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'github_users'
+      AND column_name = 'role'
+  ) THEN
+    RAISE NOTICE 'Unmigrated github_users roles: %',
+      (SELECT string_agg(DISTINCT u.role, ', ')
+       FROM github_users u
+       WHERE u.role IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1
+           FROM user_details ud
+           JOIN user_roles ur ON ur.id = ud.role_id
+           WHERE ud.user_id = u.id
+             AND ud.active = true
+             AND ur.name = u.role
+         ));
   END IF;
 END $$;
 

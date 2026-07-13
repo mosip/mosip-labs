@@ -70,7 +70,7 @@ Shared backend environment variables for app and migration job.
       name: github-token
 - name: GITHUB_ORG
   valueFrom:
-    secretKeyRef:
+    configMapKeyRef:
       key: github_org
       name: app-config
 {{- end -}}

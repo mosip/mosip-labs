@@ -15,8 +15,6 @@ interface UserActivityStatsProps {
 export function UserActivityStats({ activities }: UserActivityStatsProps) {
   
   const userStats = activities.reduce<Record<string, UserStats>>((acc, activity) => {
-    if (activity.type === 'commit') return acc;
-
     if (!acc[activity.author]) {
       acc[activity.author] = {
         name: activity.author,

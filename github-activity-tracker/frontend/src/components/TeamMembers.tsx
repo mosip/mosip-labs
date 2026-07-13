@@ -143,14 +143,6 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
     setSortOrder(order);
     setPage(1);
   };
-  const filtered = members.filter((m) => {
-    const matchProject =
-      project === "all" ||
-      (m.project || "").toLowerCase() === project.toLowerCase();
-
-    return matchProject;
-  });
-
   const startItem = totalUsers === 0 ? 0 : (page - 1) * limit + 1;
   const endItem = Math.min(page * limit, totalUsers);
 
@@ -207,7 +199,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
           </thead>
 
           <tbody>
-            {filtered.map((m, index) => (
+            {members.map((m, index) => (
               <tr
                 key={m.assignment_id ?? `${m.login}-${index}`}
                 className="border-b last:border-0 cursor-pointer hover:bg-gray-50 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"

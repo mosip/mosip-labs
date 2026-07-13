@@ -14,8 +14,6 @@ const icons = {
 };
 
 export function ActivityTable({ activities }: ActivityTableProps) {
-  const visibleActivities = activities.filter((activity) => activity.type !== 'commit');
-
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200">
@@ -46,14 +44,14 @@ export function ActivityTable({ activities }: ActivityTableProps) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {visibleActivities.length === 0 ? (
+            {activities.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
                   No activities found
                 </td>
               </tr>
             ) : (
-              visibleActivities.map((activity, index) => {
+              activities.map((activity, index) => {
                 const Icon = icons[activity.type];
                 return (
                   <tr key={`${activity.type}-${index}`} className="hover:bg-gray-50">

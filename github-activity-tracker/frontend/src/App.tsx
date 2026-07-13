@@ -46,12 +46,21 @@ function App() {
     async function loadOrganizations() {
       try {
         const orgs = await fetchOrganizations();
-        if (!cancelled && orgs.length > 0) {
-          setOrganizations(orgs);
-          setSelectedOrg((current) => current || orgs[0]!.slug);
+        if (cancelled) return;
+
+        setOrganizations(orgs);
+        if (orgs.length === 0) {
+          setDashboardError("No organizations are available");
+          setDashboardLoading(false);
+          return;
         }
+
+        setSelectedOrg((current) => current || orgs[0].slug);
       } catch (err) {
+        if (cancelled) return;
         console.error("Error loading organizations:", err);
+        setDashboardError("Failed to load organizations");
+        setDashboardLoading(false);
       }
     }
 
@@ -100,7 +109,7 @@ function App() {
 
     async function loadLeaderboard() {
       try {
-        const data = await fetchLeaderboard(selectedOrg, period, 10);
+        const data = await fetchLeaderboard(selectedOrg, period, role, 10);
 
         const list = Array.isArray(data) ? data : data?.leaderboard || [];
 
@@ -121,7 +130,7 @@ function App() {
     }
 
     loadLeaderboard();
-  }, [selectedOrg, period]);
+  }, [selectedOrg, period, role]);
 
   const handleOrganizationChange = (org: string) => {
     setSelectedOrg(org);

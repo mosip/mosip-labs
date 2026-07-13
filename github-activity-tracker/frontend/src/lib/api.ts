@@ -147,13 +147,14 @@ export const fetchOrgUsers = async (
 export const fetchLeaderboard = async (
   org: string,
   period: string,
+  role: string = "all",
   limit: number = 10,
 ) => {
   try {
     const response = await axios.get(
       `${API_BASE_URL}/orgs/${org}/leaderboard`,
       {
-        params: { period, limit },
+        params: { period, limit, role },
       },
     );
 

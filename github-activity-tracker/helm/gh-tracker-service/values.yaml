@@ -430,9 +430,9 @@ ghtrackerservice:
       rds_database: "<db_name>"   # provide db name
       rds_port: "5432"
       rds_username: "<username>"   # provide username
+    app_config:
+      github_org: "mosip,inji"
   secrets:
-    app-config:
-      github_org: <github_org_csv>    # e.g. mosip,inji
     rds-secret:
       rds_password: <your_password>    # Provide rds password
     github-token:

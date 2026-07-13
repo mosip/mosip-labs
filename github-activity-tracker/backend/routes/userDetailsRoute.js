@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getUserDetails } = require('../services/userDetailsService');
-const { isValidUserRole } = require('../services/userRolesService');
+const { resolveRoleFilter } = require('../services/userRolesService');
 
 // GET /orgs/:org_id/users/:login?period=daily|weekly|monthly|yearly&role=Developer
 router.get('/orgs/:org_id/users/:login', async (req, res) => {
@@ -16,13 +16,12 @@ router.get('/orgs/:org_id/users/:login', async (req, res) => {
     return res.status(400).json({ error: 'Invalid period value' });
   }
 
-  if (role && role !== 'all' && !(await isValidUserRole(role))) {
-    return res.status(400).json({ error: 'Invalid role value' });
-  }
-
-  const roleFilter = role && role !== 'all' ? role : null;
-
   try {
+    const { error, roleFilter } = await resolveRoleFilter(role);
+    if (error) {
+      return res.status(400).json({ error });
+    }
+
     const data = await getUserDetails(org_id, login, period, roleFilter);
     return res.json(data);
   } catch (err) {

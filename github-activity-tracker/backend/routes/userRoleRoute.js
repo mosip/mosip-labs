@@ -50,14 +50,14 @@ router.post('/admin/users/role', async (req, res) => {
   try {
     const { login, role, organization } = req.body || {};
 
-    if (!login) {
+    if (typeof login !== 'string' || !login.trim()) {
       return res.status(HTTP.BAD_REQUEST).json({
         status: STATUS.ERROR,
         message: 'login is required in request body',
       });
     }
 
-    if (!role) {
+    if (typeof role !== 'string' || !role.trim()) {
       return res.status(HTTP.BAD_REQUEST).json({
         status: STATUS.ERROR,
         message: 'role is required in request body',
@@ -65,7 +65,7 @@ router.post('/admin/users/role', async (req, res) => {
       });
     }
 
-    if (!organization) {
+    if (typeof organization !== 'string' || !organization.trim()) {
       return res.status(HTTP.BAD_REQUEST).json({
         status: STATUS.ERROR,
         message: 'organization is required in request body',

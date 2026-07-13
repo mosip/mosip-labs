@@ -43,11 +43,17 @@ async function getUserRoleIdByName(roleName) {
  * where roleFilter is null for missing/"all" roles.
  */
 async function resolveRoleFilter(role) {
-  if (role && role !== 'all' && !(await isValidUserRole(role))) {
+  const normalizedRole = typeof role === 'string' ? role.trim() : role;
+
+  if (!normalizedRole || normalizedRole === 'all') {
+    return { roleFilter: null };
+  }
+
+  if (!(await isValidUserRole(normalizedRole))) {
     return { error: 'Invalid role value' };
   }
 
-  return { roleFilter: role && role !== 'all' ? role : null };
+  return { roleFilter: normalizedRole };
 }
 
 module.exports = {
