@@ -126,6 +126,9 @@ async function syncReviews(repoId) {
   let hadProcessingErrors = false;
   let prCursor = null;
 
+  // Cache resolved user ids per sync run so repeat reviewers only upsert once.
+  const userIdCache = new Map();
+
   // Paginate pull requests
   while (true) {
     const prVariables = {
@@ -182,14 +185,18 @@ async function syncReviews(repoId) {
             const type = reviewer.__typename === 'Bot' ? 'Bot' : 'User';
             const profileName = reviewer.name || null;
 
-            const userId = await upsertGitHubUser({
-              github_user_id: githubUserId,
-              login,
-              avatar_url: avatarUrl,
-              html_url: htmlUrl,
-              type,
-              name: profileName,
-            });
+            let userId = userIdCache.get(githubUserId);
+            if (userId === undefined) {
+              userId = await upsertGitHubUser({
+                github_user_id: githubUserId,
+                login,
+                avatar_url: avatarUrl,
+                html_url: htmlUrl,
+                type,
+                name: profileName,
+              });
+              userIdCache.set(githubUserId, userId);
+            }
 
             // Insert event first; only increment reviews_count if this review is new.
             const eventInsert = await pool.query(

@@ -3,7 +3,7 @@ const pool = require("../db/dbPool");
 const dayjs = require("dayjs");
 
 const { EXCLUDED_GITHUB_LOGINS } = require("../config/excludedGitHubLogins");
-const { userDetailsJoinSql } = require("../utils/userRoleSql");
+const { pushRoleUserDetailsJoin } = require("../utils/userRoleSql");
 
 
 
@@ -55,12 +55,7 @@ async function getOrgActivity(orgId, period, role) {
 
 
 
-  let userDetailsJoin = userDetailsJoinSql(null);
-
-  if (role) {
-    params.push(role);
-    userDetailsJoin = userDetailsJoinSql(`$${params.length}`);
-  }
+  const userDetailsJoin = pushRoleUserDetailsJoin(params, role);
 
 
 

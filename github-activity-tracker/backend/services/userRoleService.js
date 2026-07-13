@@ -100,11 +100,11 @@ async function setUserRole({ login, role, organization }) {
   const trimmedRole = role.trim();
   const normalizedOrganization = normalizeOrganization(organization);
 
-  if (!isValidUserRole(trimmedRole)) {
+  if (!(await isValidUserRole(trimmedRole))) {
     throw new Error('Invalid role value');
   }
 
-  if (!isValidOrganization(normalizedOrganization)) {
+  if (!(await isValidOrganization(normalizedOrganization))) {
     throw new Error('Invalid organization value');
   }
 

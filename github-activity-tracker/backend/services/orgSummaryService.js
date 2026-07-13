@@ -1,7 +1,7 @@
 const db = require("../db/dbPool");
 
 const { EXCLUDED_GITHUB_LOGINS } = require("../config/excludedGitHubLogins");
-const { userDetailsJoinSql } = require("../utils/userRoleSql");
+const { pushRoleUserDetailsJoin } = require("../utils/userRoleSql");
 
 
 
@@ -169,12 +169,7 @@ async function fetchCounts(orgId, start, end, role) {
 
 
 
-  let userDetailsJoin = userDetailsJoinSql(null);
-
-  if (role) {
-    params.push(role);
-    userDetailsJoin = userDetailsJoinSql(`$${params.length}`);
-  }
+  const userDetailsJoin = pushRoleUserDetailsJoin(params, role);
 
 
 

@@ -54,6 +54,9 @@ async function syncCommits(repoId) {
   let failedCommitSha = null;
   let failedCommitError = null;
 
+  // Cache resolved user ids per sync run so repeat authors only upsert once.
+  const userIdCache = new Map();
+
   // eslint-disable-next-line no-constant-condition
   while (true) {
     try {
@@ -121,13 +124,17 @@ async function syncCommits(repoId) {
             continue;
           }
 
-          const userId = await upsertGitHubUser({
-            github_user_id,
-            login,
-            avatar_url,
-            html_url,
-            type,
-          });
+          let userId = userIdCache.get(github_user_id);
+          if (userId === undefined) {
+            userId = await upsertGitHubUser({
+              github_user_id,
+              login,
+              avatar_url,
+              html_url,
+              type,
+            });
+            userIdCache.set(github_user_id, userId);
+          }
 
           // Record event first; only increment commit counters when the event is newly inserted.
           const eventInsert = await pool.query(

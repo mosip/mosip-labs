@@ -49,8 +49,8 @@ function sortUsers(results, sortBy, sortOrder) {
   }
 
   results.sort((a, b) => {
-    if (b.total_activity !== a.total_activity) {
-      return b.total_activity - a.total_activity;
+    if (a.total_activity !== b.total_activity) {
+      return (a.total_activity - b.total_activity) * direction;
     }
     if (a.is_active !== b.is_active) {
       return a.is_active ? -1 : 1;
@@ -59,8 +59,8 @@ function sortUsers(results, sortBy, sortOrder) {
   });
 }
 
-async function fetchAssignments(role) {
-  const params = [];
+async function fetchAssignments(orgId, role) {
+  const params = [String(orgId).toLowerCase()];
   let query = `
     SELECT
       ud.id AS assignment_id,
@@ -75,9 +75,15 @@ async function fetchAssignments(role) {
     FROM github_users u
     JOIN user_details ud ON ud.user_id = u.id
     LEFT JOIN user_roles ur ON ur.id = ud.role_id
+    LEFT JOIN organizations o ON o.id = ud.organization_id
   `;
 
-  const whereClauses = ["(ud.active = true OR ud.role_id IS NOT NULL)"];
+  // Assignments explicitly tied to another organization are excluded; rows
+  // without an organization remain visible for every org.
+  const whereClauses = [
+    "(ud.active = true OR ud.role_id IS NOT NULL)",
+    "(ud.organization_id IS NULL OR LOWER(o.slug) = $1)",
+  ];
 
   if (Array.isArray(EXCLUDED_GITHUB_LOGINS) && EXCLUDED_GITHUB_LOGINS.length > 0) {
     params.push(EXCLUDED_GITHUB_LOGINS.map((l) => String(l).toLowerCase()));
@@ -153,11 +159,11 @@ const getOrgUsers = async (
   sortBy = null,
   sortOrder = "desc"
 ) => {
-  page = parseInt(page, 10) || 1;
-  limit = parseInt(limit, 10) || DEFAULT_LIMIT;
+  page = Math.max(1, parseInt(page, 10) || 1);
+  limit = Math.max(1, parseInt(limit, 10) || DEFAULT_LIMIT);
 
   const { start, end, prevStart, prevEnd } = getDateRanges(period);
-  const assignments = await fetchAssignments(role);
+  const assignments = await fetchAssignments(orgId, role);
   const currentMap = await fetchAssignmentActivityMap(orgId, role, start, end);
   const previousMap = await fetchAssignmentActivityMap(orgId, role, prevStart, prevEnd);
 

@@ -51,6 +51,9 @@ async function syncPRs(repoId) {
   let hadProcessingErrors = false;
   let hitSearchCap = false;
 
+  // Cache resolved user ids per sync run so repeat authors only upsert once.
+  const userIdCache = new Map();
+
   while (page <= maxPage) {
     try {
       let q = `repo:${owner}/${name} type:pr created:>=${sinceDateStr}`;
@@ -103,13 +106,17 @@ async function syncPRs(repoId) {
             type,
           } = author;
 
-          const userId = await upsertGitHubUser({
-            github_user_id,
-            login,
-            avatar_url,
-            html_url,
-            type,
-          });
+          let userId = userIdCache.get(github_user_id);
+          if (userId === undefined) {
+            userId = await upsertGitHubUser({
+              github_user_id,
+              login,
+              avatar_url,
+              html_url,
+              type,
+            });
+            userIdCache.set(github_user_id, userId);
+          }
 
           // Insert event first; only increment prs_count if this PR is new.
           const eventInsert = await pool.query(

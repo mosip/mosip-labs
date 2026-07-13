@@ -1,7 +1,10 @@
 const githubClient = require('../utils/githubClient');
 const pool = require('../db/dbPool');
-
-const NAME_FETCH_DELAY_MS = 120;
+const {
+  NAME_FETCH_DELAY_MS,
+  NAME_BACKFILL_BATCH_SIZE,
+  NAME_BACKFILL_MAX_BATCH_SIZE,
+} = require('../config/syncConfig');
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -145,8 +148,15 @@ async function upsertGitHubUser({
 
 /**
  * Backfill profile names for users that do not have one stored in github_users yet.
+ * Processes a bounded batch per call; one failed user does not abort the batch.
  */
-async function backfillMissingUserNames() {
+async function backfillMissingUserNames({ limit } = {}) {
+  const parsedLimit = Number.parseInt(limit, 10);
+  const batchSize = Math.min(
+    parsedLimit > 0 ? parsedLimit : NAME_BACKFILL_BATCH_SIZE,
+    NAME_BACKFILL_MAX_BATCH_SIZE
+  );
+
   const result = await pool.query(
     `
       SELECT u.id, u.login, u.type, u.github_user_id
@@ -155,27 +165,35 @@ async function backfillMissingUserNames() {
         AND u.login IS NOT NULL
         AND (u.type IS NULL OR LOWER(u.type) <> 'bot')
       ORDER BY u.id
-    `
+      LIMIT $1
+    `,
+    [batchSize]
   );
 
   let namesFetched = 0;
+  let errors = 0;
 
   for (const user of result.rows) {
-    const name = await fetchGitHubUserName(user.login);
+    try {
+      const name = await fetchGitHubUserName(user.login);
 
-    if (name) {
-      await pool.query(
-        `
-          UPDATE github_users
-          SET name = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE id = $2
-        `,
-        [name, user.id]
-      );
-      namesFetched += 1;
+      if (name) {
+        await pool.query(
+          `
+            UPDATE github_users
+            SET name = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `,
+          [name, user.id]
+        );
+        namesFetched += 1;
+      }
+
+      await ensureActiveUserDetails(user.id);
+    } catch (error) {
+      errors += 1;
+      console.error(`Failed to backfill user ${user.login}:`, error.message);
     }
-
-    await ensureActiveUserDetails(user.id);
 
     await sleep(NAME_FETCH_DELAY_MS);
   }
@@ -183,6 +201,7 @@ async function backfillMissingUserNames() {
   return {
     users_checked: result.rows.length,
     names_fetched: namesFetched,
+    errors,
   };
 }
 

@@ -21,6 +21,7 @@ const userRoleRoute = require('./routes/userRoleRoute');
 const userRolesRoute = require('./routes/userRolesRoute');
 const organizationsRoute = require('./routes/organizationsRoute');
 const { ensureLookupTables } = require('./db/initLookupTables');
+const adminAuth = require('./middleware/adminAuth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,6 +49,9 @@ app.get('/', (req, res) => {
   });
 });
 
+// Privileged /admin/* routes require a valid admin bearer token.
+app.use('/admin', adminAuth);
+
 // Mount sync route handlers (POST /admin/sync/repos, /commits, /prs, /reviews)
 app.use(repoSyncRoute);
 app.use(commitSyncRoute);
@@ -63,7 +67,9 @@ app.use(userDetailsRoute);
 app.use(orgActivityRoute);
 app.use(leaderboardRoute);
 
-app.listen(PORT, async () => {
+// Initialize lookup tables before accepting traffic so requests never hit an
+// uninitialized database.
+async function startServer() {
   try {
     const result = await ensureLookupTables();
 
@@ -81,5 +87,9 @@ app.listen(PORT, async () => {
     process.exit(1);
   }
 
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer();

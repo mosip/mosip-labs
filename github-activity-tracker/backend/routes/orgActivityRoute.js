@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getOrgActivity } = require("../services/orgActivityService");
-const { isValidUserRole } = require("../config/userRoles");
+const { resolveRoleFilter } = require("../config/userRoles");
 
 router.get("/orgs/:org_id/activity", async (req, res) => {
   const { org_id } = req.params;
@@ -15,12 +15,12 @@ router.get("/orgs/:org_id/activity", async (req, res) => {
     return res.status(400).json({ error: "Invalid period value" });
   }
 
-  if (role && role !== "all" && !(await isValidUserRole(role))) {
-    return res.status(400).json({ error: "Invalid role value" });
+  const { error, roleFilter } = await resolveRoleFilter(role);
+  if (error) {
+    return res.status(400).json({ error });
   }
 
   try {
-    const roleFilter = role && role !== "all" ? role : null;
     const data = await getOrgActivity(org_id, period, roleFilter);
     return res.json(data);
   } catch (err) {
