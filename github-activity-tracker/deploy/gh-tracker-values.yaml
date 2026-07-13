@@ -6,10 +6,9 @@ ghtrackerservice:
       rds_port: "5432"
       rds_username: "<username>"   # provide username
   secrets:
-    # Rancher/K8s equivalent of backend/.env for lookup seed data.
+    # Rancher/K8s equivalent of backend/.env for GitHub sync orgs.
     app-config:
       github_org: mosip,inji
-      user_roles: Developer,Tech Lead,Architect,Product Owner,Leadership,QA Engineer,DevOps Engineer
     rds-secret:
       rds_password: <your_password>    # Provide rds password
     github-token:

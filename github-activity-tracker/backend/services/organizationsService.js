@@ -1,5 +1,4 @@
 const pool = require('../db/dbPool');
-const { parseOrganizationsFromEnv } = require('../db/initLookupTables');
 
 async function getAllOrganizations() {
   const result = await pool.query(
@@ -53,5 +52,4 @@ module.exports = {
   normalizeOrganization,
   isValidOrganization,
   getOrganizationIdBySlug,
-  parseOrganizationsFromEnv,
 };

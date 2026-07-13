@@ -14,6 +14,7 @@ import {
   fetchLeaderboard,
   fetchOrganizations,
 } from "./lib/api";
+import type { Organization } from "./lib/organizations";
 
 /* SVG ICON IMPORTS */
 import PRIcon from "./assets/PRIcon.svg";
@@ -28,6 +29,7 @@ function App() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
   const [selectedOrg, setSelectedOrg] = useState<string>("");
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [period, setPeriod] = useState<PeriodValue>(DEFAULT_PERIOD);
   const [role, setRole] = useState("all");
   const [project, setProject] = useState("all");
@@ -45,6 +47,7 @@ function App() {
       try {
         const orgs = await fetchOrganizations();
         if (!cancelled && orgs.length > 0) {
+          setOrganizations(orgs);
           setSelectedOrg((current) => current || orgs[0]!.slug);
         }
       } catch (err) {
@@ -102,7 +105,8 @@ function App() {
         const list = Array.isArray(data) ? data : data?.leaderboard || [];
 
         const ranked = list.map((u: any) => ({
-          name: u.login,
+          name: u.name || u.login,
+          login: u.login,
           team: "—",
           project: "—",
           prs: u.prs,
@@ -138,6 +142,7 @@ function App() {
           onChange={setActivePage}
           title="GitHub Activity Tracker"
           organization={selectedOrg}
+          organizations={organizations}
           onOrganizationChange={handleOrganizationChange}
           period={period}
           onPeriodChange={setPeriod}

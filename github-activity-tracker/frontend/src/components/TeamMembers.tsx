@@ -106,7 +106,6 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
           sortBy,
           sortOrder,
         );
-        console.log("API RESPONSE:", data);
 
         if (Array.isArray(data)) {
           // backend returned plain array
@@ -132,7 +131,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
   }, [org, period, page, limit, role, appliedSearch, sortBy, sortOrder]);
   useEffect(() => {
     setPage(1);
-  }, [org, role, project]);
+  }, [org, role, project, period]);
 
   const handleSearch = () => {
     setPage(1);

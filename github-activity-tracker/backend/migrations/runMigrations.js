@@ -6,19 +6,8 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const pool = require('../db/dbPool');
-const { ensureLookupTables } = require('../db/initLookupTables');
 
 async function runMigrations({ closePool = true } = {}) {
-  const lookupResult = await ensureLookupTables();
-  if (lookupResult.createdTables.length > 0) {
-    console.log(`Created lookup tables: ${lookupResult.createdTables.join(', ')}`);
-  }
-  if (lookupResult.rolesAdded > 0 || lookupResult.orgsAdded > 0) {
-    console.log(
-      `Seeded from env: ${lookupResult.rolesAdded} role(s), ${lookupResult.orgsAdded} organization(s)`
-    );
-  }
-
   const migrationsDir = path.join(__dirname);
   const files = fs.readdirSync(migrationsDir)
     .filter((file) => file.endsWith('.sql'))

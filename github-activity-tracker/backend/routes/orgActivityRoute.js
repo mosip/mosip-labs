@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getOrgActivity } = require("../services/orgActivityService");
-const { resolveRoleFilter } = require("../config/userRoles");
+const { resolveRoleFilter } = require("../services/userRolesService");
 
 router.get("/orgs/:org_id/activity", async (req, res) => {
   const { org_id } = req.params;

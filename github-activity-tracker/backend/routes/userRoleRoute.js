@@ -5,8 +5,8 @@
  */
 const express = require('express');
 const { getUserRole, setUserRole } = require('../services/userRoleService');
-const { getUserRoleNames } = require('../config/userRoles');
-const { getOrganizationNames } = require('../config/organizations');
+const { getUserRoleNames } = require('../services/userRolesService');
+const { getOrganizationNames } = require('../services/organizationsService');
 const { HTTP, STATUS } = require('../config/errorCodes');
 
 const router = express.Router();

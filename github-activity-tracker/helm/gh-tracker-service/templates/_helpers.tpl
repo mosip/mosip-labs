@@ -73,11 +73,6 @@ Shared backend environment variables for app and migration job.
     secretKeyRef:
       key: github_org
       name: app-config
-- name: USER_ROLES
-  valueFrom:
-    secretKeyRef:
-      key: user_roles
-      name: app-config
 {{- end -}}
 
 {{/*

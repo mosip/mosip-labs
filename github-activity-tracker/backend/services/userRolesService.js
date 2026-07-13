@@ -1,5 +1,4 @@
 const pool = require('../db/dbPool');
-const { parseUserRolesFromEnv } = require('../config/defaultUserRoles');
 
 async function getAllUserRoles() {
   const result = await pool.query(
@@ -38,9 +37,23 @@ async function getUserRoleIdByName(roleName) {
   return result.rows[0]?.id || null;
 }
 
+/**
+ * Validate an optional role query value and normalize it into a filter.
+ * Returns { error } when the role is invalid, otherwise { roleFilter }
+ * where roleFilter is null for missing/"all" roles.
+ */
+async function resolveRoleFilter(role) {
+  if (role && role !== 'all' && !(await isValidUserRole(role))) {
+    return { error: 'Invalid role value' };
+  }
+
+  return { roleFilter: role && role !== 'all' ? role : null };
+}
+
 module.exports = {
   getAllUserRoles,
   getUserRoleNames,
   isValidUserRole,
   getUserRoleIdByName,
+  resolveRoleFilter,
 };

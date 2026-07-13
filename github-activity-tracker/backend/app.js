@@ -16,12 +16,9 @@ const orgActivityRoute = require('./routes/orgActivityRoute');
 const orgSummaryRoute = require('./routes/orgSummaryRoute');
 const orgUsersRoute = require('./routes/orgUsersRoute');
 const userDetailsRoute = require('./routes/userDetailsRoute');
-const userNameSyncRoute = require('./routes/userNameSyncRoute');
 const userRoleRoute = require('./routes/userRoleRoute');
 const userRolesRoute = require('./routes/userRolesRoute');
 const organizationsRoute = require('./routes/organizationsRoute');
-const { ensureLookupTables } = require('./db/initLookupTables');
-const adminAuth = require('./middleware/adminAuth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,7 +37,6 @@ app.get('/', (req, res) => {
       'POST /admin/sync/commits': 'Sync commits for all repositories in DB',
       'POST /admin/sync/prs': 'Sync PRs for all repositories in DB',
       'POST /admin/sync/reviews': 'Sync PR reviews for all repositories in DB',
-      'POST /admin/sync/user-names': 'Backfill GitHub profile names for users in DB',
       'POST /admin/users/role': 'Assign or change job role for a GitHub user',
       'GET /admin/users/:login/role': 'Fetch job role for a GitHub user',
       'GET /user-roles': 'List assignable user job roles',
@@ -49,15 +45,11 @@ app.get('/', (req, res) => {
   });
 });
 
-// Privileged /admin/* routes require a valid admin bearer token.
-app.use('/admin', adminAuth);
-
 // Mount sync route handlers (POST /admin/sync/repos, /commits, /prs, /reviews)
 app.use(repoSyncRoute);
 app.use(commitSyncRoute);
 app.use(prSyncRoute);
 app.use(reviewSyncRoute);
-app.use(userNameSyncRoute);
 app.use(userRoleRoute);
 app.use(userRolesRoute);
 app.use(organizationsRoute);
@@ -67,29 +59,6 @@ app.use(userDetailsRoute);
 app.use(orgActivityRoute);
 app.use(leaderboardRoute);
 
-// Initialize lookup tables before accepting traffic so requests never hit an
-// uninitialized database.
-async function startServer() {
-  try {
-    const result = await ensureLookupTables();
-
-    if (result.createdTables.length > 0) {
-      console.log(`Created tables: ${result.createdTables.join(', ')}`);
-    }
-
-    if (result.rolesAdded > 0 || result.orgsAdded > 0) {
-      console.log(`Added from .env: ${result.rolesAdded} role(s), ${result.orgsAdded} organization(s)`);
-    } else if (result.createdTables.length === 0) {
-      console.log('Lookup tables already exist; no new roles or organizations to add.');
-    }
-  } catch (error) {
-    console.error('Failed to initialize lookup tables:', error.message);
-    process.exit(1);
-  }
-
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
-
-startServer();
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});

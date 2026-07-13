@@ -1,20 +1,7 @@
+const dayjs = require('dayjs');
 const pool = require('../db/dbPool');
 const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
 const { userDetailsJoinSql } = require('../utils/userRoleSql');
-
-/* -----------------------------------------------
-   Helper: Generate continuous UTC calendar-day keys
-   from startDate (inclusive), matching SQL DATE buckets.
------------------------------------------------- */
-function generateDateRange(startDate, days) {
-  const dates = [];
-  for (let i = 0; i < days; i++) {
-    const d = new Date(startDate);
-    d.setUTCDate(startDate.getUTCDate() + i);
-    dates.push(d.toISOString().slice(0, 10));
-  }
-  return dates;
-}
 
 /* ------------------------------------------------
    Helper: Calculate % change
@@ -67,18 +54,10 @@ async function getUserDetails(orgId, login, period, role = null) {
     throw new Error('Invalid period');
   }
 
-  const end = new Date();
-  end.setUTCHours(23, 59, 59, 999);
-
-  const start = new Date(end);
-  start.setUTCDate(end.getUTCDate() - (days - 1));
-  start.setUTCHours(0, 0, 0, 0);
-
-  const prevEnd = new Date(start.getTime() - 1);
-
-  const prevStart = new Date(prevEnd);
-  prevStart.setUTCDate(prevEnd.getUTCDate() - (days - 1));
-  prevStart.setUTCHours(0, 0, 0, 0);
+  const end = dayjs().endOf('day');
+  const start = end.subtract(days - 1, 'day').startOf('day');
+  const prevEnd = start.subtract(1, 'millisecond');
+  const prevStart = prevEnd.subtract(days - 1, 'day').startOf('day');
 
   const orgOwner = String(orgId).toLowerCase();
 
@@ -94,7 +73,7 @@ async function getUserDetails(orgId, login, period, role = null) {
     JOIN repos r ON r.github_repo_id = e.repo_id
   `;
 
-  const dailyParams = [userId, start.toISOString(), end.toISOString(), orgOwner];
+  const dailyParams = [userId, start.toDate(), end.toDate(), orgOwner];
 
   dailyQuery += userDetailsJoinSql(role ? '$5' : null);
 
@@ -115,12 +94,15 @@ async function getUserDetails(orgId, login, period, role = null) {
 
   const dailyRes = await pool.query(dailyQuery, dailyParams);
 
-  /* 4. Fill missing days */
-  const dateRange = generateDateRange(start, days);
-  const dailyMap = {};
+  /* 4. Fill missing days (local calendar days, matching SQL DATE buckets) */
+  const dateRange = [];
+  for (let i = 0; i < days; i++) {
+    dateRange.push(start.add(i, 'day').format('YYYY-MM-DD'));
+  }
 
-  dailyRes.rows.forEach(row => {
-    dailyMap[row.date.toISOString ? row.date.toISOString().slice(0, 10) : row.date] = row;
+  const dailyMap = {};
+  dailyRes.rows.forEach((row) => {
+    dailyMap[dayjs(row.date).format('YYYY-MM-DD')] = row;
   });
 
   const dailyActivity = dateRange.map(date => {
@@ -140,7 +122,7 @@ async function getUserDetails(orgId, login, period, role = null) {
   const totalReviews = dailyActivity.reduce((a, b) => a + b.reviews, 0);
 
   /* 6. Fetch previous period totals */
-  const prevParams = [userId, prevStart.toISOString(), prevEnd.toISOString(), orgOwner];
+  const prevParams = [userId, prevStart.toDate(), prevEnd.toDate(), orgOwner];
   if (role) {
     prevParams.push(role);
   }

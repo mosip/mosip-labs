@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 import { PERIOD_OPTIONS, type PeriodValue } from "../lib/periods";
-import { fetchUserRoles, fetchOrganizations } from "../lib/api";
+import { fetchUserRoles } from "../lib/api";
 import type { Organization } from "../lib/organizations";
 import DashboardIconWhite from "../assets/DashboardIconWhite.svg";
 import DashboardIconBlack from "../assets/DashboardIconBlack.svg";
@@ -19,6 +19,7 @@ interface TopNavProps {
   onPeriodChange: (p: PeriodValue) => void;
 
   organization: string;
+  organizations: Organization[];
   onOrganizationChange: (value: string) => void;
 
   role: string;
@@ -38,6 +39,7 @@ const TopNav: React.FC<TopNavProps> = ({
   period,
   onPeriodChange,
   organization,
+  organizations,
   onOrganizationChange,
   role,
   onRoleChange,
@@ -47,7 +49,6 @@ const TopNav: React.FC<TopNavProps> = ({
   onDownloadJSON,
 }) => {
   const [userRoles, setUserRoles] = useState<string[]>([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,26 +65,6 @@ const TopNav: React.FC<TopNavProps> = ({
     }
 
     loadRoles();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadOrganizations() {
-      try {
-        const orgs = await fetchOrganizations();
-        if (!cancelled) {
-          setOrganizations(orgs);
-        }
-      } catch (error) {
-        console.error("Failed to load organizations:", error);
-      }
-    }
-
-    loadOrganizations();
     return () => {
       cancelled = true;
     };

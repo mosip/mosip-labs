@@ -433,7 +433,6 @@ ghtrackerservice:
   secrets:
     app-config:
       github_org: <github_org_csv>    # e.g. mosip,inji
-      user_roles: <user_roles_csv>    # e.g. Developer,Tech Lead,QA Engineer
     rds-secret:
       rds_password: <your_password>    # Provide rds password
     github-token:

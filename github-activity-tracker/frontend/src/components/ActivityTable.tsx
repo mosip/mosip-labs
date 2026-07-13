@@ -15,7 +15,6 @@ const icons = {
 
 export function ActivityTable({ activities }: ActivityTableProps) {
   const visibleActivities = activities.filter((activity) => activity.type !== 'commit');
-  console.log('Activities received in UI:', activities);
 
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">

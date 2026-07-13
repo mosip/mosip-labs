@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getUserDetails } = require('../services/userDetailsService');
-const { isValidUserRole } = require('../config/userRoles');
+const { isValidUserRole } = require('../services/userRolesService');
 
 // GET /orgs/:org_id/users/:login?period=daily|weekly|monthly|yearly&role=Developer
 router.get('/orgs/:org_id/users/:login', async (req, res) => {

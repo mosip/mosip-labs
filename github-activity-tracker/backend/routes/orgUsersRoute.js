@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const { getOrgUsers } = require("../services/orgUsersService");
-const { isValidUserRole } = require("../config/userRoles");
+const { isValidUserRole } = require("../services/userRolesService");
 
 router.get("/orgs/:org_id/users", async (req, res) => {
   try {
