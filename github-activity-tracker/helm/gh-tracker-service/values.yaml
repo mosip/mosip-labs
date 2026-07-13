@@ -244,6 +244,7 @@ updateStrategy:
 ##     value: "bar"
 ##
 extraEnvVars:
+  |
   {{- include "gh-tracker-service.env" . | nindent 2 }}
 
 ## ConfigMap with extra environment variables
