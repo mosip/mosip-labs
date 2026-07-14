@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getAllOrganizations } = require('../services/organizationsService');
 
-router.get('/organizations', async (req, res) => {
+router.get('/orgs/organizations', async (req, res) => {
   try {
     const organizations = await getAllOrganizations();
     return res.status(200).json(organizations);

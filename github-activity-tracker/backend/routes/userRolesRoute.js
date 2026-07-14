@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getAllUserRoles } = require('../services/userRolesService');
 
-router.get('/user-roles', async (req, res) => {
+router.get('/orgs/user-roles', async (req, res) => {
   try {
     const roles = await getAllUserRoles();
     return res.status(200).json(roles);

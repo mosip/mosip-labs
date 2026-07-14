@@ -81,7 +81,7 @@ export const fetchOrganizations = async (): Promise<
   Array<{ id: number; slug: string; name: string }>
 > => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/organizations`);
+    const response = await axios.get(`${API_BASE_URL}/orgs/organizations`);
     return response.data;
   } catch (error) {
     throw new Error("Failed to fetch organizations");
@@ -91,7 +91,7 @@ export const fetchOrganizations = async (): Promise<
 // Fetch assignable user job roles
 export const fetchUserRoles = async (): Promise<Array<{ id: number; name: string }>> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/user-roles`);
+    const response = await axios.get(`${API_BASE_URL}/orgs/user-roles`);
     return response.data;
   } catch (error) {
     throw new Error("Failed to fetch user roles");
