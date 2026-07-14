@@ -2,6 +2,7 @@ const githubClient = require('../utils/githubClient');
 const pool = require('../db/dbPool');
 const { POSTGRES } = require('../config/errorCodes');
 const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
+const { upsertGitHubUser } = require('./githubUserService');
 
 /**
  * Sync commits for a single repository.
@@ -52,6 +53,9 @@ async function syncCommits(repoId) {
   let hadCommitFailure = false;
   let failedCommitSha = null;
   let failedCommitError = null;
+
+  // Cache resolved user ids per sync run so repeat authors only upsert once.
+  const userIdCache = new Map();
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -120,23 +124,17 @@ async function syncCommits(repoId) {
             continue;
           }
 
-          // Ensure user exists; get our internal id for foreign keys
-          const userResult = await pool.query(
-            `
-              INSERT INTO github_users (github_user_id, login, avatar_url, html_url, type)
-              VALUES ($1, $2, $3, $4, $5)
-              ON CONFLICT (github_user_id)
-              DO UPDATE SET
-                login = EXCLUDED.login,
-                avatar_url = EXCLUDED.avatar_url,
-                html_url = EXCLUDED.html_url,
-                type = EXCLUDED.type
-              RETURNING id
-            `,
-            [github_user_id, login, avatar_url || null, html_url || null, type || null]
-          );
-
-          const userId = userResult.rows[0].id;
+          let userId = userIdCache.get(github_user_id);
+          if (userId === undefined) {
+            userId = await upsertGitHubUser({
+              github_user_id,
+              login,
+              avatar_url,
+              html_url,
+              type,
+            });
+            userIdCache.set(github_user_id, userId);
+          }
 
           // Record event first; only increment commit counters when the event is newly inserted.
           const eventInsert = await pool.query(

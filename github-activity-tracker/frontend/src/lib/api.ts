@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { PeriodValue } from "./periods";
 
 // Production: use relative URLs (nginx proxies /orgs/, /admin/ to backend - no CORS)
 // Development: use direct backend URL
@@ -75,11 +76,37 @@ export const fetchRepositoryStats = async (repositoryId: string) => {
   }
 };
 
+// Fetch tracked GitHub organizations
+export const fetchOrganizations = async (): Promise<
+  Array<{ id: number; slug: string; name: string }>
+> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/organizations`);
+    return response.data;
+  } catch (error) {
+    throw new Error("Failed to fetch organizations");
+  }
+};
+
+// Fetch assignable user job roles
+export const fetchUserRoles = async (): Promise<Array<{ id: number; name: string }>> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/user-roles`);
+    return response.data;
+  } catch (error) {
+    throw new Error("Failed to fetch user roles");
+  }
+};
+
 // Fetch org-wide activity chart data
-export const fetchOrgActivity = async (orgId: string, period: string) => {
+export const fetchOrgActivity = async (
+  orgId: string,
+  period: string,
+  role: string = "all",
+) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/orgs/${orgId}/activity`, {
-      params: { period },
+      params: { period, role },
     });
     return response.data;
   } catch (error) {
@@ -93,6 +120,10 @@ export const fetchOrgUsers = async (
   period: string,
   page: number = 1,
   limit: number = 20,
+  role: string = "all",
+  search: string = "",
+  sortBy?: "prs" | "reviews" | null,
+  sortOrder: "asc" | "desc" = "desc",
 ) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/orgs/${org}/users`, {
@@ -100,6 +131,9 @@ export const fetchOrgUsers = async (
         period,
         page,
         limit,
+        role,
+        ...(search ? { search } : {}),
+        ...(sortBy ? { sortBy, sortOrder } : {}),
       },
     });
 
@@ -113,13 +147,14 @@ export const fetchOrgUsers = async (
 export const fetchLeaderboard = async (
   org: string,
   period: string,
+  role: string = "all",
   limit: number = 10,
 ) => {
   try {
     const response = await axios.get(
       `${API_BASE_URL}/orgs/${org}/leaderboard`,
       {
-        params: { period, limit },
+        params: { period, limit, role },
       },
     );
 
@@ -130,10 +165,14 @@ export const fetchLeaderboard = async (
 };
 
 // Fetch organization summary (commits, PRs, reviews)
-export const fetchOrgSummary = async (orgId: string, period: string) => {
+export const fetchOrgSummary = async (
+  orgId: string,
+  period: string,
+  role: string = "all",
+) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/orgs/${orgId}/summary`, {
-      params: { period },
+      params: { period, role },
     });
     return response.data;
   } catch (error) {
@@ -145,7 +184,7 @@ export const fetchOrgSummary = async (orgId: string, period: string) => {
 export const fetchUserDetails = async (
   orgId: string,
   login: string,
-  period: "daily" | "weekly" | "monthly",
+  period: PeriodValue,
 ) => {
   try {
     const response = await axios.get(

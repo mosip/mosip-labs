@@ -4,8 +4,13 @@ import { StatsCard } from "./StatsCard";
 import ActivityChart from "./ActivityChart";
 import ActivityTrend from "./ActivityTrend";
 import { fetchUserDetails } from "../lib/api";
+import {
+  DEFAULT_PERIOD,
+  formatPeriodLabel,
+  PERIOD_OPTIONS,
+  type PeriodValue,
+} from "../lib/periods";
 
-import CommitIcon from "../assets/CommitIcon.svg";
 import PRIcon from "../assets/PRIcon.svg";
 import CodeReviewIcon from "../assets/CodeReviewIcon.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
@@ -18,15 +23,12 @@ interface UserProfileProps {
 
 interface DailyActivityRow {
   date: string;
-  commits: number;
   prs: number;
   reviews: number;
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
-    "weekly",
-  );
+  const [period, setPeriod] = useState<PeriodValue>(DEFAULT_PERIOD);
 
   const [userData, setUserData] = useState<any>(null);
 
@@ -52,17 +54,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
     project: userData?.project || "Project Alpha",
   };
 
-  const commits = userData?.summary?.commits || 0;
   const prs = userData?.summary?.prs || 0;
   const reviews = userData?.summary?.reviews || 0;
 
-  const changeCommits = userData?.summary?.change?.commits;
   const changePRs = userData?.summary?.change?.prs;
   const changeReviews = userData?.summary?.change?.reviews;
 
   const chartData = {
     labels: userData?.overview?.labels || [],
-    commits: userData?.overview?.commits || [],
     prs: userData?.overview?.prs || [],
     reviews: userData?.overview?.reviews || [],
   };
@@ -98,38 +97,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
         <div className="flex justify-between items-center mt-8">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setPeriod("daily")}
-              className={`px-5 py-2 rounded-lg ${
-                period === "daily"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              Daily
-            </button>
-
-            <button
-              onClick={() => setPeriod("weekly")}
-              className={`px-5 py-2 rounded-lg ${
-                period === "weekly"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              Weekly
-            </button>
-
-            <button
-              onClick={() => setPeriod("monthly")}
-              className={`px-5 py-2 rounded-lg ${
-                period === "monthly"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              Monthly
-            </button>
+            {PERIOD_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setPeriod(value)}
+                className={`px-5 py-2 rounded-lg ${
+                  period === value
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           <div className="flex items-center gap-4">
@@ -148,14 +128,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
       <div className="max-w-7xl mx-auto px-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-10">
-          <StatsCard
-            title="Commits"
-            value={commits}
-            change={changeCommits}
-            icon={CommitIcon}
-          />
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-10">
           <StatsCard
             title="Pull Requests"
             value={prs}
@@ -174,8 +147,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
         {/* Activity Chart */}
         <div className="bg-white border rounded-xl p-6 mb-8 shadow-sm">
           <h2 className="text-xl font-semibold mb-4">
-            Activity Overview –{" "}
-            {period.charAt(0).toUpperCase() + period.slice(1)}
+            Activity Overview – {formatPeriodLabel(period)}
           </h2>
 
           <ActivityChart data={chartData} period={period} showTitle={false} />
@@ -186,7 +158,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
           data={
             userData?.trend?.labels?.map((label: string, i: number) => ({
               date: label,
-              commits: userData.trend.commits[i],
               prs: userData.trend.prs[i],
               reviews: userData.trend.reviews[i],
             })) || []
@@ -201,7 +172,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
             <thead>
               <tr className="text-left text-gray-600 border-b">
                 <th className="pb-3">Date</th>
-                <th className="pb-3">Commits</th>
                 <th className="pb-3">Pull Requests</th>
                 <th className="pb-3">Reviews</th>
                 <th className="pb-3">Total</th>
@@ -213,10 +183,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
                 <tr key={idx} className="border-b last:border-0">
                   <td className="py-3">{row.date}</td>
 
-                  <td className="font-medium" style={{ color: "#155DFC" }}>
-                    {row.commits}
-                  </td>
-
                   <td className="font-medium" style={{ color: "#00A63E" }}>
                     {row.prs}
                   </td>
@@ -226,7 +192,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
                   </td>
 
                   <td className="font-semibold">
-                    {row.commits + row.prs + row.reviews}
+                    {row.prs + row.reviews}
                   </td>
                 </tr>
               ))}

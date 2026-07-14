@@ -1,19 +1,13 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
-import { ORGANIZATIONS } from "../lib/organizations";
+import { PERIOD_OPTIONS, type PeriodValue } from "../lib/periods";
+import { fetchUserRoles } from "../lib/api";
+import type { Organization } from "../lib/organizations";
 import DashboardIconWhite from "../assets/DashboardIconWhite.svg";
 import DashboardIconBlack from "../assets/DashboardIconBlack.svg";
 import LeaderboardIconWhite from "../assets/LeaderboardIconWhite.svg";
 import LeaderboardIconBlack from "../assets/LeaderboardIconBlack.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
-
-const PERIOD_OPTIONS = [
-  { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-] as const;
-
-type PeriodValue = (typeof PERIOD_OPTIONS)[number]["value"];
 
 interface TopNavProps {
   activePage: "dashboard" | "leaderboard";
@@ -25,10 +19,11 @@ interface TopNavProps {
   onPeriodChange: (p: PeriodValue) => void;
 
   organization: string;
+  organizations: Organization[];
   onOrganizationChange: (value: string) => void;
 
-  team: string;
-  onTeamChange: (value: string) => void;
+  role: string;
+  onRoleChange: (value: string) => void;
 
   project: string;
   onProjectChange: (value: string) => void;
@@ -44,14 +39,37 @@ const TopNav: React.FC<TopNavProps> = ({
   period,
   onPeriodChange,
   organization,
+  organizations,
   onOrganizationChange,
-  team,
-  onTeamChange,
+  role,
+  onRoleChange,
   project,
   onProjectChange,
   onDownloadCSV,
   onDownloadJSON,
 }) => {
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRoles() {
+      try {
+        const roles = await fetchUserRoles();
+        if (!cancelled) {
+          setUserRoles(roles.map((role) => role.name));
+        }
+      } catch (error) {
+        console.error("Failed to load user roles:", error);
+      }
+    }
+
+    loadRoles();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const tabStyle = (active: boolean) =>
     `px-4 py-2 rounded-lg font-medium transition-all ${
       active
@@ -160,9 +178,9 @@ const TopNav: React.FC<TopNavProps> = ({
               onChange={(e) => onOrganizationChange(e.target.value)}
               className={filterSelectClass}
             >
-              {ORGANIZATIONS.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.label}
+              {organizations.map((org) => (
+                <option key={org.id} value={org.slug}>
+                  {org.name}
                 </option>
               ))}
             </select>
@@ -170,21 +188,23 @@ const TopNav: React.FC<TopNavProps> = ({
 
         </div>
 
-        {/* TEAM */}
+        {/* ROLE */}
         <div className="flex flex-col">
           <label className="text-gray-600 text-sm font-medium mb-2">
-            Team
+            Role
           </label>
 
           <select
-            value={team}
-            onChange={(e) => onTeamChange(e.target.value)}
+            value={role}
+            onChange={(e) => onRoleChange(e.target.value)}
             className={filterSelectClass}
           >
-            <option value="all">All Teams</option>
-            <option value="frontend">Frontend Team</option>
-            <option value="backend">Backend Team</option>
-            <option value="devops">DevOps Team</option>
+            <option value="all">All Roles</option>
+            {userRoles.map((userRole) => (
+              <option key={userRole} value={userRole}>
+                {userRole}
+              </option>
+            ))}
           </select>
         </div>
 

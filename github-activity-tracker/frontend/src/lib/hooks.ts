@@ -63,11 +63,11 @@ export function useGitHubActivity(
         if (signal.aborted) return;
 
         // Map Activity to ActivityItem
-        const mappedActivities: ActivityItem[] = data.map((activity: Activity) => ({
+        const mappedActivities: ActivityItem[] = data
+          .filter((activity: Activity) => activity.type !== 'commit')
+          .map((activity: Activity) => ({
           type:
-            activity.type === 'commit'
-              ? 'commit'
-              : activity.type === 'pull_request'
+            activity.type === 'pull_request'
               ? 'pull_request'
               : activity.type === 'issue'
               ? 'issue'
@@ -79,7 +79,6 @@ export function useGitHubActivity(
           state: activity.state,
         }));
 
-        console.log("useGitHubActivity::" + mappedActivities);
         // Sort activities by date (latest first)
         setActivities(
           mappedActivities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())

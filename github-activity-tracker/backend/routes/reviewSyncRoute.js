@@ -6,8 +6,9 @@
 const express = require('express');
 const pool = require('../db/dbPool');
 const { syncReviews } = require('../services/reviewSyncService');
+const { backfillMissingUserNames } = require('../services/githubUserService');
 const { HTTP, STATUS } = require('../config/errorCodes');
-const { DELAY_BETWEEN_REPOS_MS } = require('../config/syncConfig');
+const { DELAY_BETWEEN_REPOS_MS, NAME_BACKFILL_MAX_BATCH_SIZE } = require('../config/syncConfig');
 
 const router = express.Router();
 
@@ -56,11 +57,19 @@ router.post('/admin/sync/reviews', async (req, res) => {
       }
     }
 
+    let userNames = null;
+    try {
+      userNames = await backfillMissingUserNames({ limit: NAME_BACKFILL_MAX_BATCH_SIZE });
+    } catch (backfillError) {
+      console.error('Error backfilling user names after review sync:', backfillError.message);
+    }
+
     return res.json({
       status: STATUS.SUCCESS,
       repos_processed: reposProcessed,
       total_repos: totalRepos,
       reviews_processed: totalReviewsProcessed,
+      user_names: userNames,
     });
   } catch (error) {
     console.error('Error syncing reviews:', error);

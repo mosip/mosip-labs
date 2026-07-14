@@ -1,21 +1,27 @@
 const express = require("express");
 const router = express.Router();
 const { getOrgActivity } = require("../services/orgActivityService");
+const { resolveRoleFilter } = require("../services/userRolesService");
 
 router.get("/orgs/:org_id/activity", async (req, res) => {
   const { org_id } = req.params;
-  const { period = "weekly" } = req.query;
+  const { period = "weekly", role } = req.query;
 
   if (!org_id || typeof org_id !== "string") {
     return res.status(400).json({ error: "Invalid org_id" });
   }
 
-  if (!["daily", "weekly", "monthly"].includes(period)) {
+  if (!["daily", "weekly", "monthly", "yearly"].includes(period)) {
     return res.status(400).json({ error: "Invalid period value" });
   }
 
   try {
-    const data = await getOrgActivity(org_id, period);
+    const { error, roleFilter } = await resolveRoleFilter(role);
+    if (error) {
+      return res.status(400).json({ error });
+    }
+
+    const data = await getOrgActivity(org_id, period, roleFilter);
     return res.json(data);
   } catch (err) {
     console.error("Error fetching org activity:", err);

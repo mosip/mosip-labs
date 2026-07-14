@@ -26,6 +26,8 @@ services:
       RDS_USER: ${RDS_USER:-github_user}
       RDS_PASSWORD: ${RDS_PASSWORD:-github_password}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_ORG: ${GITHUB_ORG}
+      USER_ROLES: ${USER_ROLES}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
       NODE_ENV: production
     depends_on:
@@ -33,6 +35,7 @@ services:
         condition: service_healthy
     ports:
       - "3000:3000"
+    command: ["sh", "-c", "npm run migrate && node app.js"]
     restart: unless-stopped
 
   # Run once per environment:
@@ -46,6 +49,7 @@ services:
       RDS_DATABASE: ${RDS_DATABASE:-github_data}
       RDS_USER: ${RDS_USER:-github_user}
       RDS_PASSWORD: ${RDS_PASSWORD:-github_password}
+      GITHUB_ORG: ${GITHUB_ORG}
       NODE_ENV: production
     depends_on:
       db:

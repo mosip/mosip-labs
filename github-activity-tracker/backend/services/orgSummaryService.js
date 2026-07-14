@@ -1,5 +1,6 @@
 const db = require("../db/dbPool");
 const { EXCLUDED_GITHUB_LOGINS } = require("../config/excludedGitHubLogins");
+const { pushRoleUserDetailsJoin } = require("../utils/userRoleSql");
 
 function getDateRanges(period) {
   const now = new Date();
@@ -12,7 +13,7 @@ function getDateRanges(period) {
       previousStart = new Date(currentStart);
       previousStart.setDate(previousStart.getDate() - 1);
 
-      currentEnd = new Date(now); // now
+      currentEnd = new Date(now);
       previousEnd = new Date(currentStart);
       break;
 
@@ -23,7 +24,7 @@ function getDateRanges(period) {
       previousStart = new Date();
       previousStart.setDate(previousStart.getDate() - 14);
 
-      currentEnd = new Date(); // now
+      currentEnd = new Date(now);
       previousEnd = new Date(currentStart);
       break;
 
@@ -34,7 +35,18 @@ function getDateRanges(period) {
       previousStart = new Date();
       previousStart.setDate(previousStart.getDate() - 60);
 
-      currentEnd = new Date(); // now
+      currentEnd = new Date(now);
+      previousEnd = new Date(currentStart);
+      break;
+
+    case "yearly":
+      currentStart = new Date();
+      currentStart.setDate(currentStart.getDate() - 365);
+
+      previousStart = new Date();
+      previousStart.setDate(previousStart.getDate() - 730);
+
+      currentEnd = new Date(now);
       previousEnd = new Date(currentStart);
       break;
 
@@ -50,7 +62,7 @@ function getDateRanges(period) {
   };
 }
 
-async function fetchCounts(orgId, start, end) {
+async function fetchCounts(orgId, start, end, role) {
   const params = [];
   let query = `
     SELECT event_type, COUNT(*) AS count
@@ -72,7 +84,10 @@ async function fetchCounts(orgId, start, end) {
   params.push(start, end);
   whereClauses.push(`e.created_at BETWEEN $${params.length - 1} AND $${params.length}`);
 
+  const userDetailsJoin = pushRoleUserDetailsJoin(params, role);
+
   query += `
+    ${userDetailsJoin}
     WHERE ${whereClauses.join(" AND ")}
     GROUP BY event_type;
   `;
@@ -92,7 +107,7 @@ async function fetchCounts(orgId, start, end) {
     if (row.event_type === "review") summary.reviews = Number(row.count);
   });
 
-  summary.activity = summary.commits + summary.prs + summary.reviews;
+  summary.activity = summary.prs + summary.reviews;
 
   return summary;
 }
@@ -114,12 +129,12 @@ function calculateChange(current, previous) {
   };
 }
 
-async function getOrgSummary(orgId, period) {
+async function getOrgSummary(orgId, period, role) {
   const { currentStart, currentEnd, previousStart, previousEnd } =
     getDateRanges(period);
 
-  const current = await fetchCounts(orgId, currentStart, currentEnd);
-  const previous = await fetchCounts(orgId, previousStart, previousEnd);
+  const current = await fetchCounts(orgId, currentStart, currentEnd, role);
+  const previous = await fetchCounts(orgId, previousStart, previousEnd, role);
 
   const change = calculateChange(current, previous);
 

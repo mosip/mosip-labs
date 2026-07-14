@@ -2,7 +2,7 @@
  * GitHub Activity Tracker – Backend API
  *
  * Express server that exposes admin sync endpoints to pull repository, commit,
- * PR, and review data from GitHub into PostgreSQL. Run migrations first (npm run migrate).
+ * PR, and review data from GitHub into PostgreSQL.
  */
 require('dotenv').config();
 const express = require('express');
@@ -16,6 +16,10 @@ const orgActivityRoute = require('./routes/orgActivityRoute');
 const orgSummaryRoute = require('./routes/orgSummaryRoute');
 const orgUsersRoute = require('./routes/orgUsersRoute');
 const userDetailsRoute = require('./routes/userDetailsRoute');
+const userRoleRoute = require('./routes/userRoleRoute');
+const userRolesRoute = require('./routes/userRolesRoute');
+const organizationsRoute = require('./routes/organizationsRoute');
+const { ensureLookupTables } = require('./db/initLookupTables');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +38,10 @@ app.get('/', (req, res) => {
       'POST /admin/sync/commits': 'Sync commits for all repositories in DB',
       'POST /admin/sync/prs': 'Sync PRs for all repositories in DB',
       'POST /admin/sync/reviews': 'Sync PR reviews for all repositories in DB',
+      'POST /admin/users/role': 'Assign or change job role for a GitHub user',
+      'GET /admin/users/:login/role': 'Fetch job role for a GitHub user',
+      'GET /user-roles': 'List assignable user job roles',
+      'GET /organizations': 'List tracked GitHub organizations',
     },
   });
 });
@@ -43,12 +51,28 @@ app.use(repoSyncRoute);
 app.use(commitSyncRoute);
 app.use(prSyncRoute);
 app.use(reviewSyncRoute);
+app.use(userRoleRoute);
+app.use(userRolesRoute);
+app.use(organizationsRoute);
 app.use(orgUsersRoute);
 app.use(orgSummaryRoute);
 app.use(userDetailsRoute);
 app.use(orgActivityRoute);
 app.use(leaderboardRoute);
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  try {
+    const result = await ensureLookupTables();
+
+    if (result.rolesAdded > 0 || result.orgsAdded > 0) {
+      console.log(
+        `Seeded from .env: ${result.rolesAdded} role(s), ${result.orgsAdded} organization(s)`
+      );
+    }
+  } catch (error) {
+    console.error('Failed to seed lookup tables from .env:', error.message);
+    process.exit(1);
+  }
+
   console.log(`Server running on http://localhost:${PORT}`);
 });

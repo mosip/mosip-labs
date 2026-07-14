@@ -78,6 +78,7 @@ spec:
               value: {{ .Values.containerSecurityContext.runAsUser | quote }}
             - name: JDK_JAVA_OPTIONS
               value: {{ .Values.additionalResources.javaOpts | quote }}
+            {{- include "gh-tracker-service.env" . | nindent 12 }}
             {{- if .Values.extraEnvVars }}
             {{- include "common.tplvalues.render" (dict "value" .Values.extraEnvVars "context" $) | nindent 12 }}
             {{- end }}

@@ -2,14 +2,16 @@ ghtrackerservice:
   configmaps:
     rds:
       rds_host: "api-internal.sandbox.xyz.net"
-      rds_database: "<db_name>"   # provide db name
+      rds_database: "<db_name>"
       rds_port: "5432"
-      rds_username: "<username>"   # provide username
+      rds_username: "<username>"
+    app_config:
+      github_org: mosip,inji
   secrets:
     rds-secret:
-      rds_password: <your_password>    # Provide rds password
+      rds_password: <your_password>
     github-token:
-      token: <github_token>   # provide github token.
+      token: <github_token>
 
 cronjob:
   enabled: true

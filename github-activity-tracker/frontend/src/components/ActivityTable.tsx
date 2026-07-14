@@ -1,5 +1,5 @@
 import React from 'react';
-import { GitCommit, GitPullRequest, AlertCircle, MessageSquare, User, Calendar } from 'lucide-react';
+import { GitPullRequest, AlertCircle, MessageSquare, User, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import type { ActivityItem } from '../lib/database.types';
 
@@ -8,15 +8,12 @@ interface ActivityTableProps {
 }
 
 const icons = {
-  commit: GitCommit,
   pull_request: GitPullRequest,
   issue: AlertCircle,
   review: MessageSquare,
 };
 
 export function ActivityTable({ activities }: ActivityTableProps) {
-  console.log('Activities received in UI:', activities);
-
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200">
