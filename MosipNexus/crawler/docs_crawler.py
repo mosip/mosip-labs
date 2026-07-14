@@ -22,6 +22,7 @@ from config.settings import (
     DOCS_FILE, DOCS_SITEMAP_URL, DOCS_BASE_URL,
     HTTP_HEADERS, CRAWL_DELAY_SECS,
 )
+from crawler.utils import table_to_prose
 
 _SM_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
@@ -73,6 +74,17 @@ def fetch_page_as_markdown(url: str) -> str:
         or soup.body
         or soup
     )
+
+    # Convert tables to prose before markdownify so specs/configs embed correctly.
+    # markdownify produces pipe-tables whose cells lack context without headers;
+    # prose like "vCPU: 12, RAM: 32 GB, Disk: 128 GB" retrieves far better.
+    for table in content.find_all("table"):
+        prose = table_to_prose(table)
+        if prose:
+            replacement = soup.new_tag("p")
+            replacement.string = prose
+            table.replace_with(replacement)
+
     return markdownify(
         str(content),
         heading_style="ATX",

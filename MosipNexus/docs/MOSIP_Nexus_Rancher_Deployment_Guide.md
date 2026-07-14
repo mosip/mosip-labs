@@ -6,7 +6,7 @@
 
 ## 1. Overview
 
-This document covers the infrastructure requirements and step-by-step deployment of MOSIP Nexus AI on a Rancher Kubernetes cluster. MOSIP Nexus AI consists of three runtime components — a FastAPI backend, a Streamlit chat UI, and a PostgreSQL database with the pgvector extension — plus a nightly CronJob that keeps the knowledge base up to date.
+This document covers the infrastructure requirements and step-by-step deployment of MOSIP Nexus AI on a Rancher Kubernetes cluster. MOSIP Nexus AI consists of four runtime components — a FastAPI backend, a Streamlit chat UI, a FastMCP server (for Claude Desktop / MCP integration), and a PostgreSQL database with the pgvector extension — plus a nightly CronJob that keeps the knowledge base up to date.
 
 All Kubernetes manifests are included in the repository under `MosipNexus/k8s/`.
 
@@ -17,7 +17,7 @@ All Kubernetes manifests are included in the repository under `MosipNexus/k8s/`.
 ### 2.1 Compute — Node Specifications
 
 | Tier | CPU | RAM | Suitable For |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Minimum (single node)** | 8 cores | 16 GB | Internal pilot, development |
 | **Recommended (production)** | 8 cores × 2 nodes | 32 GB × 2 nodes | High availability, rolling restarts |
 
@@ -26,18 +26,19 @@ All Kubernetes manifests are included in the repository under `MosipNexus/k8s/`.
 Each pod running the HuggingFace embedding model (`multilingual-e5-base`) loads approximately 1.1 GB of model weights into RAM (measured from the cached model files, not estimated). During the nightly knowledge update, the embedding process is CPU-intensive. The table below shows the resource footprint at steady state and during the nightly update.
 
 | Component | CPU (steady) | RAM (steady) | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | nexus-postgres (pgvector) | 0.25 cores | 512 MB | Stores all vector embeddings |
 | nexus-api (FastAPI) | 0.5 cores | ~2.5 GB | HF model loaded in memory |
 | nexus-ui (Streamlit) | 0.25 cores | ~2.5 GB | HF model loaded in memory |
-| **Total — steady state** | **~1 core** | **~5.5 GB** | |
+| nexus-mcp (FastMCP / Claude Desktop) | 0.25 cores | ~2.5 GB | HF model loaded in memory; port 8002 |
+| **Total — steady state** | **~1.25 cores** | **~8 GB** | |
 | nexus-updater (nightly CronJob) | 1–4 cores | 4–8 GB | Runs ~15 min nightly, not always active |
 | **Total — during nightly update** | **~5 cores** | **~13 GB** | |
 
 ### 2.2 Storage Requirements
 
 | Volume | Size | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | postgres-data PVC | 20 GB | pgvector embeddings (~70,000 chunks across all knowledge sources) |
 | nexus-data PVC | 10 GB | Crawled JSON files and crawl state (used by nightly CronJob) |
 | Node disk (per node) | 50 GB minimum | OS, Kubernetes, and Docker image (~3.5 GB image) |
@@ -47,7 +48,7 @@ Each pod running the HuggingFace embedding model (`multilingual-e5-base`) loads 
 Measured from the actual built image (`docker image inspect`), not estimated:
 
 | Layer | Size (raw layer diff) |
-|---|---|
+| --- | --- |
 | Debian + Python 3.13 base | ~220 MB |
 | `uv sync` — LangChain, PyTorch CPU, transformers, psycopg, etc. | ~5.7 GB |
 | Application source code (`COPY . .`) | ~1 MB |
@@ -63,7 +64,7 @@ Measured from the actual built image (`docker image inspect`), not estimated:
 ### 2.4 Software Prerequisites
 
 | Requirement | Version | Notes |
-|---|---|---|
+| --- | --- | --- |
 | Rancher | 2.7 or later | Or any Kubernetes 1.28+ cluster |
 | nginx Ingress Controller | Any current | Included with Rancher by default |
 | Storage class | Any ReadWriteOnce | `local-path` works for single-node; use NFS for multi-node |
@@ -74,7 +75,7 @@ Measured from the actual built image (`docker image inspect`), not estimated:
 ### 2.5 Network Requirements
 
 | Item | Requirement |
-|---|---|
+| --- | --- |
 | Exposed ports | 80 / 443 via nginx Ingress (no direct NodePort needed) |
 | Internal cluster networking | Standard pod-to-pod networking (no special config) |
 | DNS entries | `nexus.mosip.io` → Streamlit UI, `nexus-api.mosip.io` → FastAPI |
@@ -84,7 +85,7 @@ Measured from the actual built image (`docker image inspect`), not estimated:
 ### 2.6 API Keys and Credentials Required
 
 | Credential | Where to Get | Required? |
-|---|---|---|
+| --- | --- | --- |
 | `GROQ_API_KEY` | console.groq.com (free) | **Required** |
 | `PG_CONNECTION` | Set from PostgreSQL deployment | **Required** |
 | `GITHUB_TOKEN` | github.com → Settings → Developer settings | Optional (raises rate limit from 60 to 5,000 req/hr) |
@@ -444,7 +445,7 @@ kubectl exec -n mosip-nexus deploy/nexus-api -- `
 ## 6. Troubleshooting
 
 | Symptom | Likely Cause | Fix |
-|---|---|---|
+| --- | --- | --- |
 | Pod stuck in `Pending` | PVC not bound | Check storage class: `kubectl describe pvc -n mosip-nexus` |
 | Pod stuck in `CrashLoopBackOff` | Missing secret or wrong DB password | `kubectl logs <pod> -n mosip-nexus` to see the error |
 | `/health` returns `degraded` | pgvector unreachable or empty | Check postgres pod is running; verify PG_CONNECTION in secret |
@@ -459,7 +460,7 @@ kubectl exec -n mosip-nexus deploy/nexus-api -- `
 ## 7. Kubernetes Manifest Summary
 
 | File | What It Creates |
-|---|---|
+| --- | --- |
 | `k8s/00-namespace.yaml` | `mosip-nexus` namespace |
 | `k8s/01-postgres.yaml` | pgvector StatefulSet, PVC (20 GB), Service, init ConfigMap |
 | `k8s/02-secret.yaml` | All secrets — fill before applying |

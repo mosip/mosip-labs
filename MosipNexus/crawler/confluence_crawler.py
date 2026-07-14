@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 import requests
+from bs4 import BeautifulSoup
 from markdownify import markdownify
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -27,6 +28,7 @@ from config.settings import (
     CONFLUENCE_TOKEN, CONFLUENCE_URL, CONFLUENCE_USER,
     CRAWL_DELAY_SECS,
 )
+from crawler.utils import table_to_prose
 
 
 def _is_configured() -> bool:
@@ -75,7 +77,17 @@ def page_to_dict(page: dict) -> dict | None:
     labels    = [lb["name"] for lb in page.get("metadata", {}).get("labels", {}).get("results", [])]
     version   = page.get("version", {}).get("number", 0)
 
-    content = markdownify(html, heading_style="ATX", strip=["script", "style"]).strip()
+    # Convert tables to prose before markdownify so Confluence spec/config
+    # tables embed correctly (header+value pairs instead of raw pipe-cells).
+    soup = BeautifulSoup(html, "html.parser")
+    for table in soup.find_all("table"):
+        prose = table_to_prose(table)
+        if prose:
+            replacement = soup.new_tag("p")
+            replacement.string = prose
+            table.replace_with(replacement)
+
+    content = markdownify(str(soup), heading_style="ATX", strip=["script", "style"]).strip()
     if len(content) < 100:
         return None
 

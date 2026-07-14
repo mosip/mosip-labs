@@ -12,21 +12,21 @@ import os
 import sys
 from pathlib import Path
 
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_groq import ChatGroq
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config.settings import GROQ_API_KEY, GROQ_MODEL
+from chain.query_engine import build_llm
 
-_llm: ChatGroq | None = None
+_llm: BaseChatModel | None = None
 
 MIN_ANSWERS_TO_SUMMARIZE = 4   # threads with fewer answers are used as-is
 
 
-def _get_llm() -> ChatGroq:
+def _get_llm() -> BaseChatModel:
     global _llm
     if _llm is None:
-        _llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY)
+        _llm = build_llm()
     return _llm
 
 

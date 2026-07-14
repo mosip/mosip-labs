@@ -5,7 +5,7 @@ A production-grade RAG chatbot that answers MOSIP questions using **five knowled
 ## Documentation
 
 | Document | Audience | Location |
-|---|---|---|
+| --- | --- | --- |
 | [Developer Guide](docs/MOSIP_Nexus_Developer_Guide.docx) | Developers (zero GenAI background) | `docs/MOSIP_Nexus_Developer_Guide.docx` |
 | [Business Presentation](docs/MOSIP_Nexus_Presentation.pptx) | Stakeholders, managers, org leaders | `docs/MOSIP_Nexus_Presentation.pptx` |
 | [Rancher Deployment Guide](docs/MOSIP_Nexus_Rancher_Deployment_Guide.md) | Infrastructure / DevOps team | `docs/MOSIP_Nexus_Rancher_Deployment_Guide.md` |
@@ -15,7 +15,7 @@ A production-grade RAG chatbot that answers MOSIP questions using **five knowled
 ## Knowledge Base
 
 | Source | Chunks | Description |
-|---|---|---|
+| --- | --- | --- |
 | MOSIP Docs | 6,094 | All 449 pages from docs.mosip.io/1.2.0 |
 | Community Forum | 11,236 | Q&A threads from community.mosip.io (accepted answers prioritised) |
 | GitHub Issues | 2,513 | Closed issues from 86 MOSIP org repos |
@@ -31,7 +31,7 @@ A production-grade RAG chatbot that answers MOSIP questions using **five knowled
 ## Features
 
 | Feature | Details |
-|---|---|
+| --- | --- |
 | **Five knowledge sources** | Docs + Community + GitHub + Confluence + Code — all searchable in one query |
 | **Multilingual** | Ask in any language (Tamil, Hindi, French, Arabic, …); replies in the same language (≥95% confidence) |
 | **Chat memory** | Follow-up questions retain full conversation context |
@@ -40,51 +40,62 @@ A production-grade RAG chatbot that answers MOSIP questions using **five knowled
 | **Community intelligence** | `[ACCEPTED ANSWER]` posts and high-voted replies ranked higher |
 | **Confidence scoring** | 🟢 High / 🟡 Medium / 🔴 Low based on retrieval cosine distance |
 | **No hallucination guard** | LLM instructed to return "not available" when context is irrelevant |
+| **BYOK — Bring Your Own Key** | Users supply their own Groq / Anthropic / OpenAI API key via the Settings page. No server-side LLM cost for user queries. |
+| **Claude Desktop / MCP** | Connect Claude Desktop directly — it calls `search_mosip` for retrieval and uses your own Claude subscription for the LLM. Zero API cost to the app owner. |
+| **Query intelligence** | Automatic query classification: error-code format, environment-debug format, code-class format, or general. Each gets a specialised system prompt and retrieval strategy. |
+| **Hybrid retrieval** | SQL exact-match for error constants + sibling co-retrieval from the same source file + MMR vector search — error code answers always include the defining constant. |
+| **Production / demo separation** | Demo, test, mock, and sample packages are ranked below production code so the LLM cites real implementations, not sample apps. |
 | **Incremental updates** | `run_update.py` re-crawls only changed/new content across docs, community, GitHub, Confluence, and Jira |
 | **LangSmith observability** | Full trace visibility — zero code changes, just env vars |
 
 ## Tech Stack
 
 | Component | Choice |
-|---|---|
+| --- | --- |
 | Framework | LangChain 1.x (LCEL) |
-| LLM | Groq — `llama-3.3-70b-versatile` |
+| LLM | **BYOK** — Groq / Anthropic / OpenAI (user-supplied key via Settings page); Groq server key for ingestion pipeline only |
+| MCP | `mcp` + FastMCP — SSE transport for Claude Desktop integration (port 8002) |
 | Embeddings | HuggingFace `intfloat/multilingual-e5-base` (768-dim, 100+ languages) |
 | Vector DB | pgvector (PostgreSQL extension — ACID, SQL filtering, pg_dump backups) |
 | Crawlers | `requests` + `BeautifulSoup` + Discourse API + GitHub REST API + Atlassian REST API |
 | Observability | LangSmith (optional, free tier) |
-| UI | Streamlit |
+| UI | Streamlit multi-page (chat + settings) |
 | Package manager | `uv` |
 | Python | 3.13 |
 
 ## Project Structure
 
-```
+```text
 MosipNexus/
 ├── config/
 │   └── settings.py              # All constants, env bindings, and tuneable params
 ├── crawler/
-│   ├── docs_crawler.py          # Sitemap crawler → mosip_docs.json
+│   ├── docs_crawler.py          # Sitemap crawler → mosip_docs.json (tables converted to prose)
 │   ├── community_crawler.py     # Discourse API crawler → mosip_community.json
 │   ├── github_crawler.py        # GitHub Issues API (auto-discovers 86 repos) → mosip_github.json
 │   ├── code_crawler.py          # GitHub Tree API for source files → mosip_code.json
-│   ├── confluence_crawler.py    # Atlassian REST API → mosip_confluence.json
+│   ├── confluence_crawler.py    # Atlassian REST API → mosip_confluence.json (tables converted to prose)
 │   ├── jira_crawler.py          # Atlassian Jira API → mosip_jira.json (optional)
+│   ├── utils.py                 # Shared crawler utilities (table_to_prose)
 │   └── state.py                 # Crawl state persistence for incremental updates
 ├── ingestion/
 │   └── store.py                 # Chunk, embed, upsert into pgvector collections
 ├── retrieval/
-│   ├── retriever.py             # MMR search across all collections + confidence scoring
+│   ├── retriever.py             # Hybrid retrieval: MMR + SQL exact-match + sibling co-retrieval + production/demo separation
 │   └── dedup.py                 # Duplicate question detection
 ├── chain/
-│   ├── query_engine.py          # Main LCEL RAG chain (condense → retrieve → answer)
+│   ├── query_engine.py          # LCEL RAG chain — BYOK multi-provider, query classification, specialised system prompts
 │   └── summarizer.py            # Long thread summarisation
 ├── memory/
 │   └── session.py               # Session-level chat history
 ├── notifications/
 │   └── email_notifier.py        # Optional email alerts for unanswerable questions
+├── mcp_server/
+│   └── server.py                # FastMCP server — exposes search_mosip + list_knowledge_sources tools (port 8002)
 ├── app/
-│   └── app.py                   # Streamlit chat UI
+│   ├── app.py                   # Streamlit chat UI
+│   └── pages/
+│       └── settings.py          # Settings page — LLM provider, API key (BYOK), model selector
 ├── run_update.py                 # Incremental update runner
 ├── data/                         # Crawled JSON files (committed — skips re-crawl for new cloners)
 └── .env                          # Local secrets (gitignored)
@@ -125,7 +136,9 @@ Create `MosipNexus/.env` with the following variables:
 # Required — PostgreSQL connection string
 PG_CONNECTION="postgresql+psycopg://mosip:your_password@localhost:5432/mosipnexus"
 
-# Required
+# Optional — used only by the ingestion pipeline (thread summariser).
+# NOT used for user queries — users bring their own key via the Settings page (BYOK)
+# or connect via Claude Desktop + MCP (no API key needed at all).
 GROQ_API_KEY="your_groq_api_key"          # free at console.groq.com
 
 # Optional — avoids HuggingFace rate limits on model downloads
@@ -201,6 +214,41 @@ uv run streamlit run MosipNexus/app/app.py
 
 Open [http://localhost:8501](http://localhost:8501).
 
+## Claude Desktop / MCP Integration
+
+MOSIP Nexus exposes a Model Context Protocol (MCP) server that Claude Desktop can connect to. When connected, Claude calls `search_mosip` for retrieval and uses your own Claude subscription for the LLM — zero API cost for the app owner.
+
+### Connecting Claude Desktop
+
+**Step 1** — Open Claude Desktop → Settings → Developer → Edit Config
+
+**Step 2** — Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mosip-nexus": {
+      "url": "http://localhost:8002/sse"
+    }
+  }
+}
+```
+
+*(For production: replace `localhost:8002` with your deployed URL, e.g. `https://mosip-nexus.env.mosip.net/mcp/sse`)*
+
+**Step 3** — Restart Claude Desktop. Verify `mosip-nexus` appears under Developer → MCP Servers.
+
+**Step 4** — Ask Claude any MOSIP question. It automatically calls `search_mosip` and answers using your Claude subscription.
+
+### Available MCP Tools
+
+| Tool | Description |
+| --- | --- |
+| `search_mosip(query)` | Search all five knowledge sources simultaneously. Returns top chunks with source URLs. |
+| `list_knowledge_sources()` | Show live record counts for each indexed source. |
+
+---
+
 ## Usage
 
 - Type any MOSIP question in the chat box
@@ -212,7 +260,7 @@ Open [http://localhost:8501](http://localhost:8501).
 
 ## How It Works
 
-```
+```text
 User question
       │
       ▼
