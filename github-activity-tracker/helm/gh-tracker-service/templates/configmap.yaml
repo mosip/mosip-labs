@@ -15,19 +15,3 @@ data:
   rds-database: {{ .Values.ghtrackerservice.configmaps.rds.rds_database | quote }}
   rds-port: {{ .Values.ghtrackerservice.configmaps.rds.rds_port | quote }}
   rds-username: {{ .Values.ghtrackerservice.configmaps.rds.rds_username | quote }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: app-config
-  namespace: {{ .Release.Namespace }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
-  {{- if .Values.commonAnnotations }}
-  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
-  {{- end }}
-data:
-  github_org: {{ .Values.ghtrackerservice.configmaps.app_config.github_org | quote }}
-  user_roles: {{ .Values.ghtrackerservice.configmaps.app_config.user_roles | quote }}

@@ -238,15 +238,47 @@ updateStrategy:
   type: RollingUpdate
 
 ## Additional environment variables to set
-## Core backend env vars (RDS_*, GITHUB_TOKEN, GITHUB_ORG, USER_ROLES) are defined in
-## templates/_helpers.tpl (gh-tracker-service.env) and injected by deployment/migrate templates.
-## Use extraEnvVars only for additional optional variables.
 ## Example:
 ## extraEnvVars:
 ##   - name: FOO
 ##     value: "bar"
 ##
-extraEnvVars: []
+extraEnvVars:
+  - name: RDS_HOST
+    valueFrom:
+      configMapKeyRef:
+        key: rds-host
+        name: rds-config
+  - name: RDS_PORT
+    valueFrom:
+      configMapKeyRef:
+        key: rds-port
+        name: rds-config
+  - name: RDS_DATABASE
+    valueFrom:
+      configMapKeyRef:
+        key: rds-database
+        name: rds-config
+  - name: RDS_USER
+    valueFrom:
+      configMapKeyRef:
+        key: rds-username
+        name: rds-config
+  - name: RDS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: rds_password
+        name: rds-secret
+  - name: GITHUB_TOKEN
+    valueFrom:
+      secretKeyRef:
+        key: token
+        name: github-token
+  # Required by sync endpoints and lookup-table seeding (USER_ROLES / GITHUB_ORG).
+  - name: GITHUB_ORG
+    value: "mosip,inji"
+  - name: USER_ROLES
+    value: "Developer,Tech Lead,Architect,Product Owner,Leadership,QA Engineer,DevOps Engineer"
 
 ## ConfigMap with extra environment variables
 ##
@@ -275,17 +307,6 @@ extraVolumeMounts: []
 ##         containerPort: 1234
 ##
 initContainers: {}
-
-migration:
-  enabled: true
-  backoffLimit: 3
-  resources:
-    limits:
-      cpu: 300m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
 
 ## Add sidecars to the  pods.
 ## Example:
@@ -433,9 +454,6 @@ ghtrackerservice:
       rds_database: "<db_name>"   # provide db name
       rds_port: "5432"
       rds_username: "<username>"   # provide username
-    app_config:
-      github_org: "mosip,inji"
-      user_roles: "Developer,Tech Lead,Architect,Product Owner,Leadership,QA Engineer,DevOps Engineer"
   secrets:
     rds-secret:
       rds_password: <your_password>    # Provide rds password
