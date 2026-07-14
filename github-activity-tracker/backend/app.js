@@ -40,8 +40,8 @@ app.get('/', (req, res) => {
       'POST /admin/sync/reviews': 'Sync PR reviews for all repositories in DB',
       'POST /admin/users/role': 'Assign or change job role for a GitHub user',
       'GET /admin/users/:login/role': 'Fetch job role for a GitHub user',
-      'GET /user-roles': 'List assignable user job roles',
-      'GET /organizations': 'List tracked GitHub organizations',
+      'GET /orgs/user-roles': 'List assignable user job roles',
+      'GET /orgs/organizations': 'List tracked GitHub organizations',
     },
   });
 });
