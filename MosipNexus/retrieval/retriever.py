@@ -23,7 +23,7 @@ from config.settings import (
     COMMUNITY_COLLECTION, CONFLUENCE_COLLECTION, CONFIDENCE_HIGH,
     CONFIDENCE_MEDIUM, DOCS_COLLECTION, EMBED_MODEL,
     GITHUB_COLLECTION, GITHUB_RETRIEVAL_K, JIRA_COLLECTION,
-    MAX_CONTEXT_DOCS, RETRIEVAL_FETCH_K, RETRIEVAL_K,
+    MAX_CONTEXT_DOCS, RETRIEVAL_FETCH_K, RETRIEVAL_K,YOUTUBE_COLLECTION,
 )
 
 _ERROR_CODE_RE = re.compile(r'\b[A-Z]{2,}-[A-Z]{2,}-\d{3,}\b')
@@ -51,6 +51,7 @@ _community_store: PGVector | None = None
 _github_store: PGVector | None = None
 _code_store: PGVector | None = None
 _pg_engine = None
+_youtube_store = None
 
 
 def _get_pg_engine():
@@ -84,7 +85,7 @@ def _try_load_optional_store(collection_name: str, embeddings: HuggingFaceEmbedd
 
 
 def _build() -> None:
-    global _embeddings, _docs_store, _community_store, _github_store, _code_store
+    global _embeddings, _docs_store, _community_store, _github_store, _code_store, _youtube_store
     _embeddings = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
     _docs_store = PGVector(
         embeddings=_embeddings,
@@ -98,6 +99,10 @@ def _build() -> None:
     )
     _github_store = _try_load_optional_store(GITHUB_COLLECTION, _embeddings)
     _code_store   = _try_load_optional_store(CODE_COLLECTION, _embeddings)
+    _youtube_store = _try_load_optional_store(
+        YOUTUBE_COLLECTION,
+        _embeddings,
+    )
 
 
 def get_collection_counts() -> dict[str, int]:
@@ -109,6 +114,7 @@ def get_collection_counts() -> dict[str, int]:
         CODE_COLLECTION:      "code",
         CONFLUENCE_COLLECTION:"confluence",
         JIRA_COLLECTION:      "jira",
+        YOUTUBE_COLLECTION: "youtube",
     }
     counts: dict[str, int] = {}
     with _get_pg_engine().connect() as conn:
@@ -269,6 +275,13 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
             search_kwargs={"k": GITHUB_RETRIEVAL_K, "fetch_k": RETRIEVAL_FETCH_K},
         )
         github_results = github_retriever.invoke(query)
+    youtube_results: list[Document] = []
+    if _youtube_store is not None:
+        youtube_retriever = _youtube_store.as_retriever(
+            search_type="mmr",
+            search_kwargs={"k": k, "fetch_k": RETRIEVAL_FETCH_K},
+        )
+        youtube_results = youtube_retriever.invoke(query)
 
     code_results: list[Document] = []
     exact_results: list[Document] = []
@@ -305,7 +318,14 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
     # exact/sibling production code → doc/community/github → demo/test code (last resort)
     _seen: set[str] = set()
     _deduped: list[Document] = []
-    for doc in _prod_code + doc_results + community_results + github_results + _demo_code:
+    for doc in (
+    _prod_code
+    + doc_results
+    + community_results
+    + github_results
+    + youtube_results
+    + _demo_code
+    ):
         if doc.page_content not in _seen:
             _seen.add(doc.page_content)
             _deduped.append(doc)
@@ -320,6 +340,8 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
     ]
     if _github_store is not None:
         _score_stores.append((_github_store, 1.0))
+    if _youtube_store is not None:
+        _score_stores.append((_youtube_store, 1.0))    
     if _code_store is not None:
         _score_stores.append((_code_store, 1.0))
 

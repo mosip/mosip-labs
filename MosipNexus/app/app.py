@@ -84,7 +84,7 @@ def _export_chat_html(messages: list, language: str) -> str:
                 links = ""
                 seen: set = set()
                 icons = {"docs": "📄", "community": "💬", "github": "🐙",
-                         "code": "🧑‍💻", "confluence": "📘"}
+                         "code": "🧑‍💻", "confluence": "📘","youtube": "▶️"}
                 for src in msg["sources"]:
                     url = src.get("source", "")
                     title = src.get("title") or url
@@ -199,6 +199,7 @@ _SOURCE_LABEL = {
     "code":        "Source Code",
     "confluence":  "Confluence",
     "jira":        "Jira Tickets",
+    "youtube": "YouTube",
     "mixed":       "Docs · Community · GitHub · Code",
     "web":         "Web Sources",
     "none":        "",
@@ -249,6 +250,9 @@ _SVG_ICON = {
         '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2'
         'a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>'
     ),
+    "youtube": _svg(
+        '<polygon points="10,8 16,12 10,16"/>',
+    ),
     "web": _svg(
         '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>'
         '<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10'
@@ -266,6 +270,7 @@ _SIDEBAR_SOURCES_HTML = (
             ("github",      "GitHub Issues"),
             ("confluence",  "Confluence"),
             ("code",        "Source Code"),
+            ("youtube", "YouTube"),
         ]
     )
     + "</div>"
