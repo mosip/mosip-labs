@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from config.settings import GROQ_API_KEY
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -168,7 +169,7 @@ st.markdown(
 
 # ── Persistent session state defaults (survive page navigation) ───────────────
 if "llm_api_key" not in st.session_state:
-    st.session_state["llm_api_key"] = ""
+    st.session_state["llm_api_key"] = GROQ_API_KEY or ""
 if "llm_provider" not in st.session_state:
     st.session_state["llm_provider"] = "groq"
 
@@ -247,22 +248,16 @@ with st.container(border=True):
             unsafe_allow_html=True,
         )
         # Seed the widget key from the persistent key when returning to this page
-        if "_api_key_widget" not in st.session_state:
-            st.session_state["_api_key_widget"] = st.session_state["llm_api_key"]
-
-        def _sync_api_key():
-            # on_change fires before script reruns — persistent key is always current
-            st.session_state["llm_api_key"] = st.session_state.get("_api_key_widget", "")
-
         st.text_input(
             "API Key",
+            value=GROQ_API_KEY or "",
             type="password",
-            placeholder=key_placeholder,
-            key="_api_key_widget",
-            on_change=_sync_api_key,
+            disabled=True,  
             label_visibility="collapsed",
+            help="API key is loaded from the .env file."
         )
-        api_key = st.session_state.get("llm_api_key", "")
+
+        api_key = GROQ_API_KEY
 
     with col_model:
         st.caption("Model")
