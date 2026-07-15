@@ -5,6 +5,7 @@ const {
   NAME_BACKFILL_BATCH_SIZE,
   NAME_BACKFILL_MAX_BATCH_SIZE,
   NAME_FETCH_RETRY_MS,
+  NAME_REFRESH_INTERVAL_MS,
 } = require('../config/syncConfig');
 
 function sleep(ms) {
@@ -45,7 +46,7 @@ async function fetchGitHubUserName(login) {
 }
 
 /**
- * Resolve display name: use provided value, existing github_users value, or fetch from GitHub.
+ * Resolve display name: use provided value, re-fetch from GitHub if stale, or use stored value.
  */
 async function resolveGitHubUserName({ github_user_id, login, type, name }) {
   const providedName = normalizeDisplayName(name);
@@ -59,7 +60,7 @@ async function resolveGitHubUserName({ github_user_id, login, type, name }) {
 
   const existing = await pool.query(
     `
-      SELECT name
+      SELECT name, updated_at
       FROM github_users
       WHERE github_user_id = $1
     `,
@@ -67,7 +68,14 @@ async function resolveGitHubUserName({ github_user_id, login, type, name }) {
   );
 
   const storedName = normalizeDisplayName(existing.rows[0]?.name);
+  const updatedAt = existing.rows[0]?.updated_at;
+
   if (storedName) {
+    const isStale = updatedAt && (Date.now() - new Date(updatedAt).getTime()) > NAME_REFRESH_INTERVAL_MS;
+    if (isStale) {
+      const freshName = await fetchGitHubUserName(login);
+      return freshName || storedName;
+    }
     return storedName;
   }
 
