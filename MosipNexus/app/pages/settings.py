@@ -250,7 +250,7 @@ with st.container(border=True):
         # Seed the widget key from the persistent key when returning to this page
         st.text_input(
             "API Key",
-            value=GROQ_API_KEY or "",
+            value="Loaded from .env"
             type="password",
             disabled=True,  
             label_visibility="collapsed",
