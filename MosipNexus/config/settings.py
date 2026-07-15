@@ -56,7 +56,7 @@ PIPELINE_VERSION = _hashlib.md5(
 # ── Retrieval ──────────────────────────────────────────────────────────────────
 RETRIEVAL_K       = 8    # final chunks returned per collection
 RETRIEVAL_FETCH_K = 30   # MMR candidate pool
-MAX_CONTEXT_DOCS  = 40   # hard cap on total docs passed to LLM (prevents context overflow)
+MAX_CONTEXT_DOCS = 10
 
 # Cosine similarity (1 = identical).  Above this → treat as duplicate question.
 DEDUP_THRESHOLD = 0.88
@@ -178,6 +178,13 @@ JIRA_TOKEN        = os.getenv("JIRA_TOKEN", "")
 JIRA_PROJECT_KEYS = [k.strip() for k in os.getenv("JIRA_PROJECT_KEYS", "MOSIP").split(",") if k.strip()]
 JIRA_FILE         = DATA_DIR / "mosip_jira.json"
 JIRA_COLLECTION   = "mosip_jira"
+
+# ── YouTube crawler ───────────────────────────────────────────────────────────
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
+YOUTUBE_CHANNEL_HANDLE = os.getenv("YOUTUBE_CHANNEL_HANDLE", "mosip16")
+
+YOUTUBE_FILE = DATA_DIR / "mosip_youtube.json"
+YOUTUBE_COLLECTION = "mosip_youtube"
 
 # ── HTTP headers ───────────────────────────────────────────────────────────────
 HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; MosipNexusBot/1.0)"}
