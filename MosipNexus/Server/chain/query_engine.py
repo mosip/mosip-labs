@@ -252,7 +252,7 @@ def _web_fallback_or_none(
 
     return {
         "answer": fallback_answer or (
-            "This information is not available in the MOSIP knowledge sources."
+            "No relevant results were found on the web for your query."
         ),
         "sources":          [],
         "source_type":      "none",
@@ -542,6 +542,16 @@ def _ask_impl(
             "similar_questions": [],
         }
 
+    # ── Web search (DuckDuckGo → LLM synthesis) ────────────────────────────────
+    if mode == "web":
+        result = _web_fallback_or_none(question, language, llm=llm)
+        logger.info(
+            "ask done kind=web source_type=%s elapsed_ms=%.0f",
+            result.get("source_type"),
+            (time.perf_counter() - started) * 1000,
+        )
+        return result
+
     # ── Direct BYOK (no retrieval) ─────────────────────────────────────────────
     if mode == "direct":
         return _ask_direct(
@@ -585,10 +595,16 @@ def _ask_impl(
         (time.perf_counter() - started) * 1000,
     )
 
-    # No chunks retrieved at all — don't let the LLM guess from pretrained
-    # knowledge, go straight to the same web-fallback path as [NO_DOC_SOURCE].
+    # No chunks retrieved — return "not available" (no web fallback for RAG products).
     if not docs or not context.strip():
-        return _web_fallback_or_none(question, language, llm=llm)
+        product = current_product()
+        return {
+            "answer": f"This information is not available in the {product.short} knowledge sources.",
+            "sources": [],
+            "source_type": "none",
+            "confidence": "low",
+            "similar_questions": [],
+        }
 
     # ── Build QA chain ─────────────────────────────────────────────────────────
     has_greeting = _starts_with_greeting(question)
@@ -640,17 +656,18 @@ def _ask_impl(
     if any(p in answer.lower() for p in _NOT_FOUND_PHRASES):
         confidence = "low"
 
-    # ── [NO_DOC_SOURCE] → try DuckDuckGo web search fallback ─────────────────
+    # ── [NO_DOC_SOURCE] → not available in this product's knowledge base ────────
     if _NO_SOURCE_MARKER in answer:
-        fallback_answer = answer.replace(_NO_SOURCE_MARKER, "").lstrip()
-        result = _web_fallback_or_none(question, language, fallback_answer, llm=llm)
-        logger.info(
-            "ask done kind=web_fallback source_type=%s confidence=%s elapsed_ms=%.0f",
-            result.get("source_type"),
-            result.get("confidence"),
-            (time.perf_counter() - started) * 1000,
-        )
-        return result
+        clean = answer.replace(_NO_SOURCE_MARKER, "").strip()
+        product = current_product()
+        logger.info("ask done kind=no_source elapsed_ms=%.0f", (time.perf_counter() - started) * 1000)
+        return {
+            "answer": clean or f"This information is not available in the {product.short} knowledge sources.",
+            "sources": [],
+            "source_type": "none",
+            "confidence": "low",
+            "similar_questions": [],
+        }
 
     # ── Classify sources ───────────────────────────────────────────────────────
     source_types = {d.metadata.get("source_type", "") for d in docs}

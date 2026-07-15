@@ -17,7 +17,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Literal
 
-AnswerMode = Literal["rag", "direct"]
+AnswerMode = Literal["rag", "direct", "web"]
 
 
 @dataclass(frozen=True)
@@ -133,9 +133,9 @@ def _build_catalog() -> dict[str, ProductProfile]:
         jira_collection=_env("GENERIC_JIRA_COLLECTION", "generic_jira"),
         retrieval_enabled=_env("GENERIC_RETRIEVAL_ENABLED", "false").lower()
         in ("1", "true", "yes"),
-        default_answer_mode="direct"
-        if _env("GENERIC_DEFAULT_ANSWER_MODE", "direct").lower() != "rag"
-        else "rag",
+        default_answer_mode=_env("GENERIC_DEFAULT_ANSWER_MODE", "web").lower()  # type: ignore[arg-type]
+        if _env("GENERIC_DEFAULT_ANSWER_MODE", "web").lower() in ("rag", "direct", "web")
+        else "web",
     )
     return {"mosip": mosip, "inji": inji, "generic": generic}
 
@@ -177,7 +177,7 @@ def normalize_answer_mode(
     *,
     product: ProductProfile | None = None,
 ) -> AnswerMode:
-    """Resolve ``rag`` | ``direct`` from request or product default."""
+    """Resolve ``rag`` | ``direct`` | ``web`` from request or product default."""
     profile = product or current_product()
     if not raw or not str(raw).strip():
         return profile.default_answer_mode
@@ -186,6 +186,8 @@ def normalize_answer_mode(
         return "direct"
     if key in ("rag", "retrieve", "knowledge", "docs"):
         return "rag"
+    if key in ("web", "search", "websearch", "internet"):
+        return "web"
     # Unknown → product default
     return profile.default_answer_mode
 
