@@ -28,6 +28,7 @@ from langdetect import DetectorFactory, LangDetectException, detect_langs
 from chain.query_engine import ask
 from memory.session import SessionMemory
 from retrieval.dedup import find_similar_question
+from config.settings import GROQ_API_KEY
 
 DetectorFactory.seed = 0
 
@@ -200,7 +201,7 @@ _SOURCE_LABEL = {
     "confluence":  "Confluence",
     "jira":        "Jira Tickets",
     "youtube": "YouTube",
-    "mixed":       "Docs · Community · GitHub · Code",
+    "mixed": "Docs · Community · GitHub · Code · YouTube",
     "web":         "Web Sources",
     "none":        "",
     "chat":        "",
@@ -514,9 +515,16 @@ st.markdown(
 
 # ── Persistent session state defaults (must match settings.py) ────────────────
 if "llm_api_key" not in st.session_state:
-    st.session_state["llm_api_key"] = ""
+
+    st.session_state["llm_api_key"] = GROQ_API_KEY or ""
+
 if "llm_provider" not in st.session_state:
+
     st.session_state["llm_provider"] = "groq"
+
+if "llm_model" not in st.session_state:
+
+    st.session_state["llm_model"] = "llama-3.3-70b-versatile"
 
 # ── No-LLM banner ─────────────────────────────────────────────────────────────
 if not st.session_state.get("llm_api_key"):

@@ -265,8 +265,8 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
         search_kwargs={"k": k, "fetch_k": RETRIEVAL_FETCH_K},
     )
 
-    doc_results       = docs_retriever.invoke(query)
-    community_results = community_retriever.invoke(query)
+    doc_results = docs_retriever.invoke(query)[:4]
+    community_results = community_retriever.invoke(query)[:2]
 
     github_results: list[Document] = []
     if _github_store is not None:
@@ -274,14 +274,15 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
             search_type="mmr",
             search_kwargs={"k": GITHUB_RETRIEVAL_K, "fetch_k": RETRIEVAL_FETCH_K},
         )
-        github_results = github_retriever.invoke(query)
+        github_results = github_retriever.invoke(query)[:1]
     youtube_results: list[Document] = []
     if _youtube_store is not None:
         youtube_retriever = _youtube_store.as_retriever(
             search_type="mmr",
             search_kwargs={"k": k, "fetch_k": RETRIEVAL_FETCH_K},
         )
-        youtube_results = youtube_retriever.invoke(query)
+        youtube_results = youtube_retriever.invoke(query)[:3]
+        
 
     code_results: list[Document] = []
     exact_results: list[Document] = []
@@ -295,7 +296,7 @@ def retrieve(query: str, k: int = RETRIEVAL_K) -> tuple[list[Document], str]:
             search_type="mmr",
             search_kwargs={"k": code_k, "fetch_k": RETRIEVAL_FETCH_K},
         )
-        code_results = code_retriever.invoke(query)
+        code_results = code_retriever.invoke(query)[:2]
 
         if _error_match:
             error_code = _error_match.group()

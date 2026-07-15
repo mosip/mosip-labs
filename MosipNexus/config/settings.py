@@ -56,6 +56,7 @@ PIPELINE_VERSION = _hashlib.md5(
 # ── Retrieval ──────────────────────────────────────────────────────────────────
 RETRIEVAL_K       = 8    # final chunks returned per collection
 RETRIEVAL_FETCH_K = 30   # MMR candidate pool
+MAX_CONTEXT_DOCS = 10
 
 # Cosine similarity (1 = identical).  Above this → treat as duplicate question.
 DEDUP_THRESHOLD = 0.88

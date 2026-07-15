@@ -554,12 +554,12 @@ def ask(
     ]
 
     sources = (
-        _doc_filtered 
-        +_by_type.get("community", [])[:2] +
-        +_by_type.get("github", [])[:1] +
-        +_by_type.get("code", [])[:1] +
-        +_by_type.get("confluence", [])[:1]
-        +_by_type.get("youtube", [])[:2]
+        _doc_filtered
+        + _by_type.get("community", [])[:2]
+        + _by_type.get("github", [])[:1]
+        + _by_type.get("code", [])[:1]
+        + _by_type.get("confluence", [])[:1]
+        + _by_type.get("youtube", [])[:2]
     )
 
     # ── Similar questions (community titles in the results) ────────────────────

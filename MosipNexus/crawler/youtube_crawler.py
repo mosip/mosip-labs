@@ -87,6 +87,11 @@ def get_all_videos(youtube, playlist_id):
 
     return videos
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import (
+    NoTranscriptFound,
+    TranscriptsDisabled,
+    IpBlocked,
+)
 
 def fetch_transcript(video_id: str):
     """
@@ -96,9 +101,6 @@ def fetch_transcript(video_id: str):
       1. Manual English captions
       2. Auto-generated English
       3. Any available language
-
-    Returns:
-        list[FetchedTranscriptSnippet] | None
     """
     api = YouTubeTranscriptApi()
 
@@ -107,12 +109,27 @@ def fetch_transcript(video_id: str):
             video_id,
             languages=["en"],
         )
-    except Exception:
+
+    except NoTranscriptFound:
         pass
+
+    except TranscriptsDisabled:
+        print(f"WARN: transcripts disabled for {video_id}")
+        return None
+
+    except IpBlocked:
+        print(f"WARN: YouTube blocked transcript requests for {video_id}")
+        return None
+
+    except Exception as e:
+        print(f"WARN: transcript fetch failed for {video_id}: {e}")
+        return None
 
     try:
         return api.fetch(video_id)
-    except Exception:
+
+    except Exception as e:
+        print(f"WARN: transcript fetch failed for {video_id}: {e}")
         return None
 def transcript_to_segments(transcript):
     """Convert transcript snippets into plain dictionaries."""
