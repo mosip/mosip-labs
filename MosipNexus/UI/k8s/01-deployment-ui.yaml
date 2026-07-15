@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus-ui
+  namespace: mosip-nexus
+  labels:
+    app: nexus-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus-ui
+  template:
+    metadata:
+      labels:
+        app: nexus-ui
+    spec:
+      containers:
+        - name: nexus-ui
+          # Built from UI/Dockerfile → nexus-ui:latest (nginx + React)
+          image: nexus-ui:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8501
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "500m"
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8501
+            initialDelaySeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8501
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 5

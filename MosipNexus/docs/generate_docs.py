@@ -176,12 +176,13 @@ def build_developer_guide():
         "7. Running the Application for the First Time",
         "8. How the Pipeline Works — Component by Component",
         "9. REST API Reference",
-        "10. Code Walkthrough — Key Functions Explained",
-        "11. Key Configuration Reference",
-        "12. Making Changes",
-        "13. Incremental Knowledge Updates",
-        "14. Troubleshooting",
-        "15. Glossary",
+        "10. MCP Server — Claude Desktop Integration",
+        "11. Code Walkthrough — Key Functions Explained",
+        "12. Key Configuration Reference",
+        "13. Making Changes",
+        "14. Incremental Knowledge Updates",
+        "15. Troubleshooting",
+        "16. Glossary",
     ]:
         add_bullet(doc, item)
     doc.add_page_break()
@@ -289,8 +290,8 @@ def build_developer_guide():
     add_body(doc,
         "A vector database stores all those 768-number vectors and lets you find the most "
         "similar ones to a query vector very quickly — even when there are millions of vectors. "
-        "MOSIP Nexus uses ChromaDB — a lightweight vector database that runs entirely on your "
-        "local machine with no server required.")
+        "MOSIP Nexus uses PostgreSQL with the pgvector extension — embeddings live in "
+        "the same database used for production deployments (ACID, backups via pg_dump).")
 
     add_heading(doc, "2.6 What Is MMR (Maximal Marginal Relevance)?", 2)
     add_body(doc,
@@ -320,70 +321,79 @@ def build_developer_guide():
     add_heading(doc, "3. Technology Stack", 1)
     add_table(doc, [
         ("LangChain (LCEL)", "Python framework for building LLM pipelines. Wires together prompt templates, retrievers, and LLMs."),
-        ("Groq API", "Free cloud API that runs Llama 3.3 at very high speed. Get a free key at console.groq.com."),
-        ("Llama 3.3 (70B)", "The LLM that reads context and writes answers. Developed by Meta AI."),
-        ("HuggingFace Embeddings", "intfloat/multilingual-e5-base converts text to 768-dim vectors. Runs locally on CPU."),
-        ("ChromaDB", "Local vector database. Stores all embeddings on disk (SQLite). No server needed."),
-        ("Streamlit", "Python library for building web UIs with almost no HTML/CSS/JS."),
-        ("BeautifulSoup", "HTML parser used by the docs crawler to extract text from MOSIP documentation pages."),
-        ("DuckDuckGo Search", "Fallback when no MOSIP-specific answer is found — searches the public web."),
-        ("langdetect", "Detects the language of the user's message so the LLM replies in the same language."),
-        ("uv", "Fast Python package manager. All commands use 'uv run' instead of 'python'."),
-        ("LangSmith (optional)", "Traces every LLM call with latency and token usage. Free tier at smith.langchain.com."),
+        ("Groq / Anthropic / OpenAI", "BYOK for chat (user key in UI Settings or API). Groq server key optional for ingestion summarizer only."),
+        ("Llama 3.3 (70B) via Groq", "Default chat model when the user chooses Groq. Claude Desktop uses Claude instead via MCP."),
+        ("HuggingFace Embeddings", "intfloat/multilingual-e5-base converts text to 768-dim vectors. Runs on Server (API/MCP/ingest), not in the UI."),
+        ("PostgreSQL + pgvector", "Vector store for all collections. Connection: PG_CONNECTION env var."),
+        ("FastAPI", "REST API under Server/api — UI calls this over HTTP."),
+        ("FastMCP", "MCP server under Server/mcp_server — tools search_knowledge + list_knowledge_sources for Claude Desktop."),
+        ("React", "React UI under UI/ — no Server imports; proxies /api to FastAPI."),
+        ("BeautifulSoup / Discourse / GitHub / Atlassian APIs", "Crawlers for docs, community, issues, code, Confluence, Jira."),
+        ("langdetect", "Detects the language of the user's message so replies match."),
+        ("uv", "Fast Python package manager. Prefer 'uv run'."),
+        ("LangSmith (optional)", "Traces LLM calls. Free tier at smith.langchain.com."),
     ], header=("Technology", "What It Does"))
     doc.add_page_break()
 
     # 4. Architecture Overview
     add_heading(doc, "4. Architecture Overview", 1)
     add_body(doc,
-        "MOSIP Nexus has two distinct phases: an offline data pipeline (run once) and an online "
-        "query pipeline (runs every time a user asks a question).")
+        "MOSIP Nexus splits into Server/ (RAG, crawlers, API, MCP) and UI/ (React). "
+        "There is an offline data pipeline (run once / nightly) and an online query path "
+        "(REST, React UI via HTTP, or MCP for Claude Desktop).")
 
     add_heading(doc, "4.1 Offline Pipeline — Building the Knowledge Base", 2)
     add_table(doc, [
-        ("Stage 1: Crawl", "6 crawlers fetch content from all sources and save as JSON files in data/."),
+        ("Stage 1: Crawl", "Crawlers fetch content and save JSON under Server/data/{PRODUCT_SLUG}_*.json."),
         ("Stage 2: Chunk", "Each document is split into ~900-character overlapping text chunks."),
         ("Stage 3: Embed", "Each chunk is converted to a 768-dim vector using multilingual-e5-base."),
-        ("Stage 4: Store", "Vectors and text are saved into 6 ChromaDB collections in chroma_db/."),
+        ("Stage 4: Store", "Vectors are upserted into pgvector collections (e.g. mosip_docs)."),
     ], header=("Stage", "Description"))
 
-    add_heading(doc, "4.2 Online Pipeline — Answering a Question", 2)
+    add_heading(doc, "4.2 Online Pipeline — React UI / REST", 2)
     add_table(doc, [
-        ("1. Input", "User types a question in the Streamlit chat UI."),
-        ("2. Language detection", "langdetect identifies the language. Replies in that language for the session."),
-        ("3. Greeting check", "Pure greetings get a friendly reply without searching the knowledge base."),
-        ("4. Question condensing", "If there is chat history, the LLM rewrites the follow-up as a standalone query."),
-        ("5. MMR retrieval", "The query is embedded and searched across all 6 ChromaDB collections using MMR."),
-        ("6. Confidence scoring", "Best cosine distance across all collections becomes the confidence label."),
-        ("7. Answer generation", "Chunks + question + history are sent to Groq Llama 3.3. Answer is returned."),
-        ("8. Fallback", "If the question is unrelated to MOSIP, DuckDuckGo web search is tried."),
-        ("9. Response", "Answer + sources + confidence badge + related threads are displayed in the UI."),
+        ("1. Input", "User types a question in the React UI (UI/) or calls POST /chat."),
+        ("2. Language detection", "UI detects language; API receives language in the request body."),
+        ("3. Session memory", "Server keeps chat history keyed by session_id."),
+        ("4. Question condensing", "Follow-ups are rewritten as standalone search queries."),
+        ("5. Hybrid retrieval", "MMR + SQL exact-match (+ sibling code chunks) over pgvector."),
+        ("6. Confidence scoring", "Similarity thresholds → high / medium / low."),
+        ("7. Answer generation", "BYOK LLM (Groq / Anthropic / OpenAI) grounded in retrieved context."),
+        ("8. Response", "Answer + sources + confidence returned to UI or API client."),
     ], header=("Step", "Description"))
+
+    add_heading(doc, "4.3 Online Pipeline — MCP (Claude Desktop)", 2)
+    add_body(doc,
+        "When Claude Desktop connects to the MCP server, the LLM runs on the client. "
+        "Nexus only exposes retrieval tools. Claude calls search_knowledge, then writes "
+        "the answer using its own subscription — no server-side chat LLM key is required.")
+    add_table(doc, [
+        ("Transport", "stdio (Claude spawns the process) or sse (URL http://host:8002/sse)."),
+        ("Tools", "search_knowledge(query), list_knowledge_sources()."),
+        ("Warm-up", "Background thread preloads the embedding model (~60s) so the first tool call is fast."),
+        ("Product config", "PRODUCT_* and DOCS_/COMMUNITY_/GITHUB_* env vars brand the same binary for MOSIP or Inji."),
+    ], header=("Topic", "Detail"))
+    add_info_box(doc,
+        "Full MCP guide: Server/docs/MCP_SERVER.md. Do not document the old tool name search_mosip — "
+        "it was renamed to search_knowledge.")
     doc.add_page_break()
 
     # 5. Project Structure
     add_heading(doc, "5. Project Structure", 1)
-    add_body(doc, "All code lives inside the MosipNexus/ folder:")
+    add_body(doc, "Code is split so UI customisation never requires editing Server packages:")
     add_table(doc, [
-        ("config/settings.py", "Central configuration. All constants, thresholds, API keys, and paths. Import this everywhere."),
-        ("crawler/docs_crawler.py", "Crawls all 449 pages of docs.mosip.io using the sitemap. Outputs data/mosip_docs.json."),
-        ("crawler/community_crawler.py", "Fetches Q&A threads from community.mosip.io via Discourse JSON API."),
-        ("crawler/github_crawler.py", "Fetches closed issues from all 86 MOSIP GitHub repos via GitHub REST API."),
-        ("crawler/code_crawler.py", "Fetches Java/YAML/properties source files via GitHub Tree API."),
-        ("crawler/confluence_crawler.py", "Fetches pages from Confluence spaces (requires credentials)."),
-        ("crawler/jira_crawler.py", "Fetches Jira tickets (optional, requires credentials)."),
-        ("crawler/state.py", "Saves crawl state (URL hashes, topic IDs) to track what has been crawled."),
-        ("ingestion/store.py", "Reads all JSON files, chunks, embeds, and upserts into ChromaDB."),
-        ("retrieval/retriever.py", "MMR search across all ChromaDB collections + confidence scoring."),
-        ("retrieval/dedup.py", "Detects if a question is similar to an existing community thread."),
-        ("chain/query_engine.py", "Core RAG pipeline: greeting → condense → retrieve → answer → fallback."),
-        ("memory/session.py", "Manages per-session chat history as LangChain message objects."),
-        ("notifications/email_notifier.py", "Sends email alerts for unanswerable questions (optional SMTP config)."),
-        ("app/app.py", "Streamlit chat UI with language lock, export, sidebar, confidence badges."),
-        ("run_update.py", "Incremental update runner — fetches only what changed since last run."),
-        ("data/", "Generated JSON files from crawlers. Not committed to git."),
-        ("chroma_db/", "Generated ChromaDB vector store. Not committed to git."),
-        (".env", "Your secret API keys. Never committed to git."),
+        ("Server/config/settings.py", "Env-driven product URLs, GitHub org/repos, PG_CONNECTION, collections."),
+        ("Server/crawler/", "docs, community, github, code, confluence, jira crawlers → Server/data/."),
+        ("Server/ingestion/store.py", "Chunk, embed, upsert into pgvector."),
+        ("Server/retrieval/", "Hybrid retriever + duplicate detection."),
+        ("Server/chain/", "RAG query engine (used by REST API)."),
+        ("Server/api/main.py", "FastAPI — /chat, /search, /similar, /config, /notify, …"),
+        ("Server/mcp_server/server.py", "FastMCP — search_knowledge + list_knowledge_sources."),
+        ("Server/run_update.py", "Incremental crawl + re-embed."),
+        ("UI/app/app.py", "React chat UI."),
+        ("UI/app/api_client.py", "HTTP client to Server only — no RAG imports."),
+        ("Server/docs/MCP_SERVER.md", "MCP transport, Claude Desktop config, tool reference."),
+        (".env", "Secrets and product overrides. Never commit."),
     ], header=("File / Folder", "Purpose"))
     doc.add_page_break()
 
@@ -482,7 +492,7 @@ def build_developer_guide():
         "Remove-Item -Recurse -Force MosipNexus/chroma_db")
 
     add_heading(doc, "7.3 Step 3 — Launch the App", 2)
-    add_code(doc, "uv run --no-sync streamlit run MosipNexus/app/app.py")
+    add_code(doc, "cd UI && npm run dev")
     add_body(doc, "Open http://localhost:8501 in your browser.")
     doc.add_page_break()
 
@@ -526,7 +536,7 @@ def build_developer_guide():
     add_numbered(doc, "Fallback — if [NO_DOC_SOURCE] marker detected, try DuckDuckGo web search.")
     add_numbered(doc, "Source classification — determine mosip_docs / community / github / code / mixed.")
 
-    add_heading(doc, "8.5 Streamlit App (app/app.py)", 2)
+    add_heading(doc, "8.5 React UI (UI/src)", 2)
     for item in [
         "Chat input and message rendering",
         "Language detection with auto-detect and language lock",
@@ -545,36 +555,39 @@ def build_developer_guide():
     add_heading(doc, "9. REST API Reference", 1)
     add_body(doc,
         "MOSIP Nexus exposes a production-ready REST API built with FastAPI. Every feature "
-        "available in the Streamlit chat UI is also available as an HTTP endpoint — making it "
+        "available in the React chat UI is also available as an HTTP endpoint — making it "
         "straightforward to integrate MOSIP Nexus into portals, Slack bots, mobile apps, or "
         "any custom internal tool.")
 
     add_heading(doc, "9.1 Starting the API Server", 2)
-    add_body(doc, "Run from the LangChainUpdated root directory (the ChromaDB index must already be built):")
-    add_code(doc, "uv run uvicorn MosipNexus.api.main:app --host 0.0.0.0 --port 8000 --reload")
+    add_body(doc, "Run from the MosipNexus root with PYTHONPATH pointing at Server/ (pgvector must already be ingested):")
+    add_code(doc, "$env:PYTHONPATH = \".\\Server\"\nuv run uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload")
     add_table(doc, [
-        ("Swagger UI", "http://localhost:8000/docs — interactive browser-based API explorer, try every endpoint without writing code"),
-        ("ReDoc", "http://localhost:8000/redoc — clean, readable API documentation"),
-        ("API Base URL", "http://localhost:8000"),
+        ("Swagger UI", "http://localhost:8000/docs — interactive browser-based API explorer"),
+        ("ReDoc", "http://localhost:8000/redoc — clean API documentation"),
+        ("API Base URL", "http://localhost:8000 (Compose maps host 8010 → 8000)"),
+        ("GET /config", "Public product branding for the UI (no secrets)"),
     ], header=("Resource", "URL"))
     add_info_box(doc,
-        "The Streamlit UI (port 8501) and the REST API (port 8000) can run simultaneously — "
-        "they share the same ChromaDB index and embedding model.")
+        "The React UI (port 8501) calls this API over HTTP (/api proxy). "
+        "MCP (port 8002) is a separate process sharing the same pgvector database.")
 
     add_heading(doc, "9.2 Endpoint Reference", 2)
     add_table(doc, [
         ("POST /chat", "Main RAG endpoint. Send a question, get answer + sources + confidence. Pass session_id to continue a conversation."),
         ("POST /batch", "Ask up to 10 questions in one HTTP call. All share the same session context — each answer is aware of the previous."),
-        ("POST /search", "Raw semantic search across all ChromaDB collections. Returns matching chunks without calling the LLM. Useful for building custom integrations."),
+        ("POST /search", "Raw semantic search across pgvector collections. Returns matching chunks without calling the LLM."),
         ("POST /similar", "Check if a similar community forum thread already exists for the question. No LLM is called."),
         ("POST /session", "Create a new empty session. Returns a session_id to use in subsequent /chat calls."),
         ("GET /session/{id}/history", "Retrieve the full Q&A history (all turns) for a session."),
         ("GET /sessions", "List all currently active sessions with their turn count and detected language."),
         ("DELETE /session/{id}", "Clear a session and its history. Equivalent to clicking New Chat in the UI."),
         ("POST /feedback", "Rate an answer as positive or negative for a specific turn in a session."),
-        ("POST /export/{id}", "Export a full session as JSON (structured data) or HTML (styled report identical to the UI export)."),
-        ("GET /stats", "Aggregated usage metrics — total queries, confidence distribution, source types, and languages used."),
-        ("GET /health", "Returns ChromaDB collection chunk counts and active session count. Use for monitoring."),
+        ("POST /export/{id}", "Export a full session as JSON or HTML."),
+        ("POST /notify/expert", "Email the configured team (SMTP) for expert escalation."),
+        ("GET /config", "Public product name and docs/community URLs for the UI."),
+        ("GET /stats", "Aggregated usage metrics — total queries, confidence distribution, source types, languages."),
+        ("GET /health", "Returns pgvector collection chunk counts and active session count."),
     ], header=("Endpoint", "Description"))
 
     add_heading(doc, "9.3 Example — Ask a Question (/chat)", 2)
@@ -655,18 +668,69 @@ def build_developer_guide():
     )
     doc.add_page_break()
 
-    # 10. Code Walkthrough
-    add_heading(doc, "10. Code Walkthrough — Key Functions Explained", 1)
+    # 10. MCP Server
+    add_heading(doc, "10. MCP Server — Claude Desktop Integration", 1)
+    add_body(doc,
+        "The Model Context Protocol (MCP) lets Claude Desktop (or any MCP client) search the "
+        "Nexus knowledge base while the LLM stays on the client. Implementation: "
+        "Server/mcp_server/server.py (FastMCP). See also Server/docs/MCP_SERVER.md.")
+
+    add_heading(doc, "10.1 Mental model", 2)
+    add_table(doc, [
+        ("MCP server", "Loads embeddings + pgvector; exposes tools. No chat LLM calls."),
+        ("MCP client (Claude)", "Calls tools, then writes the answer with the user's Claude subscription."),
+        ("vs REST /chat", "/chat requires llm_api_key (BYOK) and runs the LLM on the Server."),
+        ("vs React UI", "UI talks HTTP to FastAPI; MCP talks MCP transports (stdio or SSE)."),
+    ], header=("Piece", "Role"))
+
+    add_heading(doc, "10.2 Tools (current names)", 2)
+    add_table(doc, [
+        ("search_knowledge(query)", "Hybrid retrieval across all indexed sources. Returns confidence + chunks with URLs. Replaces the old search_mosip name."),
+        ("list_knowledge_sources()", "Live chunk counts plus DOCS_BASE_URL, COMMUNITY_BASE_URL, GITHUB_ORG from settings."),
+    ], header=("Tool", "Description"))
+    add_info_box(doc,
+        "FastMCP server name is {PRODUCT_SLUG}-nexus (e.g. mosip-nexus). Product branding and "
+        "crawl targets come from environment variables — same binary for MOSIP or Inji.")
+
+    add_heading(doc, "10.3 Transports", 2)
+    add_table(doc, [
+        ("MCP_TRANSPORT=stdio", "Default in code. Claude Desktop spawns: uv run python Server/mcp_server/server.py"),
+        ("MCP_TRANSPORT=sse", "Docker / remote. Client URL: http://host:8002/sse. Compose sets this."),
+        ("MCP_PORT", "Default 8002. Bound to 0.0.0.0 when using SSE."),
+    ], header=("Setting", "Usage"))
+
+    add_heading(doc, "10.4 Claude Desktop — SSE (Docker)", 2)
+    add_code(doc,
+        '{\n'
+        '  "mcpServers": {\n'
+        '    "mosip-nexus": {\n'
+        '      "url": "http://localhost:8002/sse"\n'
+        '    }\n'
+        '  }\n'
+        '}'
+    )
+    add_body(doc,
+        "Restart Claude Desktop after editing the config. Confirm tools search_knowledge and "
+        "list_knowledge_sources appear. First call may wait until embedding warm-up finishes (~60s).")
+
+    add_heading(doc, "10.5 Warm-up behaviour", 2)
+    add_body(doc,
+        "On startup a background thread calls retrieve() once so the HuggingFace model and "
+        "pgvector stores are ready. Until then search_knowledge returns a short initializing message.")
+    doc.add_page_break()
+
+    # 11. Code Walkthrough
+    add_heading(doc, "11. Code Walkthrough — Key Functions Explained", 1)
     add_body(doc,
         "This chapter walks through the most important functions in the codebase with actual "
         "code snippets and line-by-line explanations. Read this after understanding the architecture "
         "in Chapter 8 — it shows exactly HOW each concept is implemented in Python.")
 
     # ── 9.1 memory/session.py ─────────────────────────────────────────────────
-    add_heading(doc, "10.1  memory/session.py — SessionMemory Class", 2)
+    add_heading(doc, "11.1  memory/session.py — SessionMemory Class", 2)
     add_body(doc,
         "This is the simplest file in the project. It stores one user's conversation history "
-        "for a single browser session. Streamlit keeps one instance of this in st.session_state.")
+        "for a single browser session. The React UI keeps conversation state in component state.")
     add_code(doc,
         "@dataclass\n"
         "class SessionMemory:\n"
@@ -693,7 +757,7 @@ def build_developer_guide():
     ], header=("Code Element", "Explanation"))
 
     # ── 9.2 retrieval/dedup.py ────────────────────────────────────────────────
-    add_heading(doc, "10.2  retrieval/dedup.py — find_similar_question()", 2)
+    add_heading(doc, "11.2  retrieval/dedup.py — find_similar_question()", 2)
     add_body(doc,
         "Before running the full RAG pipeline, the app checks whether the question was already "
         "asked in the community forum. If yes, it surfaces the existing thread instead of generating "
@@ -726,7 +790,7 @@ def build_developer_guide():
     ], header=("Code Element", "Explanation"))
 
     # ── 9.3 retrieval/retriever.py ────────────────────────────────────────────
-    add_heading(doc, "10.3  retrieval/retriever.py — retrieve()", 2)
+    add_heading(doc, "11.3  retrieval/retriever.py — retrieve()", 2)
     add_body(doc,
         "This is the search engine of MOSIP Nexus. It queries all ChromaDB collections and "
         "returns the most relevant knowledge chunks for a given query, along with a confidence label.")
@@ -773,7 +837,7 @@ def build_developer_guide():
     ], header=("Code Element", "Explanation"))
 
     # ── 9.4 chain/query_engine.py — _build() ─────────────────────────────────
-    add_heading(doc, "10.4  chain/query_engine.py — _build() and the Condenser Chain", 2)
+    add_heading(doc, "11.4  chain/query_engine.py — _build() and the Condenser Chain", 2)
     add_body(doc,
         "_build() sets up two objects that are reused for every query: the LLM instance and the "
         "condenser chain. The condenser rewrites follow-up questions into standalone search queries.")
@@ -801,7 +865,7 @@ def build_developer_guide():
     ], header=("Code Element", "Explanation"))
 
     # ── 9.5 chain/query_engine.py — _build_system_prompt() ───────────────────
-    add_heading(doc, "10.5  chain/query_engine.py — _build_system_prompt()", 2)
+    add_heading(doc, "11.5  chain/query_engine.py — _build_system_prompt()", 2)
     add_body(doc,
         "This function builds the system prompt that tells the LLM how to behave. "
         "It dynamically adjusts the answer format based on the type of question.")
@@ -846,7 +910,7 @@ def build_developer_guide():
     ], header=("Code Element", "Explanation"))
 
     # ── 9.6 chain/query_engine.py — ask() ────────────────────────────────────
-    add_heading(doc, "10.6  chain/query_engine.py — ask() — The Full RAG Pipeline", 2)
+    add_heading(doc, "11.6  chain/query_engine.py — ask() — The Full RAG Pipeline", 2)
     add_body(doc,
         "ask() is the central function of the entire project. Every user message goes through it. "
         "Understanding this function means understanding the entire RAG pipeline.")
@@ -897,11 +961,11 @@ def build_developer_guide():
         ("qa_chain = qa_prompt | llm | StrOutputParser()", "LCEL chain assembled fresh for each call. prompt fills in {context}/{input}/{chat_history} → LLM generates → parser extracts string."),
         ("qa_chain.invoke({...})", "Single call that runs the entire chain. LangChain handles sending the filled prompt to Groq and returning the response."),
         ("[NO_DOC_SOURCE] marker", "If the question is completely unrelated to MOSIP (e.g. 'What is the weather?'), the system prompt instructs the LLM to output this marker. The code detects it and triggers web search."),
-        ("Return dict", "Always returns a dict with answer, sources, source_type, confidence, similar_questions. The Streamlit UI unpacks this to render badges, expanders, and source links."),
+        ("Return dict", "Always returns a dict with answer, sources, source_type, confidence, similar_questions. The React UI unpacks this to render badges, panels, and source links."),
     ], header=("Code Element", "Explanation"))
 
     # ── 9.7 ingestion/store.py — ingest() ────────────────────────────────────
-    add_heading(doc, "10.7  ingestion/store.py — ingest()", 2)
+    add_heading(doc, "11.7  ingestion/store.py — ingest()", 2)
     add_body(doc,
         "This function takes a list of LangChain Documents, chunks them, and stores them "
         "in a ChromaDB collection. It is the core of the build-once knowledge pipeline.")
@@ -938,101 +1002,63 @@ def build_developer_guide():
         ("Batching (100 chunks at a time)", "Embedding 38,000 chunks at once would exhaust RAM. Batching keeps memory usage constant regardless of collection size."),
     ], header=("Code Element", "Explanation"))
 
-    # ── 9.8 app.py — Session state and query flow ─────────────────────────────
-    add_heading(doc, "10.8  app/app.py — Session State and Query Flow", 2)
+    # ── 11.8 React UI — session state and query flow ─────────────────────────
+    add_heading(doc, "11.8  UI/src — Session State and Query Flow", 2)
     add_body(doc,
-        "Streamlit re-runs the entire app.py script from top to bottom on every user interaction. "
-        "st.session_state is how you persist data across those re-runs.")
+        "The React UI (ChatPage) keeps conversation state in React hooks. "
+        "Settings (BYOK keys) persist in localStorage. The Server owns LLM history "
+        "via session_id; the browser only stores display messages.")
     add_code(doc,
-        "# Session state is initialised once per browser session\n"
-        "if \"memory\" not in st.session_state:\n"
-        "    st.session_state.memory = SessionMemory()    # chat history\n"
-        "if \"messages\" not in st.session_state:\n"
-        "    st.session_state.messages = []               # display history\n"
-        "if \"lang_locked\" not in st.session_state:\n"
-        "    st.session_state.lang_locked = False         # language lock toggle\n"
-        "if \"pending_lang\" not in st.session_state:\n"
-        "    st.session_state.pending_lang = None         # awaiting user confirmation\n"
+        "// ChatPage.tsx — core state\n"
+        "const [messages, setMessages] = useState<ChatMessage[]>([])\n"
+        "const [sessionId, setSessionId] = useState<string | null>(null)\n"
+        "const [language, setLanguage] = useState('English')\n"
+        "const [langLocked, setLangLocked] = useState(false)\n"
+        "const [pendingLang, setPendingLang] = useState<{ code: string; name: string } | null>(null)\n"
         "\n"
-        "# Chat input is captured BEFORE rendering (so sidebar shows updated language)\n"
-        "query = st.chat_input(\"Ask anything about MOSIP...\")\n"
-        "if query:\n"
-        "    lang_instruction = _detect_lang_instruction(query)  # 'reply in Tamil'?\n"
-        "    if lang_instruction and lang_instruction[0] != memory.lang_code:\n"
-        "        st.session_state.pending_lang = lang_instruction  # show popup\n"
-        "    elif not st.session_state.lang_locked:\n"
-        "        lang_result = _detect_language(query, memory.lang_code)\n"
-        "        if lang_result:\n"
-        "            memory.set_language(*lang_result)"
+        "// On send: language instruction → pending confirmation;\n"
+        "// otherwise script heuristics may update language when unlocked.\n"
+        "const instruction = detectLangInstruction(question)\n"
+        "if (instruction && instruction.code !== langCode) {\n"
+        "  setPendingLang(instruction)\n"
+        "} else if (!langLocked) {\n"
+        "  const hint = detectLanguageHint(question, langCode)\n"
+        "  if (hint) { setLangCode(hint.code); setLanguage(hint.name) }\n"
+        "}"
     )
     add_table(doc, [
-        ("if 'memory' not in st.session_state", "The guard pattern for Streamlit. Without this check, session state would be reset to a new SessionMemory() on every re-run (every keypress)."),
-        ("st.session_state.memory = SessionMemory()", "Stores the SessionMemory object. Because it's in session_state, it survives page re-runs and retains all chat history."),
-        ("messages vs memory.messages", "Two separate lists. memory.messages = LangChain message objects passed to the LLM chains. st.session_state.messages = display dicts for rendering in the UI with sources and confidence."),
-        ("query = st.chat_input()", "Streamlit's chat input widget. Returns None when nothing is typed, or the string when submitted. The app processes the query in the same script run."),
-        ("lang_instruction detection", "Checks if the user explicitly said 'reply in Tamil' or similar. If yes, sets pending_lang for popup confirmation instead of auto-switching silently."),
-        ("elif not lang_locked", "Auto-detect only runs when the language is NOT locked. Once the user locks to Tamil, even English questions get Tamil answers."),
-        ("*lang_result (unpacking)", "lang_result is a tuple (lang_code, lang_name). The * unpacks it into two positional arguments for set_language(lang_code, lang_name)."),
+        ("messages / sessionId", "Display history in the browser; sessionId is the Server Postgres chat session."),
+        ("langLocked / pendingLang", "Lock keeps answers in one language; pendingLang shows the lock confirmation banner."),
+        ("detectLangInstruction", "Parses phrases like 'reply in Tamil' and prompts the user to lock."),
+        ("detectLanguageHint", "Script heuristics (Tamil, Hindi, Arabic, …) without a browser langdetect dependency."),
+        ("chat() / findSimilar()", "HTTP client calls POST /chat and POST /similar on the Nexus Server."),
+        ("Settings localStorage", "llm_provider, llm_api_key, llm_model, maxHistoryTurns under nexus-ui-settings."),
     ], header=("Code Element", "Explanation"))
 
     add_code(doc,
-        "# After rendering messages — language popup confirmation\n"
-        "if st.session_state.pending_lang:\n"
-        "    _plc, _pln = st.session_state.pending_lang\n"
-        "    st.info(f\"Stay in **{_pln}** for the rest of this conversation?\")\n"
-        "    col1, col2 = st.columns(2)\n"
-        "    with col1:\n"
-        "        if st.button(f\"Yes, lock to {_pln}\", key=\"_lang_yes\"):\n"
-        "            memory.set_language(_plc, _pln)\n"
-        "            st.session_state.lang_locked = True\n"
-        "            st.session_state.pending_lang = None\n"
-        "            st.rerun()     # re-render with updated sidebar\n"
-        "    with col2:\n"
-        "        if st.button(\"No, just this reply\", key=\"_lang_no\"):\n"
-        "            st.session_state.pending_lang = None\n"
-        "            st.rerun()"
+        "// After answer — MessageBubble renders markdown, confidence, sources,\n"
+        "// related threads, community CTA, and Ask Expert when needed.\n"
+        "const result = await chat({ question, sessionId, language, ... })\n"
+        "setSessionId(result.session_id)\n"
+        "setMessages(prev => [...prev, {\n"
+        "  role: 'assistant',\n"
+        "  content: result.answer,\n"
+        "  sources: result.sources,\n"
+        "  confidence: result.confidence,\n"
+        "  ...\n"
+        "}])"
     )
     add_table(doc, [
-        ("st.session_state.pending_lang", "Holds a (lang_code, lang_name) tuple while waiting for user confirmation. Set when a language instruction is detected. Cleared when user clicks Yes or No."),
-        ("st.columns(2)", "Creates two side-by-side columns. Each column renders independently. Used here to place two buttons next to each other."),
-        ("key='_lang_yes'", "Every interactive widget in Streamlit needs a unique key. Without it, Streamlit cannot distinguish between two buttons with the same label across re-runs."),
-        ("st.rerun()", "Forces Streamlit to re-run the entire script immediately. Used after state changes so the UI reflects the new state (e.g., updated sidebar language label)."),
-    ], header=("Code Element", "Explanation"))
-
-    add_code(doc,
-        "# After generating an answer — update state and trigger sidebar refresh\n"
-        "if query:\n"
-        "    with st.chat_message(\"assistant\"):\n"
-        "        with st.spinner(\"Searching docs and community forum...\"):\n"
-        "            result = ask(query, memory.messages, memory.language)\n"
-        "\n"
-        "        answer      = result[\"answer\"]\n"
-        "        confidence  = result[\"confidence\"]\n"
-        "        source_type = result[\"source_type\"]\n"
-        "        st.markdown(answer)\n"
-        "\n"
-        "    st.session_state.messages.append({\n"
-        "        \"role\": \"assistant\",\n"
-        "        \"content\": answer,\n"
-        "        \"sources\": sources,\n"
-        "        \"confidence\": confidence,\n"
-        "    })\n"
-        "    memory.add_turn(query, answer)  # update LangChain history\n"
-        "    st.rerun()                      # so export button sees the new message"
-    )
-    add_table(doc, [
-        ("with st.chat_message('assistant')", "Context manager that renders everything inside it inside a chat bubble with the assistant avatar. Works for 'user' and 'assistant' roles."),
-        ("with st.spinner(...)", "Shows a loading spinner while the indented code runs. Removed automatically when the block exits. The ask() call is slow (LLM API call), so the spinner gives visual feedback."),
-        ("ask(query, memory.messages, memory.language)", "The three arguments: the raw question, the full LangChain history (for condensing), and the current session language (for the system prompt)."),
-        ("st.session_state.messages.append({...})", "Saves the answer with its metadata to the DISPLAY history. This is what gets rendered on the next re-run and included in the HTML export."),
-        ("memory.add_turn(query, answer)", "Saves to the LangChain history. This is what gets passed to the condenser on the next question so it can handle follow-ups."),
-        ("st.rerun() at the end", "Forces a re-render so the sidebar 'Export Chat' button appears (it only shows when messages exist) and the export captures the new message."),
+        ("POST /chat", "BYOK RAG turn; returns answer, sources, confidence, similar_questions, session_id."),
+        ("Export chat", "Client-side HTML download via lib/export.ts (no Server round-trip required)."),
+        ("Ask Expert", "ExpertForm → POST /notify/expert with user email."),
+        ("ErrorBanner", "Structured API errors with dismiss / retry for capacity (503)."),
     ], header=("Code Element", "Explanation"))
 
     doc.add_page_break()
 
     # 11. Configuration
-    add_heading(doc, "11. Key Configuration Reference", 1)
+    add_heading(doc, "12. Key Configuration Reference", 1)
     add_table(doc, [
         ("RETRIEVAL_K = 8", "Top-K chunks returned per collection per query."),
         ("RETRIEVAL_FETCH_K = 30", "MMR candidate pool size. Larger = more diverse results."),
@@ -1048,34 +1074,34 @@ def build_developer_guide():
     doc.add_page_break()
 
     # 12. Making Changes
-    add_heading(doc, "12. Making Changes", 1)
+    add_heading(doc, "13. Making Changes", 1)
 
-    add_heading(doc, "12.1 Changing the Answer Style / Prompt", 2)
+    add_heading(doc, "13.1 Changing the Answer Style / Prompt", 2)
     add_body(doc,
         "Edit _build_system_prompt() in chain/query_engine.py. The prompt has three sections: "
         "persona, answer format (changes per query type), and strict rules. "
-        "After saving, Streamlit auto-reloads — no restart needed.")
+        "After saving, restart or rely on uvicorn --reload — no UI rebuild required for Server prompt changes.")
 
-    add_heading(doc, "12.2 Adding a New Knowledge Source", 2)
+    add_heading(doc, "13.2 Adding a New Knowledge Source", 2)
     add_numbered(doc, "Write a new crawler that outputs a JSON file with url, title, and content fields.")
     add_numbered(doc, "Add a collection name to config/settings.py (e.g. NEW_COLLECTION = 'mosip_new').")
     add_numbered(doc, "Add a prepare_new_documents() function in ingestion/store.py.")
     add_numbered(doc, "Add _try_load_optional_store(NEW_COLLECTION, embeddings) in retrieval/retriever.py.")
     add_numbered(doc, "Add the store to the retrieval loop in retrieve().")
 
-    add_heading(doc, "12.3 Changing the LLM", 2)
+    add_heading(doc, "13.3 Changing the LLM", 2)
     add_body(doc,
         "Replace ChatGroq in chain/query_engine.py with any LangChain-compatible LLM class "
         "(e.g. ChatOpenAI, ChatAnthropic). The rest of the pipeline is unchanged.")
 
-    add_heading(doc, "12.4 Changing the Embedding Model", 2)
+    add_heading(doc, "13.4 Changing the Embedding Model", 2)
     add_body(doc,
         "Change EMBED_MODEL in config/settings.py. Delete chroma_db/ and re-run "
         "ingestion/store.py. The pipeline version hash updates automatically.")
     doc.add_page_break()
 
     # 13. Incremental Updates
-    add_heading(doc, "13. Incremental Knowledge Updates", 1)
+    add_heading(doc, "14. Incremental Knowledge Updates", 1)
     add_body(doc,
         "After the initial crawl, run_update.py fetches only new or changed content "
         "by comparing against data/crawl_state.json.")
@@ -1089,10 +1115,10 @@ def build_developer_guide():
     doc.add_page_break()
 
     # 14. Troubleshooting
-    add_heading(doc, "14. Troubleshooting", 1)
+    add_heading(doc, "15. Troubleshooting", 1)
     add_table(doc, [
         ("App crashes: GROQ_API_KEY not set", "Create MosipNexus/.env with GROQ_API_KEY='your_key'."),
-        ("'Access is denied' error on startup", "Run with: uv run --no-sync streamlit run MosipNexus/app/app.py"),
+        ("'Access is denied' error on startup", "Run with: cd UI && npm run dev"),
         ("'Expecting value: line 1 column 1'", "A data JSON file is empty. Re-run the corresponding crawler."),
         ("Embedding model download hangs", "Set HF_TOKEN in .env or check your internet connection."),
         ("Language not updating for short queries", "Short non-ASCII queries (<5 chars) need longer text to trigger detection."),
@@ -1103,23 +1129,24 @@ def build_developer_guide():
     doc.add_page_break()
 
     # 15. Glossary
-    add_heading(doc, "15. Glossary", 1)
+    add_heading(doc, "16. Glossary", 1)
     add_table(doc, [
         ("LLM", "Large Language Model — an AI trained on massive text corpora to understand and generate language."),
         ("RAG", "Retrieval Augmented Generation — retrieve relevant docs first, then ask the LLM to answer."),
         ("Embedding", "A vector (list of numbers) representing the semantic meaning of a piece of text."),
-        ("Vector Database", "A database optimised for storing and searching embeddings by similarity."),
-        ("ChromaDB", "The vector database used in this project — runs locally with no server."),
+        ("pgvector", "PostgreSQL extension storing and searching embeddings (used by Nexus instead of ChromaDB)."),
+        ("MCP", "Model Context Protocol — Claude Desktop (or other clients) call Nexus tools; the LLM stays on the client."),
+        ("search_knowledge", "MCP tool that runs hybrid retrieval. Replaces the older search_mosip name."),
+        ("FastMCP", "Python framework used to implement the Nexus MCP server."),
         ("MMR", "Maximal Marginal Relevance — retrieval algorithm balancing relevance and diversity."),
-        ("Cosine Distance", "Measure of difference between two vectors. 0 = identical, 1 = unrelated."),
+        ("Cosine Distance / Similarity", "How close two vectors are. Used for confidence badges and dedup."),
         ("Chunk", "A small segment of a larger document created by splitting for embedding."),
         ("LCEL", "LangChain Expression Language — syntax for composing chains with the | operator."),
-        ("Groq", "Cloud API service running LLMs at very high speed. Free tier available."),
-        ("Llama 3.3", "The LLM used — 70 billion parameter model by Meta AI."),
-        ("Streamlit", "Python library for building web apps without HTML/CSS/JS."),
-        ("Discourse", "Forum software running community.mosip.io with a public JSON API."),
-        ("Confidence Score", "High/Medium/Low label derived from cosine distance of the best retrieved chunk."),
-        ("Hallucination", "When an LLM invents facts not present in its training data or context."),
+        ("BYOK", "Bring Your Own Key — users supply Groq/Anthropic/OpenAI keys for REST/UI chat."),
+        ("PRODUCT_SLUG", "Env prefix for JSON files and collections (mosip, inji, …)."),
+        ("React", "TypeScript SPA for the UI/ front-end (HTTP client to Server)."),
+        ("Confidence Score", "High/Medium/Low label derived from retrieval similarity."),
+        ("Hallucination", "When an LLM invents facts not present in context — mitigated by RAG + citation rules."),
         ("uv", "Fast Python package manager used in this project. Replaces pip."),
     ], header=("Term", "Definition"))
 
@@ -1348,7 +1375,7 @@ def build_ppt():
         ("Source Attribution", "Every answer cites the exact doc page, forum thread, or GitHub issue."),
         ("Confidence Score", "High / Medium / Low badge shows how well the knowledge base matched your question."),
         ("Duplicate Detection", "Surfaces existing community threads before generating a new answer."),
-        ("Web Fallback", "If MOSIP knowledge base has no answer, searches the public web and discloses the source."),
+        ("MCP / Claude Desktop", "search_knowledge retrieval tool — Claude answers with your subscription; no server chat LLM cost."),
         ("Expert Escalation", "Low-confidence answers auto-notify the team and offer a Contact Expert button."),
         ("Export Report", "Download the full chat as a professional HTML report with sources and badges."),
         ("Incremental Updates", "Knowledge base updates fetch only what changed — no full rebuild needed."),
@@ -1410,24 +1437,23 @@ def build_ppt():
         "6 Crawlers → docs, forum, GitHub, code, Confluence, Jira",
         "Text Splitter → 900-char chunks with 150-char overlap",
         "Embedding Model (multilingual-e5-base) → 768-dim vectors",
-        "ChromaDB → stores 70,000+ vectors locally on disk",
+        "PostgreSQL + pgvector → stores 70,000+ vectors",
     ], PInches(0.4), PInches(1.98), PInches(5.2), PInches(4.5), size=12, color=L_DARK)
     rect(s, PInches(6.2), PInches(1.38), PInches(6.8), PInches(5.6), L_CARD, L_CBRD)
     txbox(s, "ONLINE — Answer Every Question", PInches(6.3), PInches(1.43),
           PInches(6.5), PInches(0.5), size=12, bold=True, color=L_BLUE)
     blist(s, [
-        "User asks → language detected automatically",
-        "Question condensed with chat history (LLM)",
-        "MMR search across all 6 ChromaDB collections",
-        "Top-K chunks → context for the LLM",
-        "Groq Llama 3.3 generates answer from context only",
-        "DuckDuckGo fallback if question is not in knowledge base",
-        "Answer + sources + confidence badge → Streamlit UI",
+        "UI / REST: user asks → Server RAG with BYOK LLM",
+        "MCP: Claude Desktop calls search_knowledge (retrieval only)",
+        "Hybrid MMR + SQL search across pgvector collections",
+        "Confidence scoring + source URLs returned",
+        "Same Server binary for MOSIP or Inji via PRODUCT_* env",
+        "UI customisation never touches Server/ code",
     ], PInches(6.3), PInches(1.98), PInches(6.6), PInches(4.5), size=12, color=L_DARK)
     txbox(s, "=>", PInches(5.75), PInches(3.85), PInches(0.45), PInches(0.6),
           size=28, bold=True, color=L_NAVY, align=PP_ALIGN.CENTER)
     rect(s, 0, PInches(6.92), W, PInches(0.58), L_NAVY)
-    txbox(s, "LangChain  .  Groq Llama 3.3  .  ChromaDB  .  HuggingFace  .  Streamlit  .  Python 3.13",
+    txbox(s, "LangChain  .  Groq Llama 3.3  .  ChromaDB  .  HuggingFace  .  React  .  Python 3.13",
           PInches(0.5), PInches(6.97), PInches(12), PInches(0.4),
           size=11, color=L_WHITE, align=PP_ALIGN.CENTER)
 
@@ -1587,7 +1613,7 @@ def build_ppt():
     txbox(s, "MOSIP Nexus  |  AI-Powered Knowledge Assistant  |  May 2026",
           PInches(1), PInches(4.5), PInches(11.3), PInches(0.55),
           size=14, color=L_GRAY, align=PP_ALIGN.CENTER)
-    txbox(s, "Built on: LangChain  .  Groq Llama 3.3  .  ChromaDB  .  HuggingFace  .  Streamlit",
+    txbox(s, "Built on: LangChain  .  Groq Llama 3.3  .  ChromaDB  .  HuggingFace  .  React",
           PInches(1), PInches(5.45), PInches(11.3), PInches(0.5),
           size=12, color=L_GRAY, align=PP_ALIGN.CENTER)
     txbox(s, "MOSIP Nexus  |  Confidential",

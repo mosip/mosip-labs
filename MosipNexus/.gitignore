@@ -1,6 +1,8 @@
 # ── Secrets ───────────────────────────────────────────────────────────────────
 .env
+**/.env
 .env.*
+!**/.env.example
 !.env.example
 
 # ── Python ────────────────────────────────────────────────────────────────────
@@ -14,16 +16,22 @@ chroma_db/
 
 # ── Crawled data — JSON files ARE committed so cloners skip the 10-hour crawl
 # Exceptions: crawl_state (runtime), confluence and jira data (may contain internal secrets)
-data/crawl_state.json
-data/mosip_confluence.json
-data/mosip_jira.json
+**/data/crawl_state.json
+**/data/*_confluence.json
+**/data/*_jira.json
 
 # ── pg_dump / zip exports — large binaries, not for git ──────────────────────
-nexus_vectors.dump
-nexus_vectors.zip
+**/nexus_vectors.dump
+**/nexus_vectors.zip
+chroma_db/
+**/chroma_db/
 
-# ── Virtual environment (managed at monorepo root) ────────────────────────────
+# ── Virtual environment (per Server/ and UI/) ─────────────────────────────────
 .venv/
+**/.venv/
+
+# ── Node (UI) ─────────────────────────────────────────────────────────────────
+**/node_modules/
 
 # ── IDE ───────────────────────────────────────────────────────────────────────
 .vscode/

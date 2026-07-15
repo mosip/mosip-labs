@@ -1,0 +1,68 @@
+# ── Nightly incremental knowledge update ──────────────────────────────────────
+# Runs run_update.py every night at 02:00 UTC (07:30 IST).
+# Only crawls and embeds content that changed since the last run.
+# Average runtime: 5–15 min (full first run: 3–6 hours).
+#
+# The data/ PVC persists the crawled JSON files and crawl_state.json between runs.
+# On first deployment, trigger a manual run:
+#   kubectl create job --from=cronjob/nexus-updater nexus-updater-init -n mosip-nexus
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nexus-data
+  namespace: mosip-nexus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # storageClassName: standard   # set to your Rancher storage class
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nexus-updater
+  namespace: mosip-nexus
+spec:
+  schedule: "0 2 * * *"           # 02:00 UTC daily
+  concurrencyPolicy: Forbid       # don't run two updates at the same time
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: updater
+              image: nexus-server:latest
+              imagePullPolicy: Always
+              command:
+                - uv
+                - run
+                - python
+                - run_update.py
+              env:
+                - name: PYTHONPATH
+                  value: /app/MosipNexus/Server
+              envFrom:
+                - secretRef:
+                    name: nexus-env
+              volumeMounts:
+                - name: nexus-data
+                  mountPath: /app/MosipNexus/Server/data
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 4Gi
+                limits:
+                  cpu: "4"
+                  memory: 8Gi
+          volumes:
+            - name: nexus-data
+              persistentVolumeClaim:
+                claimName: nexus-data

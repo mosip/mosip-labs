@@ -1,0 +1,19 @@
+# UI only — React (nginx) talking to Server API
+#
+# From repo root:
+#   docker compose -f UI/docker-compose.yml --env-file UI/.env up --build
+#
+# For UI-only against a host API, use a custom nginx that points at
+# host.docker.internal — or run `npm run dev` with Vite proxy instead.
+
+services:
+
+  nexus-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nexus-ui:latest
+    ports:
+      - "8501:8501"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

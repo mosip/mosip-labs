@@ -1,0 +1,68 @@
+# ── One-time first-deployment bootstrap ───────────────────────────────────────
+# Runs automatically when applied — no manual `kubectl create job` needed.
+#
+# Step 1: ingestion/store.py — full ingest of docs/community/github/code from
+#         the already-committed data/*.json files (fast, no live re-crawl).
+# Step 2: run_update.py      — picks up any docs/community/github delta since
+#         those files were committed, AND fully bootstraps Confluence/Jira via
+#         their live APIs (since crawl_state.json has no record of them yet).
+#
+# Prerequisite: data/*.json must already be in the nexus-data PVC before this
+# runs (see docs/MOSIP_Nexus_Rancher_Deployment_Guide.md, Step 9's kubectl cp).
+#
+# Jobs are immutable — re-applying this file after it has run is a no-op.
+# To intentionally re-run it (e.g. after a schema change), delete it first:
+#   kubectl delete job nexus-initial-ingest -n mosip-nexus
+#   kubectl apply -f Server/k8s/07-initial-ingest-job.yaml
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nexus-initial-ingest
+  namespace: mosip-nexus
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: pgvector/pgvector:pg16
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h nexus-postgres -p 5432 -U mosip; do
+                echo "Waiting for nexus-postgres..."
+                sleep 5
+              done
+      containers:
+        - name: initial-ingest
+          image: nexus-server:latest
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -c
+            - |
+              uv run python ingestion/store.py && \
+              uv run python run_update.py
+          env:
+            - name: PYTHONPATH
+              value: /app/MosipNexus/Server
+          envFrom:
+            - secretRef:
+                name: nexus-env
+          volumeMounts:
+            - name: nexus-data
+              mountPath: /app/MosipNexus/Server/data
+          resources:
+            requests:
+              cpu: "1"
+              memory: 4Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+      volumes:
+        - name: nexus-data
+          persistentVolumeClaim:
+            claimName: nexus-data

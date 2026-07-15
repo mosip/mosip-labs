@@ -1,21 +1,9 @@
-# Full stack: Server (postgres + API + MCP) + UI (React/nginx)
+# Server stack only: postgres + API + MCP
+# From repo root:
+#   docker compose -f Server/docker-compose.yml --env-file Server/.env up --build
 #
-# Architecture: docs/ARCHITECTURE.md
-# API map:      docs/API_REFERENCE.md
-# Env vars:     Server/docs/ENVIRONMENT.md
-#
-#   copy Server\.env.example Server\.env
-#   copy UI\.env.example UI\.env
-#   docker compose up --build
-#
-# Services:
-#   postgres   — pgvector/pg16, init from Server/k8s/postgres-init.sql
-#   nexus-api  — FastAPI (entrypoint runs Alembic then uvicorn); host :8010
-#   nexus-mcp  — FastMCP SSE on :8002
-#   nexus-ui   — nginx + React SPA on :8501; proxies /api → nexus-api:8000
-#
-# Server-only:  docker compose -f Server/docker-compose.yml --env-file Server/.env up --build
-# UI-only:      docker compose -f UI/docker-compose.yml --env-file UI/.env up --build
+# Or from Server/:
+#   docker compose --env-file .env up --build
 
 services:
 
@@ -27,7 +15,7 @@ services:
       POSTGRES_PASSWORD: mosip
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./Server/k8s/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./k8s/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -38,7 +26,7 @@ services:
 
   nexus-api:
     build:
-      context: ./Server
+      context: .
       dockerfile: Dockerfile
     image: nexus-server:latest
     command:
@@ -55,7 +43,7 @@ services:
       - --limit-concurrency
       - "${UVICORN_LIMIT_CONCURRENCY:-64}"
     env_file:
-      - path: ./Server/.env
+      - path: .env
         required: false
     environment:
       PG_CONNECTION: "postgresql+psycopg://mosip:mosip@postgres:5432/mosipnexus"
@@ -65,16 +53,22 @@ services:
       MAX_CONCURRENT_CHATS: "${MAX_CONCURRENT_CHATS:-32}"
       RETRIEVAL_PARALLELISM: "${RETRIEVAL_PARALLELISM:-4}"
     volumes:
-      - ./Server/data:/app/MosipNexus/Server/data
+      - ./data:/app/MosipNexus/Server/data
     ports:
       - "8010:8000"
     depends_on:
       postgres:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1500M
 
   nexus-mcp:
     build:
-      context: ./Server
+      context: .
       dockerfile: Dockerfile
     image: nexus-server:latest
     command:
@@ -83,7 +77,7 @@ services:
       - python
       - mcp_server/server.py
     env_file:
-      - path: ./Server/.env
+      - path: .env
         required: false
     environment:
       PG_CONNECTION: "postgresql+psycopg://mosip:mosip@postgres:5432/mosipnexus"
@@ -96,15 +90,9 @@ services:
       postgres:
         condition: service_healthy
 
-  nexus-ui:
-    build:
-      context: ./UI
-      dockerfile: Dockerfile
-    image: nexus-ui:latest
-    ports:
-      - "8501:8501"
-    depends_on:
-      - nexus-api
-
 volumes:
   pgdata:
+
+networks:
+  default:
+    name: nexus-net
