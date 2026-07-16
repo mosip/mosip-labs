@@ -1,0 +1,30 @@
+# ── API Ingress ───────────────────────────────────────────────────────────────
+# Replace hostname with your domain.
+# Requires nginx ingress controller (default on Rancher / RKE2).
+#
+# Access after deploy:
+#   FastAPI docs  → http://nexus-api.mosip.io/docs
+#
+# UI ingress lives under UI/k8s/03-ingress-ui.yaml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nexus-api
+  namespace: mosip-nexus
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: nexus-api.mosip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nexus-api
+                port:
+                  number: 8000

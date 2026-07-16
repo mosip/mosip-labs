@@ -1,0 +1,22 @@
+# Secrets
+.env
+.env.*
+
+# Large / sensitive crawl data — mount at runtime
+data/
+
+# Python artifacts
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Tests / docs not needed in runtime image
+tests/
+k8s/*.md
+README.md
+
+# OS
+.DS_Store
+Thumbs.db

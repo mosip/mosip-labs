@@ -1,0 +1,31 @@
+# ── UI Ingress ────────────────────────────────────────────────────────────────
+# Replace hostname with your domain.
+# Requires nginx ingress controller (default on Rancher / RKE2).
+#
+# Access after deploy:
+#   React UI  → http://nexus.mosip.io
+#
+# Apply Server/k8s first (namespace + API). This Ingress only routes the UI.
+# API calls from the browser use same-origin /api (proxied by the UI nginx pod).
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nexus-ui
+  namespace: mosip-nexus
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: nexus.mosip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nexus-ui
+                port:
+                  number: 8501
