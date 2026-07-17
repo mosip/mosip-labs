@@ -63,7 +63,7 @@ _CODE_QUERY_RE = re.compile(
 class _ProductStores:
     """PGVector handles for one product slug."""
 
-    __slots__ = ("docs", "community", "github", "code", "profile")
+    __slots__ = ("docs", "community", "github", "code", "esignet", "website", "profile")
 
     def __init__(
         self,
@@ -72,12 +72,16 @@ class _ProductStores:
         community: PGVector,
         github: PGVector | None,
         code: PGVector | None,
+        esignet: PGVector | None,
+        website: PGVector | None,
     ):
         self.profile = profile
         self.docs = docs
         self.community = community
         self.github = github
         self.code = code
+        self.esignet = esignet
+        self.website = website
 
 
 _embeddings: HuggingFaceEmbeddings | None = None
@@ -151,7 +155,17 @@ def _build_product_stores(profile: ProductProfile) -> _ProductStores:
     )
     github = _try_load_optional_store(profile.github_collection, emb)
     code = _try_load_optional_store(profile.code_collection, emb)
-    return _ProductStores(profile, docs, community, github, code)
+    esignet = (
+        _try_load_optional_store(profile.esignet_collection, emb)
+        if profile.esignet_collection
+        else None
+    )
+    website = (
+        _try_load_optional_store(profile.website_collection, emb)
+        if profile.website_collection
+        else None
+    )
+    return _ProductStores(profile, docs, community, github, code, esignet, website)
 
 
 def _get_stores(product: str | None = None) -> _ProductStores:
@@ -217,6 +231,10 @@ def get_collection_counts(product: str | None = None) -> dict[str, int]:
         profile.confluence_collection: "confluence",
         profile.jira_collection: "jira",
     }
+    if profile.esignet_collection:
+        _all[profile.esignet_collection] = "esignet"
+    if profile.website_collection:
+        _all[profile.website_collection] = "website"
     counts: dict[str, int] = {}
     with _get_pg_engine().connect() as conn:
         for coll_name, label in _all.items():
@@ -409,6 +427,10 @@ def retrieve(
         ("docs", stores.docs, k),
         ("community", stores.community, k),
     ]
+    if stores.esignet is not None:
+        jobs.append(("esignet", stores.esignet, k))
+    if stores.website is not None:
+        jobs.append(("website", stores.website, k))
     if stores.github is not None:
         jobs.append(("github", stores.github, GITHUB_RETRIEVAL_K))
     if stores.code is not None:
@@ -429,6 +451,8 @@ def retrieve(
 
     doc_results = results_by_name.get("docs", [])
     community_results = results_by_name.get("community", [])
+    esignet_results = results_by_name.get("esignet", [])
+    website_results = results_by_name.get("website", [])
     github_results = results_by_name.get("github", [])
     code_results = results_by_name.get("code", [])
 
@@ -450,7 +474,7 @@ def retrieve(
 
     _seen: set[str] = set()
     _deduped: list[Document] = []
-    for doc in _prod_code + doc_results + community_results + github_results + _demo_code:
+    for doc in _prod_code + doc_results + esignet_results + website_results + community_results + github_results + _demo_code:
         if doc.page_content not in _seen:
             _seen.add(doc.page_content)
             _deduped.append(doc)

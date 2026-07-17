@@ -29,6 +29,7 @@ dependencies = [
     "langchain-openai>=0.3",
     "requests>=2.32.0",
     "beautifulsoup4>=4.12.0",
+    "defusedxml>=0.7.1",
 ]
 
 [tool.pyright]

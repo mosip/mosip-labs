@@ -3,15 +3,15 @@
  * Shows product branding, MOSIP/Inji mode switch, session actions, and sources.
  */
 import { Link } from 'react-router-dom'
-import type { ProductConfig, ProductMode } from '../types'
+import type { KnowledgeSource, ProductConfig, ProductMode } from '../types'
 
-const SOURCES = [
+// Fallback used only when the server hasn't returned a sources list yet.
+const FALLBACK_SOURCES: KnowledgeSource[] = [
   { key: 'docs', label: 'Documentation' },
   { key: 'community', label: 'Community Forum' },
   { key: 'github', label: 'GitHub Issues' },
-  { key: 'confluence', label: 'Confluence' },
   { key: 'code', label: 'Source Code' },
-] as const
+]
 
 interface Props {
   config: ProductConfig
@@ -158,7 +158,7 @@ export function Sidebar({
         <div className="sidebar-section">
           <h2>Sources searched</h2>
           <div className="source-list">
-            {SOURCES.map((s) => (
+            {(config.sources ?? FALLBACK_SOURCES).map((s) => (
               <span key={s.key}>
                 <span aria-hidden>•</span>
                 {s.key === 'docs' ? `${config.product_short} ${s.label}` : s.label}

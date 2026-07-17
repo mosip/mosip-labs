@@ -36,8 +36,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.settings import (
     CHUNK_OVERLAP, CHUNK_SIZE, CODE_COLLECTION, CODE_FILE,
     COMMUNITY_COLLECTION, COMMUNITY_FILE, CONFLUENCE_COLLECTION, CONFLUENCE_FILE,
-    DOCS_COLLECTION, DOCS_FILE, EMBED_MODEL,
+    DOCS_COLLECTION, DOCS_FILE, EMBED_MODEL, ESIGNET_COLLECTION, ESIGNET_FILE,
     GITHUB_COLLECTION, GITHUB_FILE, JIRA_COLLECTION, JIRA_FILE,
+    WEBSITE_COLLECTION, WEBSITE_FILE,
     PG_CONNECTION,
 )
 from db.engine import get_engine
@@ -457,6 +458,18 @@ if __name__ == "__main__":
         print(f"  Loaded {len(jira_documents)} Jira tickets")
         ingest(jira_documents, JIRA_COLLECTION, embeddings)
 
+    print(f"\n-- Ingesting ESIGNET -> '{ESIGNET_COLLECTION}' --")
+    esignet_documents = prepare_generic_documents(ESIGNET_FILE, "esignet")
+    if esignet_documents:
+        print(f"  Loaded {len(esignet_documents)} eSignet pages")
+        ingest(esignet_documents, ESIGNET_COLLECTION, embeddings)
+
+    print(f"\n-- Ingesting WEBSITE -> '{WEBSITE_COLLECTION}' --")
+    website_documents = prepare_generic_documents(WEBSITE_FILE, "website")
+    if website_documents:
+        print(f"  Loaded {len(website_documents)} website pages")
+        ingest(website_documents, WEBSITE_COLLECTION, embeddings)
+
     # ── Seed crawl state so run_update.py knows what's already ingested ────────
     print("\nSeeding crawl state for future incremental updates...")
     url_hashes = {
@@ -508,9 +521,33 @@ if __name__ == "__main__":
                 project_state = jira_state.setdefault(project, {"seen_keys": [], "last_run": now_iso()})
                 project_state["seen_keys"].append(key)
 
+    esignet_hashes: dict = {}
+    if ESIGNET_FILE.exists():
+        with open(ESIGNET_FILE, encoding="utf-8") as f:
+            raw_esignet = json.load(f)
+        from crawler.state import content_hash as _ch
+        esignet_hashes = {
+            doc["url"]: _ch(doc.get("content", ""))
+            for doc in raw_esignet
+            if doc.get("content", "").strip()
+        }
+
+    website_hashes: dict = {}
+    if WEBSITE_FILE.exists():
+        with open(WEBSITE_FILE, encoding="utf-8") as f:
+            raw_website = json.load(f)
+        from crawler.state import content_hash as _ch2
+        website_hashes = {
+            item["url"]: _ch2(item.get("content", ""))
+            for item in raw_website
+            if item.get("content", "").strip()
+        }
+
     save_state({
         "pipeline_version": PIPELINE_VERSION,
         "docs":             {"url_hashes": url_hashes, "last_run": now_iso()},
+        "esignet":          {"url_hashes": esignet_hashes, "last_run": now_iso()},
+        "website":          {"url_hashes": website_hashes, "last_run": now_iso()},
         "community":        {"max_topic_id": max_topic_id, "last_run": now_iso()},
         "github":           github_state,
         "confluence":       confluence_state,

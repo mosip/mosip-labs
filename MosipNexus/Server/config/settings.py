@@ -48,12 +48,43 @@ def _csv_set(name: str, default: str = "") -> set[str]:
     return set(_csv(name, default))
 
 
+# ── Multi-product crawl context ────────────────────────────────────────────────
+# Set ACTIVE_PRODUCT=inji (or any slug) before running crawlers / ingestion to
+# automatically resolve INJI_* prefixed env vars instead of the MOSIP defaults.
+# The API server itself never sets this — it uses products.py for routing.
+_ACTIVE = os.getenv("ACTIVE_PRODUCT", "").lower().replace("-", "_").replace(" ", "_")
+_PREFIX = f"{_ACTIVE.upper()}_" if _ACTIVE else ""
+
+
+def _penv(name: str, default: str = "") -> str:
+    """Resolve env var with optional product-prefix override.
+
+    With ACTIVE_PRODUCT=inji, ``_penv("DOCS_BASE_URL", ...)`` checks:
+      1. ``INJI_DOCS_BASE_URL``  — product-specific override
+      2. ``DOCS_BASE_URL``       — generic override
+      3. ``default``             — built-in default
+    """
+    if _PREFIX:
+        val = os.getenv(_PREFIX + name, "")
+        if val:
+            return val
+    return os.getenv(name, default)
+
+
+def _pcsv(name: str, default: str = "") -> list[str]:
+    """Like _csv but respects the active product prefix."""
+    raw = _penv(name, default)
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+
 # ── Product identity (MOSIP / Inji / custom) ───────────────────────────────────
 # Change these to reuse the same server for another product (e.g. Inji).
-PRODUCT_NAME  = os.getenv("PRODUCT_NAME", "MOSIP Nexus")
-PRODUCT_SHORT = os.getenv("PRODUCT_SHORT", "MOSIP")
+# When ACTIVE_PRODUCT=inji, these resolve INJI_* prefixed vars automatically.
+_default_slug  = _ACTIVE or "mosip"
+PRODUCT_NAME  = _penv("PRODUCT_NAME", f"{_default_slug.title()} Nexus")
+PRODUCT_SHORT = _penv("PRODUCT_SHORT", _default_slug.upper())
 # Prefix for JSON files and pgvector collection names (e.g. mosip → mosip_docs)
-PRODUCT_SLUG  = os.getenv("PRODUCT_SLUG", "mosip").lower().replace(" ", "_")
+PRODUCT_SLUG  = _penv("PRODUCT_SLUG", _default_slug).lower().replace(" ", "_")
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 # Server/ is the package root (PYTHONPATH points here).
@@ -63,6 +94,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 DOCS_FILE      = DATA_DIR / f"{PRODUCT_SLUG}_docs.json"
 COMMUNITY_FILE = DATA_DIR / f"{PRODUCT_SLUG}_community.json"
+ESIGNET_FILE   = DATA_DIR / "esignet_docs.json"
 
 # ── pgvector connection ────────────────────────────────────────────────────────
 # Format: postgresql+psycopg://user:password@host:port/dbname
@@ -79,21 +111,28 @@ PG_POOL_TIMEOUT = int(os.getenv("PG_POOL_TIMEOUT", "30"))
 PG_POOL_RECYCLE = int(os.getenv("PG_POOL_RECYCLE", "1800"))
 
 # ── Crawl targets (env-driven — MOSIP defaults; override for Inji etc.) ────────
-DOCS_BASE_URL = os.getenv("DOCS_BASE_URL", "https://docs.mosip.io/1.2.0")
-DOCS_SITEMAP_URL = os.getenv(
+# With ACTIVE_PRODUCT=inji, INJI_DOCS_BASE_URL is checked before DOCS_BASE_URL.
+DOCS_BASE_URL = _penv("DOCS_BASE_URL", "https://docs.mosip.io/1.2.0")
+DOCS_SITEMAP_URL = _penv(
     "DOCS_SITEMAP_URL",
     f"{DOCS_BASE_URL.rstrip('/')}/sitemap.xml",
 )
-COMMUNITY_BASE_URL = os.getenv("COMMUNITY_BASE_URL", "https://community.mosip.io")
+COMMUNITY_BASE_URL = _penv("COMMUNITY_BASE_URL", "https://community.mosip.io")
+ESIGNET_BASE_URL   = os.getenv("ESIGNET_BASE_URL", "https://docs.esignet.io")  # MOSIP-only
+# Comma-separated list of website URLs to crawl (any public site, same-origin per entry)
+WEBSITE_URLS       = _pcsv("WEBSITE_URLS", "https://www.mosip.io")
+WEBSITE_FILE       = DATA_DIR / f"{PRODUCT_SLUG}_website.json"
+WEBSITE_COLLECTION = _penv("WEBSITE_COLLECTION", f"{PRODUCT_SLUG}_website")
 # Used by UI "Post to Community" deep-link (also returned from GET /config)
-COMMUNITY_NEW_TOPIC_PATH = os.getenv("COMMUNITY_NEW_TOPIC_PATH", "/new-topic")
+COMMUNITY_NEW_TOPIC_PATH = _penv("COMMUNITY_NEW_TOPIC_PATH", "/new-topic")
 
 # ── Embeddings ─────────────────────────────────────────────────────────────────
 EMBED_MODEL = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-base")  # 768-dim
 
 # ── pgvector collection names ──────────────────────────────────────────────────
-DOCS_COLLECTION      = os.getenv("DOCS_COLLECTION", f"{PRODUCT_SLUG}_docs")
-COMMUNITY_COLLECTION = os.getenv("COMMUNITY_COLLECTION", f"{PRODUCT_SLUG}_community")
+DOCS_COLLECTION      = _penv("DOCS_COLLECTION", f"{PRODUCT_SLUG}_docs")
+COMMUNITY_COLLECTION = _penv("COMMUNITY_COLLECTION", f"{PRODUCT_SLUG}_community")
+ESIGNET_COLLECTION   = os.getenv("ESIGNET_COLLECTION", "esignet_docs")  # MOSIP-only
 
 # ── Chunking ───────────────────────────────────────────────────────────────────
 CHUNK_SIZE    = int(os.getenv("CHUNK_SIZE", "900"))
@@ -177,10 +216,10 @@ CRAWL_DELAY_SECS    = float(os.getenv("CRAWL_DELAY_SECS", "0.4"))
 GITHUB_TOKEN      = os.getenv("GITHUB_TOKEN", "")
 GITHUB_API_BASE   = os.getenv("GITHUB_API_BASE", "https://api.github.com")
 GITHUB_FILE       = DATA_DIR / f"{PRODUCT_SLUG}_github.json"
-GITHUB_COLLECTION = os.getenv("GITHUB_COLLECTION", f"{PRODUCT_SLUG}_github")
+GITHUB_COLLECTION = _penv("GITHUB_COLLECTION", f"{PRODUCT_SLUG}_github")
 GITHUB_RETRIEVAL_K = int(os.getenv("GITHUB_RETRIEVAL_K", "3"))
 GITHUB_MAX_ISSUES  = int(os.getenv("GITHUB_MAX_ISSUES", "500"))
-GITHUB_ORG         = os.getenv("GITHUB_ORG", "mosip")
+GITHUB_ORG         = _penv("GITHUB_ORG", "mosip")
 
 # Comma-separated repo names (not org/name) to always skip
 GITHUB_REPO_EXCLUDE = _csv_set(
@@ -203,11 +242,11 @@ _DEFAULT_REPOS = (
     "mosip/mosip-helm,mosip/bio-utils,mosip/admin-services,mosip/print,"
     "mosip/mosip-openid-bridge"
 )
-GITHUB_REPOS = _csv("GITHUB_REPOS", _DEFAULT_REPOS)
+GITHUB_REPOS = _pcsv("GITHUB_REPOS", _DEFAULT_REPOS)
 
 # ── Code crawler ───────────────────────────────────────────────────────────────
 CODE_FILE       = DATA_DIR / f"{PRODUCT_SLUG}_code.json"
-CODE_COLLECTION = os.getenv("CODE_COLLECTION", f"{PRODUCT_SLUG}_code")
+CODE_COLLECTION = _penv("CODE_COLLECTION", f"{PRODUCT_SLUG}_code")
 CODE_RETRIEVAL_K = int(os.getenv("CODE_RETRIEVAL_K", "4"))
 
 CODE_INCLUDE_EXTENSIONS = _csv_set(
@@ -231,20 +270,20 @@ LOG_FORMAT = os.getenv("LOG_FORMAT", "text").lower()  # text | json
 LOG_ACCESS = os.getenv("LOG_ACCESS", "true").lower() in ("1", "true", "yes", "on")
 
 # ── Confluence crawler (optional) ──────────────────────────────────────────────
-CONFLUENCE_URL        = os.getenv("CONFLUENCE_URL", "")
-CONFLUENCE_USER       = os.getenv("CONFLUENCE_USER", "")
-CONFLUENCE_TOKEN      = os.getenv("CONFLUENCE_TOKEN", "")
-CONFLUENCE_SPACE_KEYS = _csv("CONFLUENCE_SPACE_KEYS", "MOSIP")
+CONFLUENCE_URL        = _penv("CONFLUENCE_URL", "")
+CONFLUENCE_USER       = _penv("CONFLUENCE_USER", "")
+CONFLUENCE_TOKEN      = _penv("CONFLUENCE_TOKEN", "")
+CONFLUENCE_SPACE_KEYS = _pcsv("CONFLUENCE_SPACE_KEYS", "MOSIP")
 CONFLUENCE_FILE       = DATA_DIR / f"{PRODUCT_SLUG}_confluence.json"
-CONFLUENCE_COLLECTION = os.getenv("CONFLUENCE_COLLECTION", f"{PRODUCT_SLUG}_confluence")
+CONFLUENCE_COLLECTION = _penv("CONFLUENCE_COLLECTION", f"{PRODUCT_SLUG}_confluence")
 
 # ── Jira crawler (optional) ────────────────────────────────────────────────────
-JIRA_URL          = os.getenv("JIRA_URL", "")
-JIRA_USER         = os.getenv("JIRA_USER", "")
-JIRA_TOKEN        = os.getenv("JIRA_TOKEN", "")
-JIRA_PROJECT_KEYS = _csv("JIRA_PROJECT_KEYS", "MOSIP")
+JIRA_URL          = _penv("JIRA_URL", "")
+JIRA_USER         = _penv("JIRA_USER", "")
+JIRA_TOKEN        = _penv("JIRA_TOKEN", "")
+JIRA_PROJECT_KEYS = _pcsv("JIRA_PROJECT_KEYS", "MOSIP")
 JIRA_FILE         = DATA_DIR / f"{PRODUCT_SLUG}_jira.json"
-JIRA_COLLECTION   = os.getenv("JIRA_COLLECTION", f"{PRODUCT_SLUG}_jira")
+JIRA_COLLECTION   = _penv("JIRA_COLLECTION", f"{PRODUCT_SLUG}_jira")
 
 # ── HTTP headers ───────────────────────────────────────────────────────────────
 HTTP_HEADERS = {

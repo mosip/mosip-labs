@@ -33,13 +33,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 from crawler.community_crawler import crawl_incremental as community_incremental
 from crawler.confluence_crawler import crawl_incremental as confluence_incremental
 from crawler.docs_crawler import crawl_incremental as docs_incremental
+from crawler.esignet_crawler import crawl_incremental as esignet_incremental
+from crawler.website_crawler import crawl_incremental as website_incremental
 from crawler.github_crawler import crawl_incremental as github_incremental
 from crawler.jira_crawler import crawl_incremental as jira_incremental
 from crawler.state import load, now_iso, save
 from config.settings import (
-    COMMUNITY_COLLECTION, CONFLUENCE_COLLECTION, DOCS_COLLECTION,
+    COMMUNITY_COLLECTION, CONFLUENCE_COLLECTION, DOCS_COLLECTION, ESIGNET_COLLECTION,
     GITHUB_COLLECTION, GITHUB_REPOS, JIRA_COLLECTION, JIRA_PROJECT_KEYS,
-    JIRA_TOKEN, JIRA_URL, JIRA_USER, PIPELINE_VERSION, PG_CONNECTION,
+    JIRA_TOKEN, JIRA_URL, JIRA_USER, PIPELINE_VERSION, PG_CONNECTION, WEBSITE_COLLECTION,
 )
 from ingestion.store import build_embeddings, ingest_incremental
 
@@ -103,6 +105,36 @@ def run() -> None:
         state["docs"]["last_run"] = now_iso()
     else:
         print("Docs: nothing to update.")
+
+    # ── Website ────────────────────────────────────────────────────────────────
+    print("\n══ WEBSITE ═══════════════════════════════════════════════════════")
+    new_website, changed_website, unchanged_website = website_incremental(state)
+    print(f"\nResult: {len(new_website)} new | {len(changed_website)} changed | {unchanged_website} unchanged")
+
+    if new_website or changed_website:
+        print(f"\nIngesting into '{WEBSITE_COLLECTION}'...")
+        ingest_incremental(new_website, changed_website, WEBSITE_COLLECTION, embeddings, source_type="website")
+        url_hashes = state.setdefault("website", {}).setdefault("url_hashes", {})
+        for page in new_website + changed_website:
+            url_hashes[page["url"]] = page["_hash"]
+        state["website"]["last_run"] = now_iso()
+    else:
+        print("Website: nothing to update.")
+
+    # ── eSignet ────────────────────────────────────────────────────────────────
+    print("\n══ ESIGNET ═══════════════════════════════════════════════════════")
+    new_esignet, changed_esignet, unchanged_esignet = esignet_incremental(state)
+    print(f"\nResult: {len(new_esignet)} new | {len(changed_esignet)} changed | {unchanged_esignet} unchanged")
+
+    if new_esignet or changed_esignet:
+        print(f"\nIngesting into '{ESIGNET_COLLECTION}'...")
+        ingest_incremental(new_esignet, changed_esignet, ESIGNET_COLLECTION, embeddings, source_type="esignet")
+        url_hashes = state.setdefault("esignet", {}).setdefault("url_hashes", {})
+        for page in new_esignet + changed_esignet:
+            url_hashes[page["url"]] = page["_hash"]
+        state["esignet"]["last_run"] = now_iso()
+    else:
+        print("eSignet: nothing to update.")
 
     # ── Community ──────────────────────────────────────────────────────────────
     print("\n══ COMMUNITY ═════════════════════════════════════════════════════")
