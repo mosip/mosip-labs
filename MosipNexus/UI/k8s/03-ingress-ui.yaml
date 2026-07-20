@@ -1,9 +1,11 @@
 # ── UI Ingress ────────────────────────────────────────────────────────────────
-# Replace hostname with your domain.
-# Requires nginx ingress controller (default on Rancher / RKE2).
+# Replace nexus.mosip.net with your actual domain.
+# Requires:
+#   - nginx ingress controller (default on Rancher / RKE2)
+#   - cert-manager + letsencrypt-prod ClusterIssuer (see Server/k8s/05-ingress-api.yaml)
 #
 # Access after deploy:
-#   React UI  → http://nexus.mosip.io
+#   React UI  → https://nexus.mosip.net
 #
 # Apply Server/k8s first (namespace + API). This Ingress only routes the UI.
 # API calls from the browser use same-origin /api (proxied by the UI nginx pod).
@@ -16,10 +18,17 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # cert-manager issues and auto-renews the TLS certificate
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - nexus.mosip.net               # replace with your domain
+      secretName: nexus-ui-tls          # cert-manager stores the cert here
   rules:
-    - host: nexus.mosip.io
+    - host: nexus.mosip.net             # replace with your domain
       http:
         paths:
           - path: /

@@ -263,4 +263,15 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-    run()
+    import traceback
+    try:
+        run()
+    except Exception as exc:
+        error_detail = traceback.format_exc()
+        print(f"\nERROR: {exc}", flush=True)
+        try:
+            from notifications.email_notifier import send_job_failure_alert
+            send_job_failure_alert("nexus-updater", error_detail)
+        except Exception:
+            pass  # don't mask the original error
+        raise

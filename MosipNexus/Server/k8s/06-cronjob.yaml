@@ -13,12 +13,17 @@ metadata:
   name: nexus-data
   namespace: mosip-nexus
 spec:
+  # ReadWriteOnce is safe here: only the CronJob (and ingest Job) mount this PVC.
+  # The API pod does NOT mount it — removing that mount was the fix for RWO node
+  # contention (see 03-deployment-api.yaml). If your cluster schedules the CronJob
+  # on a different node each run and your storage class does not support node
+  # migration (e.g. local-path), switch to ReadWriteMany with Longhorn or NFS.
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 10Gi
-  # storageClassName: standard   # set to your Rancher storage class
+  # storageClassName: longhorn   # recommended for multi-node clusters
 
 ---
 apiVersion: batch/v1
@@ -34,13 +39,17 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 1
+      # Kill the job if it runs longer than 6 hours — prevents a hung crawl
+      # from blocking the next night's run (concurrencyPolicy: Forbid above).
+      activeDeadlineSeconds: 21600
       template:
         spec:
           restartPolicy: OnFailure
           containers:
             - name: updater
-              image: nexus-server:latest
-              imagePullPolicy: Always
+              # Pin to a semver tag — never use :latest in production.
+              image: nexus-server:v1.0.0
+              imagePullPolicy: IfNotPresent
               command:
                 - uv
                 - run

@@ -167,6 +167,33 @@ def send_low_confidence_notification(
     return _send(subject, body)
 
 
+def send_job_failure_alert(job_name: str, error: str = "") -> tuple[bool, str]:
+    """Notify team when a background job (e.g. nexus-updater CronJob) fails.
+
+    Args:
+        job_name: Human-readable job identifier (e.g. "nexus-updater").
+        error:    Optional error message or traceback excerpt.
+
+    Returns:
+        ``(ok, message)``.
+    """
+    if not _is_configured():
+        return False, "Email notification is not configured (check SMTP settings in .env)."
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    body = (
+        f"The Nexus background job '{job_name}' failed at {timestamp}.\n\n"
+        f"{'━' * 42}\n"
+        f"{error[:2000] if error else 'No error details captured.'}\n"
+        f"{'━' * 42}\n\n"
+        f"Action: check logs with:\n"
+        f"  kubectl logs -n mosip-nexus job/{job_name} --previous\n"
+        f"  kubectl get jobs -n mosip-nexus\n"
+    )
+    subject = f"[Nexus] Job failure: {job_name} ({timestamp})"
+    return _send(subject, body)
+
+
 def send_expert_request_notification(
     question: str,
     language: str = "English",

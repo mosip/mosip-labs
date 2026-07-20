@@ -32,6 +32,7 @@ from fastapi import BackgroundTasks, FastAPI, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.openapi.utils import get_openapi
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from api.errors import (
     CapacityError,
@@ -196,6 +197,9 @@ app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ProductModeMiddleware)
 
 register_exception_handlers(app)
+
+# Expose /metrics for Prometheus scraping (Rancher monitoring stack).
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 def custom_openapi():
