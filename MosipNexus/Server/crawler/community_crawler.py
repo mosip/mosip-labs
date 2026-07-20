@@ -14,6 +14,7 @@ Public crawl helpers: ``get_topic_ids``, ``fetch_topic``, ``get_new_topic_ids``,
 """
 
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -36,7 +37,6 @@ def _list_url(page: int) -> str:
     Category:    https://community.mosip.io/c/inji/16  → /c/inji/16.json?page=N
     """
     b = COMMUNITY_BASE_URL.rstrip("/")
-    import re
     if re.search(r"/c/[^/]+/\d+$", b):
         return f"{b}.json?page={page}"
     return f"{b}/latest.json?page={page}"

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import hashlib as _hashlib
 import os
+import re as _re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -124,7 +125,6 @@ COMMUNITY_BASE_URL = _penv("COMMUNITY_BASE_URL", "https://community.mosip.io")
 # Root Discourse host for API calls (/t/{id}.json).
 # When COMMUNITY_BASE_URL is a category like /c/inji/16 the path is stripped so
 # topic fetching still works. Set COMMUNITY_API_ROOT explicitly to override.
-import re as _re
 COMMUNITY_API_ROOT = _penv(
     "COMMUNITY_API_ROOT",
     _re.sub(r"/c(/[^?#]*)?$", "", COMMUNITY_BASE_URL.rstrip("/")) or COMMUNITY_BASE_URL,
