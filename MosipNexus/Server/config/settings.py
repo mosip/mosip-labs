@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import hashlib as _hashlib
 import os
+import re as _re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -78,13 +79,16 @@ def _pcsv(name: str, default: str = "") -> list[str]:
 
 
 # ── Product identity (MOSIP / Inji / custom) ───────────────────────────────────
-# Change these to reuse the same server for another product (e.g. Inji).
-# When ACTIVE_PRODUCT=inji, these resolve INJI_* prefixed vars automatically.
-_default_slug  = _ACTIVE or "mosip"
-PRODUCT_NAME  = _penv("PRODUCT_NAME", f"{_default_slug.title()} Nexus")
-PRODUCT_SHORT = _penv("PRODUCT_SHORT", _default_slug.upper())
-# Prefix for JSON files and pgvector collection names (e.g. mosip → mosip_docs)
-PRODUCT_SLUG  = _penv("PRODUCT_SLUG", _default_slug).lower().replace(" ", "_")
+# When ACTIVE_PRODUCT=inji, only check INJI_* prefixed vars — do NOT fall back
+# to the un-prefixed PRODUCT_SLUG/NAME/SHORT which hold MOSIP values in .env.
+if _ACTIVE:
+    PRODUCT_SLUG  = os.getenv(f"{_PREFIX}PRODUCT_SLUG",  _ACTIVE).lower().replace(" ", "_")
+    PRODUCT_SHORT = os.getenv(f"{_PREFIX}PRODUCT_SHORT", _ACTIVE.upper())
+    PRODUCT_NAME  = os.getenv(f"{_PREFIX}PRODUCT_NAME",  f"{_ACTIVE.title()} Nexus")
+else:
+    PRODUCT_SLUG  = os.getenv("PRODUCT_SLUG",  "mosip").lower().replace(" ", "_")
+    PRODUCT_SHORT = os.getenv("PRODUCT_SHORT", "MOSIP")
+    PRODUCT_NAME  = os.getenv("PRODUCT_NAME",  "MOSIP Nexus")
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 # Server/ is the package root (PYTHONPATH points here).
@@ -118,6 +122,13 @@ DOCS_SITEMAP_URL = _penv(
     f"{DOCS_BASE_URL.rstrip('/')}/sitemap.xml",
 )
 COMMUNITY_BASE_URL = _penv("COMMUNITY_BASE_URL", "https://community.mosip.io")
+# Root Discourse host for API calls (/t/{id}.json).
+# When COMMUNITY_BASE_URL is a category like /c/inji/16 the path is stripped so
+# topic fetching still works. Set COMMUNITY_API_ROOT explicitly to override.
+COMMUNITY_API_ROOT = _penv(
+    "COMMUNITY_API_ROOT",
+    _re.sub(r"/c(/[^?#]*)?$", "", COMMUNITY_BASE_URL.rstrip("/")) or COMMUNITY_BASE_URL,
+)
 ESIGNET_BASE_URL   = os.getenv("ESIGNET_BASE_URL", "https://docs.esignet.io")  # MOSIP-only
 # Comma-separated list of website URLs to crawl (any public site, same-origin per entry)
 WEBSITE_URLS       = _pcsv("WEBSITE_URLS", "https://www.mosip.io")
