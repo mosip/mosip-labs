@@ -129,7 +129,9 @@ def _build_catalog() -> dict[str, ProductProfile]:
         github_org=_env("INJI_GITHUB_ORG", "mosip"),
         logo_url="/logos/inji.png",
         docs_collection=_env("INJI_DOCS_COLLECTION", "inji_docs"),
-        community_collection=_env("INJI_COMMUNITY_COLLECTION", "inji_community"),
+        # Falls back to the shared MOSIP community collection (contains Inji posts too).
+        # Set INJI_COMMUNITY_COLLECTION=inji_community once a dedicated crawl is populated.
+        community_collection=_env("INJI_COMMUNITY_COLLECTION", "mosip_community"),
         github_collection=_env("INJI_GITHUB_COLLECTION", "inji_github"),
         code_collection=_env("INJI_CODE_COLLECTION", "inji_code"),
         confluence_collection=_env("INJI_CONFLUENCE_COLLECTION", "inji_confluence"),

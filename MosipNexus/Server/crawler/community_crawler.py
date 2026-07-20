@@ -24,9 +24,22 @@ from markdownify import markdownify
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.settings import (
-    COMMUNITY_FILE, COMMUNITY_BASE_URL,
+    COMMUNITY_FILE, COMMUNITY_BASE_URL, COMMUNITY_API_ROOT,
     HTTP_HEADERS, CRAWL_DELAY_SECS, COMMUNITY_MAX_PAGES, COMMUNITY_MIN_POSTS,
 )
+
+
+def _list_url(page: int) -> str:
+    """Build the correct Discourse listing URL for root or category-based base URLs.
+
+    Root forum:  https://community.mosip.io  → /latest.json?page=N
+    Category:    https://community.mosip.io/c/inji/16  → /c/inji/16.json?page=N
+    """
+    b = COMMUNITY_BASE_URL.rstrip("/")
+    import re
+    if re.search(r"/c/[^/]+/\d+$", b):
+        return f"{b}.json?page={page}"
+    return f"{b}/latest.json?page={page}"
 
 
 def _html_to_text(html: str) -> str:
@@ -45,7 +58,7 @@ def get_topic_ids(max_pages: int = COMMUNITY_MAX_PAGES) -> list[int]:
     """
     ids: list[int] = []
     for page in range(max_pages):
-        url = f"{COMMUNITY_BASE_URL}/latest.json?page={page}"
+        url = _list_url(page)
         try:
             res = requests.get(url, headers=HTTP_HEADERS, timeout=30)
             res.raise_for_status()
@@ -69,7 +82,7 @@ def fetch_topic(topic_id: int) -> dict | None:
       title, url, tags, question, answers (list), accepted_answer (str|None)
     Returns None if the topic cannot be fetched or has no content.
     """
-    url = f"{COMMUNITY_BASE_URL}/t/{topic_id}.json"
+    url = f"{COMMUNITY_API_ROOT}/t/{topic_id}.json"
     try:
         res = requests.get(url, headers=HTTP_HEADERS, timeout=30)
         res.raise_for_status()
@@ -82,7 +95,7 @@ def fetch_topic(topic_id: int) -> dict | None:
     raw_tags = data.get("tags", [])
     tags = [t["name"] if isinstance(t, dict) else str(t) for t in raw_tags]
     slug  = data.get("slug", str(topic_id))
-    topic_url = f"{COMMUNITY_BASE_URL}/t/{slug}/{topic_id}"
+    topic_url = f"{COMMUNITY_API_ROOT}/t/{slug}/{topic_id}"
 
     posts = data.get("post_stream", {}).get("posts", [])
     if not posts:
@@ -130,7 +143,7 @@ def get_new_topic_ids(max_topic_id: int) -> list[int]:
     """
     new_ids: list[int] = []
     for page in range(COMMUNITY_MAX_PAGES):
-        url = f"{COMMUNITY_BASE_URL}/latest.json?page={page}"
+        url = _list_url(page)
         try:
             res = requests.get(url, headers=HTTP_HEADERS, timeout=30)
             res.raise_for_status()

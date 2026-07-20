@@ -19,6 +19,7 @@ chroma_db/
 **/data/crawl_state.json
 **/data/*_confluence.json
 **/data/*_jira.json
+**/data/*_code.json
 
 # ── pg_dump / zip exports — large binaries, not for git ──────────────────────
 **/nexus_vectors.dump

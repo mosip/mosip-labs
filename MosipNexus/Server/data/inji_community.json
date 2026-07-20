@@ -1,0 +1,807 @@
+[
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/inji-stack-version/2818",
+    "title": "Inji stack version",
+    "tags": [],
+    "question": "I ve installed eSignet 1.4.1 + MOSIP 1.2.1.0, what version of inji stack would you recommand",
+    "answers": [
+      {
+        "text": "Hi [@Mouhamed\\_Tidiane\\_SEC](/u/mouhamed_tidiane_sec),\n\nThank you for reaching out to us.\n\nSince you are using **eSignet 1.4.1** and **MOSIP 1.2.1.0**, I recommend using an Inji stack that is compatible with eSignet 1.4.1. A suitable combination would be:\n\n* **Mimoto:** 0.15.0\n* **Inji Web:** 0.11.0\n* **Inji Certify:** 0.10.0\n* **Inji Verify:** 0.10.0\n\nFor reference, the latest releases of the Inji stack are:\n\n* **eSignet:** 1.6.2\n* **Inji Web:** 0.17.0\n* **Inji Mobile:** 0.22.1\n* **Inji Certify:** 0.14.0\n* **Inji Verify:** 0.18.1\n* **Inji:** <https://docs.inji.io/>\n* **eSignet:** <https://docs.esignet.io/>\n\nPlease let us know if you need any further assistance.\n\nRegards,  \nMrudula  \non behalf of Team MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "This topic was automatically closed 10 days after the last reply. New replies are no longer allowed.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/dmp-2026-proposal-clarifications-on-implementation-flow/2648",
+    "title": "DMP 2026 Proposal - Clarifications on Implementation & Flow",
+    "tags": [
+      "inji"
+    ],
+    "question": "Hey MOSIP team, I’ve gone through the issue and the related flows across the Admin and Student portals. Before writing the proposal, I wanted to clarify a few points to ensure alignment with the intended design:\n\n* Should the `is_eligible` flag be strictly stored and managed via admin updates, or is it expected to be re-validated dynamically during the certificate request flow in the Student Portal?\n* Once a student is marked as **GRADUATED**, if fields like `final_result` are updated later, should that affect already issued or in-progress certificate requests?\n* Is the Admin Portal expected to have any direct interaction with the issuance system (e.g., syncing with the issuer), or should it remain limited to managing student records and eligibility?\n* For authentication, is the current static email/password approach only for initial setup, or should we design with future extensions like role-based access or multi-institution support in mind?\n\nI’m applying for DMP 2026 and wanted to ensure I’m aligned before proceeding.",
+    "answers": [
+      {
+        "text": "Hi [@CodeWith-sakib](/u/codewith-sakib)\n\nThank you for your interest in contributing to MOSIP. It’s great to see your enthusiasm.\n\nThe DMP tickets are specifically intended for interns who participated in MOSIP Decode, which was one of our student hackathons.\n\nThat said, we truly appreciate your interest in contributing. Please stay tuned! We will soon be publishing a list of GitHub issues that are open for the broader community to contribute to.\n\nLooking forward to your participation!\n\nWarm regards,  \nCommunity Manager  \nPragya",
+        "vote_count": 0,
+        "accepted": true
+      },
+      {
+        "text": "This topic was automatically closed 60 minutes after the last reply. New replies are no longer allowed.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": "Hi [@CodeWith-sakib](/u/codewith-sakib)\n\nThank you for your interest in contributing to MOSIP. It’s great to see your enthusiasm.\n\nThe DMP tickets are specifically intended for interns who participated in MOSIP Decode, which was one of our student hackathons.\n\nThat said, we truly appreciate your interest in contributing. Please stay tuned! We will soon be publishing a list of GitHub issues that are open for the broader community to contribute to.\n\nLooking forward to your participation!\n\nWarm regards,  \nCommunity Manager  \nPragya"
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/integration-of-inji-certify-with-my-university-portal/2641",
+    "title": "Integration of Inji Certify with my university Portal",
+    "tags": [],
+    "question": "Hey everyone, i am working on building a modern university portal for my uni, and i came across inji certify through DMP and it amazes me. I wish to add this feature to my portal too, i would love to know about any bi-weekly or weekly meet that you might have to get to know more about the organisation and inji-certify.",
+    "answers": [
+      {
+        "text": "Hi [@Hari](/u/hari)\n\nGreat to hear that you’re exploring the Inji certify for your university portal!\n\nIn addition to Inji Certify, the Inji Stack includes other modules that support different aspects of digital identity and credentialing. We have a bi-weekly [open product call](https://community.mosip.io/t/announcing-the-inji-stack-open-product-call/2362) where we cover these components, discuss updates, and answer questions—feel free to join, it’s a great way to interact with the team. -\n\nIn the meantime, we recommend going through the [Inji documentation](https://docs.inji.io/) to understand the features currently supported across the stack.\n\nRegards\n\nLikhitha R L\n\non behalf of INJI team",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "This topic was automatically closed 10 days after the last reply. New replies are no longer allowed.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/high-cpu-utilisation-observed-with-inji-certify/2604",
+    "title": "High CPU Utilisation Observed with INJI Certify",
+    "tags": [
+      "inji_certify"
+    ],
+    "question": "Team,\n\nI am facing an issue while installing INJI Certify, where the server CPU utilisation consistently reaches close to 100%.\n\nUpon initial investigation, it appears that the process dnsmasq may be contributing to the high resource consumption. I monitored the system using the top command and observed unusually high CPU usage across multiple intervals. Relevant excerpts are shared below:\n\nPID USER PR NI VIRT RES SHR S %CPU %MEM TIME+ COMMAND  \n89661 dnsmasq 20 0 521916 270136 3632 S 83.3 13.4 33:13.08 mysql\n\n89661 dnsmasq 20 0 521916 270136 3632 S 91.7 13.4 9:46.46 mysql\n\n87611 root 20 0 2569112 196608 22576 S 41.7 9.8 0:36.72 java  \n87630 root 20 0 2083104 194676 20420 S 41.7 9.7 0:36.64 java  \n87420 dnsmasq 20 0 61792 22560 18252 S 8.3 1.1 0:00.38 redis\n\nIt appears that this process intermittently consumes up to 90% of CPU resources, particularly during periods when application load is otherwise low (e.g., when Java processes are not heavily consuming resources). This behaviour suggests the presence of a potentially rogue or misconfigured process.\n\nRequest you to kindly review this issue and advise on the cause and possible resolution.\n\nLooking forward to your guidance.\n\nBest Regards,\n\nAbhilash K A",
+    "answers": [
+      {
+        "text": "Hi [@abhilash\\_k\\_a](/u/abhilash_k_a) ,\n\nThank you for reaching out to us.\n\nThe Certify team is currently reviewing the issue and will get back to you with their suggestions at the earliest.\n\nRegards,  \nOn behalf of Team MOSIP  \nVaraniya S  \nProduct Owner - MOSIP | Inji",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Team,\n\nIs there any update you wanted to share with us.\n\nBest Regards,\n\nAbhilash K A",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@abhilash\\_k\\_a](/u/abhilash_k_a),\n\nI wanted to check a few details regarding your setup:\n\n* Could you share your machine specifications?\n* Which virtual machines are you currently using?\n* Apart from Injicertify, are there any other services deployed in your cluster?\n* Is your deployment managed via Docker Compose or Kubernetes?\n\nFor reference, you can also review the official infrastructure and hardware requirements here:\n\n![](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/original/2X/b/b97a9d3af0b0d70f78c86debb624ed62233a463b.png)\n[docs.inji.io](https://docs.inji.io/readme/setup/infrastructure-requirements)\n\n![](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/optimized/2X/b/bbb5d801c856216c78d60a20f8d39ddba02caeed_2_690x362.jpeg)\n\n### [Infrastructure Requirements | Inji](https://docs.inji.io/readme/setup/infrastructure-requirements)\n\nRegards,  \nOn behalf of Team MOSIP  \nPraful Rakhade",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "![](https://dub1.discourse-cdn.com/flex017/user_avatar/community.mosip.io/praful_rakhade/48/1065_2.png) Praful\\_Rakhade:\n\n> * Could you share your machine specifications?\n> * Which virtual machines are you currently using?\n> * Apart from Injicertify, are there any other services deployed in your cluster?\n> * Is your deployment managed via Docker Compose or Kubernetes?\n\nCould you share your machine specifications?  \n→ Please refer the logs.\n\nWhich virtual machines are you currently using?  \n→ Please refer the logs.  \nApart from Injicertify, are there any other services deployed in your cluster?  \n→ only Inji Certify  \nIs your deployment managed via Docker Compose or Kubernetes?  \n→ Docker\n\nOS we are using is:  \nDistributor ID: Ubuntu  \nDescription: Ubuntu 24.04.3 LTS  \nRelease: 24.04  \nCodename: noble\n\nLogs are attached to GitHub:\n\n[github.com/lucidledgerAdmin/lucidpublicRepo](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_dmidecode.txt)\n\n#### [1\\_dmidecode.txt](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_dmidecode.txt)\n\n[`main`](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_dmidecode.txt)\n\n```\n# dmidecode 3.5\nGetting SMBIOS data from sysfs.\nSMBIOS 2.8 present.\n10 structures occupying 453 bytes.\nTable at 0x000F5990.\n\nHandle 0x0000, DMI type 0, 24 bytes\nBIOS Information\n\tVendor: DigitalOcean\n\tVersion: 20171212\n\tRelease Date: 12/12/2017\n\tAddress: 0xE8000\n\tRuntime Size: 96 kB\n\tROM Size: 64 kB\n\tCharacteristics:\n\t\tBIOS characteristics not supported\n\t\tTargeted content distribution is supported\n\t\tSystem is a virtual machine\n\tBIOS Revision: 0.0\n```\n\nThis file has been truncated. [show original](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_dmidecode.txt)\n\n\n\n[github.com/lucidledgerAdmin/lucidpublicRepo](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_free.txt)\n\n#### [1\\_free.txt](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_free.txt)\n\n[`main`](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_free.txt)\n\n```\n               total        used        free      shared  buff/cache   available\nMem:            1967         437         390           3        1336        1530\nSwap:           1023          88         935\n```\n\n\n\n[github.com/lucidledgerAdmin/lucidpublicRepo](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_hostnamectl.txt)\n\n#### [1\\_hostnamectl.txt](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_hostnamectl.txt)\n\n[`main`](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_hostnamectl.txt)\n\n```\n Static hostname: betaserver\n       Icon name: computer-vm\n         Chassis: vm 🖴\n      Machine ID: a9290dxxxx25047xxxx7f58c6928xxxx\n         Boot ID: db607ed564dd41e78cd3cbf7ba4ea300\n  Virtualization: kvm\nOperating System: Ubuntu 24.04.3 LTS\n          Kernel: Linux 6.8.0-106-generic\n    Architecture: x86-64\n Hardware Vendor: DigitalOcean\n  Hardware Model: Droplet\nFirmware Version: 20171212\n   Firmware Date: Tue 2017-12-12\n    Firmware Age: 8y 3month 3w\n```\n\n\n\n[github.com/lucidledgerAdmin/lucidpublicRepo](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_lshw.txt)\n\n#### [1\\_lshw.txt](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_lshw.txt)\n\n[`main`](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_lshw.txt)\n\n```\nbetaserver\n    description: Computer\n    width: 64 bits\n    capabilities: vsyscall32\n  *-core\n       description: Motherboard\n       physical id: 0\n     *-memory\n          description: System memory\n          physical id: 0\n          size: 2GiB\n     *-cpu\n          product: DO-Regular\n          vendor: Intel Corp.\n          physical id: 1\n          bus info: cpu@0\n          version: 6.79.1\n          width: 64 bits\n          capabilities: fpu fpu_exception wp vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx rdtscp x86-64 constant_tsc rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch cpuid_fault pti ssbd ibrs ibpb tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap xsaveopt arat vnmi md_clear\n          configuration: microcode=1\n```\n\nThis file has been truncated. [show original](https://github.com/lucidledgerAdmin/lucidpublicRepo/blob/main/1_lshw.txt)",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "team: please respond",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@abhilash\\_k\\_a](/u/abhilash_k_a)\n\nBased on the VM details you shared, it appears that your setup is running on a **1 vCPU and 2 GB RAM** instance. On this single vCPU, multiple services such as Certify (Java), MySQL, and Redis are running concurrently.\n\nWith only 1 vCPU available, all these processes compete for CPU time. This can easily lead to situations where CPU utilisation reaches close to 100%, even under moderate load. From the `top` output, it looks like MySQL and Java processes are the primary contributors to CPU usage, rather than a rogue process.\n\nAlso, please note that `dmidecode` output in virtual environments may not always provide complete clarity, but it does confirm limited CPU and memory resources in this case.\n\nAs per the documentation, INJI Certify requires a minimum VM specification. I would recommend comparing your current VM configuration with the documented requirements and trying with the recommended specifications.\n\nOur team will also review this behaviour and get back to you with further inputs. In the meantime, please try scaling the VM resources (CPU/RAM) as per the guidelines and observe if the issue persists.\n\nRegards,  \nOn behalf of Team MOSIP  \nPraful Rakhade",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "This topic was automatically closed 10 days after the last reply. New replies are no longer allowed.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/using-chrome-digital-credentials-api-with-inji-verify-service/2557",
+    "title": "Using Chrome Digital Credentials API with INJI Verify Service",
+    "tags": [
+      "inji",
+      "inji_verify"
+    ],
+    "question": "There is a working draft from W3C to implement the Digital Credentials API in browsers. Chrome and Safari already implement it.\n\nIs there a blog post explaining how to integrate a web app to Inji Verify Service using the Chrome Digital Credentials API? Is there a github repo of such endeavor?\n\nWill the use of the Digital Credentials API substitute the usage of the INJI Verify Client SDK ?\n\n![](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/original/2X/2/2fee1660c498ba04126d5ff62a7f07b3bf9540e3.png)\n[digitalcredentials.dev](https://digitalcredentials.dev/docs/intro/)\n\n![](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/optimized/2X/3/36ecbd7dcc5ad8c9a2b7bb9d5d9ad1613eca8ca0_2_690x388.jpeg)\n\n### [Intro | Digital Credentials Developer](https://digitalcredentials.dev/docs/intro/)\n\nDigital Credentials Developer is a resource for developers looking to implement issuance and presentation of verifiable digital credentials using the Digital Credentials API.\n\n\n\n[w3.org](https://www.w3.org/TR/digital-credentials/)\n\n### [Digital Credentials](https://www.w3.org/TR/digital-credentials/)\n\nThis document specifies an API to enable user agents to mediate\npresentation and issuance of digital credentials such as a driver's\nlicense, government-issued identification card, and/or other types of digital credential. The API...",
+    "answers": [
+      {
+        "text": "Hello [@fredguth](/u/fredguth)\n\nThank you for contacting us. Please allow us some time; we will get back to you with the details shortly.\n\nRegards,\n\nLikhitha R L\n\non behalf of Mosip team",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@fredguth](/u/fredguth)\n\nAs of latest Inji Verify release , hardware interactions are managed as below:\n\n1. Camera access - `navigator.mediaDevices` which is part of a W3C Device Capability (DC) API.\n2. Opening Wallet app in mobile / tablet for Same Device flow - **using Deep Link** `window.location.href = “openid4vp://…”`\n3. Bluetooth - Planned for later\n4. Geolocation - N/A\n\nWe need Inji Verify SDK component since DC API is a browser level feature and we cannot integrate it with just Service directly.\n\nHope I have answered your queries. Do reach out for any further query.\n\nThanks\n\nMayura",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "This topic was automatically closed 10 days after the last reply. New replies are no longer allowed.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/documentation-for-deploying-the-sunbird-application-and-integrating-it-with-inji/2295",
+    "title": "Documentation for deploying the Sunbird application and integrating it with Inji",
+    "tags": [
+      "inji"
+    ],
+    "question": "Kindly provide comprehensive documentation detailing the steps required to deploy the Sunbird application and integrate it with Inji, including the necessary configuration property changes.",
+    "answers": [
+      {
+        "text": "Hello [@HIREKARMA](/u/hirekarma)\n\nThank you for reaching out to us.\n\nWe are checking on your query.\n\nMeanwhile, can you confirm if you need docs for a local setup or Helm deployment? We’ll share the exact documentation soon.\n\nRegards,\n\nLikhitha R L  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@likhitha\\_j](/u/likhitha_j) Please share both documentation",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "This topic was automatically closed 10 days after the last reply. New replies are no longer allowed.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@HIREKARMA](/u/hirekarma),\n\nhere is the documentation to refer for the sunbird application : [GitHub - mosip/inji-certify at v0.11.0](https://github.com/mosip/inji-certify/tree/v0.11.0?tab=readme-ov-file)\n\nyou can follow this steps to try out\n\nRegards,  \nVaraniya S  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@HIREKARMA](/u/hirekarma) ,\n\nHope you were able to follow the steps to integrate sunbird application with Inji. Do let us know if you need more support on the integration.\n\nRegards,  \nVaraniya S",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/regarding-the-redirect-uri-for-inji-certify/2314",
+    "title": "Regarding the redirect uri for inji certify",
+    "tags": [],
+    "question": "Dear Mosip Team,\n\nI have setup the inji certify using docker compose for the farmer setup on the remote instance but when I click on the card “farmer verifiable credential” it shows me invalid redirect url\n\nIs there anything to change on the mimoto-issuers config file regarding the redirect\\_uri?",
+    "answers": [
+      {
+        "text": "Hello [@AHAMED\\_FAHSNI](/u/ahamed_fahsni)\n\nThank you for reaching out to us.\n\nPlease check the `mimoto-issuers-config.json` file to ensure the ClientID and associated redirect URL are configured correctly. If the issue persists, kindly share the logs for further debugging",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hello [@likhitha\\_j](/u/likhitha_j)\n\nI got the issue fixed now I am able to download the vc for farmer credential , now can you guide me on two things.\n\n1. now can I connect the esignet demo setup to check with the uid that was created by me ( linking this url : <https://esignet-mosipid.collab.mosip.net>)\n2. to connect to my database which plugin should I use. Is it mock-certify plugin or postgres data-provider plugin\n\nIt would be helpful if you can help me on the above",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hello [@AHAMED\\_FAHSNI](/u/ahamed_fahsni)\n\nTo connect to the database, we need to use the Postgres Data Provider plugin. The steps can be referred to [inji-certify/docker-compose/docker-compose-injistack/Add-New-Usecase-Using-PostgresPlugin.md at release-0.12.x · mosip/inji-certify · GitHub](https://github.com/mosip/inji-certify/blob/release-0.12.x/docker-compose/docker-compose-injistack/Add-New-Usecase-Using-PostgresPlugin.md)\n\nRegards,\n\nMosip Team",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "This topic was automatically closed 10 days after the last reply. New replies are no longer allowed.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/how-to-integrate-inji-certify-with-inji-web-to-issue-verifiable-credentials/2298",
+    "title": "How to integrate Inji Certify with Inji Web to issue Verifiable Credentials",
+    "tags": [],
+    "question": "My goal is to create a working demo where a user can request a credential via Inji Web, and Inji Certify issues a verifiable credential based on a predefined schema.\n\nAny references, configuration samples, or implementation guidance would be very helpful.",
+    "answers": [
+      {
+        "text": "Hi [@Inshaf\\_Ahmedh](/u/inshaf_ahmedh) ,\n\nthank you for reaching out to us.\n\nI would like to know whether you are trying yo create working demo in your local setup or in a specific environment?\n\nBased on your confirmation would be able to guide you with the relevant documentation.\n\nRegards,\n\nVaraniya S\n\nOn behalf of Team MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@Varaniya1](/u/varaniya1)\n\nThank you for your response. For now, I am working on a **local setup** to create a working demo of Inji Certify with Inji Web for issuing Verifiable Credentials.\n\nOnce I have the flow working locally, I may later try deploying it in a hosted environment. Could you please share the relevant documentation ?",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hello [@Inshaf\\_Ahmedh](/u/inshaf_ahmedh)\n\nHere are the local setup documents for InjiCertify with Inji Web. Please follow the README to complete the VC download process: [GitHub - mosip/inji-certify at release-0.12.x](https://github.com/mosip/inji-certify/tree/release-0.12.x)\n\nPlease try the same and reach out if any issues exists.\n\nRegards\n\nLikhitha R L\n\nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "This topic was automatically closed 10 days after the last reply. New replies are no longer allowed.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/mimoto-pod-is-not-comming-up-with-the-0-17-0-version/2090",
+    "title": "Mimoto pod is not comming up with the 0.17.0 version",
+    "tags": [],
+    "question": "Hello Team,\n\nWhile accessing injiweb ui , when we click on get started, it is saying service currently unavailable… deployed the latest mimoto that is 0.17.0 as the current version v0.15.2 is failing to fetch the list of issuers, but after deploying 0.17.0 the pod is throwing error like ‘Validation failed in Mimoto-issuers-config.json:’ even after i have updated the Mimoto-issuers-config.json from the latest config branch 0.7.0  \nthe 0.15.2 pod is coming up without an issue… only 0.17.0 pod is having problem.\n\ngetting below errors in mimoto logs  \nValidation failed in Mimoto-issuers-config.json:  \nErrors for issuer at index: 1 with issuerId - Mosip\n\n* credential\\_issuer\\_host must be a valid URL\n* proxy\\_token\\_endpoint must be a valid URL\n* wellknown\\_endpoint must be a valid URL  \n  Errors for issuer at index: 2 with issuerId - StayProtected\n* credential\\_issuer\\_host must be a valid URL\n* proxy\\_token\\_endpoint must be a valid URL\n* wellknown\\_endpoint must be a valid URL  \n  Errors for issuer at index: 3 with issuerId - Mock\n* credential\\_issuer\\_host must be a valid URL\n* proxy\\_token\\_endpoint must be a valid URL\n* wellknown\\_endpoint must be a valid URL  \n  Errors for issuer at index: 4 with issuerId - MosipTAN\n* proxy\\_token\\_endpoint must be a valid URL  \n  Errors for issuer at index: 5 with issuerId - Land\n* credential\\_issuer\\_host must be a valid URL\n* proxy\\_token\\_endpoint must be a valid URL\n* wellknown\\_endpoint must be a valid URL\n\ncurrently these below versions are running in our env:  \ninji-web = mosipid/inji-web:0.12.0  \ninji-verify = mosipid/inji-verify:0.10.0  \ninji-certify = mosipid/inji-certify:0.10.2  \nmimoto = mosipid/mimoto:0.17.0  \nesignet = mosipid/esignet:1.4.1  \ndatashare = mosipid/data-share-service:1.3.0-beta.2\n\nPlease let us know if we are missing anything.",
+    "answers": [
+      {
+        "text": "Hi Gagana.A,\n\nThank you for the detailed update.\n\nThe validation you’re encountering has been fixed as part of Mimoto v0.17.0. In earlier versions (like v0.15.2), these validations were not enforced, which is likely why the issues in the `mimoto-issuers-config.json` file went unnoticed.\n\nNow that the validations are active, the config file must comply strictly with the expected schema — in particular, fields like `credential_issuer_host`, `proxy_token_endpoint`, and `wellknown_endpoint` must contain valid URLs for each issuer.\n\nPlease review and correct the mentioned fields in your `mimoto-issuers-config.json` file as per the errors shown in the logs. If the file already seems correct and the issue persists, feel free to share the config file with us, and we can help debug it further.\n\nLet us know how it goes.\n\nBest regards,  \nGurpreet Kaur",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi Gurpreet,\n\nMimoto-issuers-config.json from the latest config branch only i.e, 0.7.0 , it containes all the fields, still getting same error as i updated above.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Gagana.A](/u/gagana.a) Quick question — are the placeholders `${mosip.injicertify.mosipid.host}`, `${mosip.api.public.host}`, and `${mosipid.identity.esignet.host}` getting resolved at runtime?\n\nThe provided JSON input will fail validation if placeholders appear to be unresolved.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/accessing-mosip-collab-environment/2069",
+    "title": "Accessing mosip collab environment",
+    "tags": [
+      "inji"
+    ],
+    "question": "How To set up network connectivity to the MOSIP AuthZ service in the Collab environment, since i want to test my inji-certfy that is running in docker and intergrated with esignet, so i am failing to download mock mdl from mosip collab environment !!",
+    "answers": [
+      {
+        "text": "Dear Lyson,\n\nThank you for reaching out. Someone from our team will look into the network connectivity to the MOSIP AuthZ service in the Collab environment and get back to you as soon as possible.\n\nWe also noticed a few other queries raised from your end—our team is reviewing all of them together and will provide a consolidated update shortly.\n\nBest regards,  \nMOSIP Team",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi, my colleague from MOSIP just answered your query [here](https://community.mosip.io/t/download-id-fails/2067/3). Can you try and setup the farmer usecase instead?\n\nAll of Inji Stack components don’t have mDoc support just yet and a lot of it is in the works or in the planning stage.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/error-connecting-to-oidc-service-webclient-problem-in-connecting-to-auth-service-or-unknown-error/2048",
+    "title": "Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error",
+    "tags": [],
+    "question": "Good afternoon, I am setting up the *inji-certify* project on the *release-0.10.x* branch, and I’m encountering the following issue:  \n**“Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.”**  \nWhat could be causing this error? Is there an additional installation or configuration required? I’m attaching the log.\n\nIt is worth remembering that I have Java version 17.\n\nI would appreciate your prompt response.\n\nThank you.\n\n```\ni.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 02:34:15 2025-05-08T07:34:15.246Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 02:34:15 2025-05-08T07:34:15.248Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 02:34:15 2025-05-08T07:34:15.249Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 02:34:15 2025-05-08T07:34:15.249Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 02:39:15 2025-05-08T07:39:15.239Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 02:39:15 2025-05-08T07:39:15.249Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 02:39:15 2025-05-08T07:39:15.249Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 02:39:15 2025-05-08T07:39:15.249Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 02:44:15 2025-05-08T07:44:15.230Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 02:44:15 2025-05-08T07:44:15.232Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 02:44:15 2025-05-08T07:44:15.232Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 02:44:15 2025-05-08T07:44:15.233Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 02:49:15 2025-05-08T07:49:15.226Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 02:49:15 2025-05-08T07:49:15.228Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 02:49:15 2025-05-08T07:49:15.228Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 02:49:15 2025-05-08T07:49:15.229Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 02:54:15 2025-05-08T07:54:15.222Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 02:54:15 2025-05-08T07:54:15.227Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 02:54:15 2025-05-08T07:54:15.227Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 02:54:15 2025-05-08T07:54:15.227Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 02:59:15 2025-05-08T07:59:15.221Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 02:59:15 2025-05-08T07:59:15.222Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 02:59:15 2025-05-08T07:59:15.222Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 02:59:15 2025-05-08T07:59:15.223Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:04:15 2025-05-08T08:04:15.220Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:04:15 2025-05-08T08:04:15.221Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:04:15 2025-05-08T08:04:15.221Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:04:15 2025-05-08T08:04:15.221Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:09:15 2025-05-08T08:09:15.217Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:09:15 2025-05-08T08:09:15.219Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:09:15 2025-05-08T08:09:15.219Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:09:15 2025-05-08T08:09:15.219Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:14:15 2025-05-08T08:14:15.213Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:14:15 2025-05-08T08:14:15.215Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:14:15 2025-05-08T08:14:15.215Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:14:15 2025-05-08T08:14:15.215Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:19:15 2025-05-08T08:19:15.211Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:19:15 2025-05-08T08:19:15.212Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:19:15 2025-05-08T08:19:15.214Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:19:15 2025-05-08T08:19:15.214Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:24:15 2025-05-08T08:24:15.210Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:24:15 2025-05-08T08:24:15.211Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:24:15 2025-05-08T08:24:15.212Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:24:15 2025-05-08T08:24:15.212Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:29:15 2025-05-08T08:29:15.208Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:29:15 2025-05-08T08:29:15.212Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:29:15 2025-05-08T08:29:15.212Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:29:15 2025-05-08T08:29:15.213Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:34:15 2025-05-08T08:34:15.212Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:34:15 2025-05-08T08:34:15.214Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:34:15 2025-05-08T08:34:15.215Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:34:15 2025-05-08T08:34:15.215Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:39:15 2025-05-08T08:39:15.203Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:39:15 2025-05-08T08:39:15.204Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:39:15 2025-05-08T08:39:15.205Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:39:15 2025-05-08T08:39:15.205Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:44:15 2025-05-08T08:44:15.204Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:44:15 2025-05-08T08:44:15.207Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:44:15 2025-05-08T08:44:15.207Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:44:15 2025-05-08T08:44:15.207Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:49:15 2025-05-08T08:49:15.204Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:49:15 2025-05-08T08:49:15.206Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:49:15 2025-05-08T08:49:15.206Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:49:15 2025-05-08T08:49:15.206Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:54:15 2025-05-08T08:54:15.201Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:54:15 2025-05-08T08:54:15.203Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:54:15 2025-05-08T08:54:15.203Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:54:15 2025-05-08T08:54:15.204Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 03:59:15 2025-05-08T08:59:15.192Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 03:59:15 2025-05-08T08:59:15.195Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 03:59:15 2025-05-08T08:59:15.195Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 03:59:15 2025-05-08T08:59:15.196Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:04:18 2025-05-08T09:04:18.413Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:04:18 2025-05-08T09:04:18.418Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:04:18 2025-05-08T09:04:18.419Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:04:18 2025-05-08T09:04:18.419Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:09:18 2025-05-08T09:09:18.410Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:09:18 2025-05-08T09:09:18.412Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:09:18 2025-05-08T09:09:18.412Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:09:18 2025-05-08T09:09:18.412Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:14:18 2025-05-08T09:14:18.404Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:14:18 2025-05-08T09:14:18.406Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:14:18 2025-05-08T09:14:18.406Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:14:18 2025-05-08T09:14:18.407Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:19:18 2025-05-08T09:19:18.400Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:19:18 2025-05-08T09:19:18.401Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:19:18 2025-05-08T09:19:18.402Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:19:18 2025-05-08T09:19:18.402Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:24:18 2025-05-08T09:24:18.395Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:24:18 2025-05-08T09:24:18.397Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:24:18 2025-05-08T09:24:18.398Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:24:18 2025-05-08T09:24:18.398Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:29:18 2025-05-08T09:29:18.389Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:29:18 2025-05-08T09:29:18.391Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:29:18 2025-05-08T09:29:18.391Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:29:18 2025-05-08T09:29:18.391Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:34:18 2025-05-08T09:34:18.379Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:34:18 2025-05-08T09:34:18.382Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:34:18 2025-05-08T09:34:18.382Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:34:18 2025-05-08T09:34:18.382Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:39:18 2025-05-08T09:39:18.375Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:39:18 2025-05-08T09:39:18.377Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:39:18 2025-05-08T09:39:18.377Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:39:18 2025-05-08T09:39:18.378Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:44:18 2025-05-08T09:44:18.379Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:44:18 2025-05-08T09:44:18.380Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:44:18 2025-05-08T09:44:18.380Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:44:18 2025-05-08T09:44:18.380Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:49:18 2025-05-08T09:49:18.372Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:49:18 2025-05-08T09:49:18.374Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:49:18 2025-05-08T09:49:18.375Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:49:18 2025-05-08T09:49:18.375Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n2025-05-08 04:54:18 2025-05-08T09:54:18.368Z  INFO 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Requesting for new Token for the provided OIDC Service(WebClient): https://iam.collab.mosip.net//auth/realms/\n2025-05-08 04:54:18 2025-05-08T09:54:18.371Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] o.s.c.l.core.RoundRobinLoadBalancer      : No servers available for service: iam.collab.mosip.net\n2025-05-08 04:54:18 2025-05-08T09:54:18.371Z  WARN 1 --- [mimoto] [TaskScheduler-1] [                                                 ] eactorLoadBalancerExchangeFilterFunction : LoadBalancer does not contain an instance for the service iam.collab.mosip.net\n2025-05-08 04:54:18 2025-05-08T09:54:18.371Z ERROR 1 --- [mimoto] [TaskScheduler-1] [                                                 ] i.m.k.a.d.helper.TokenHelper             : Error connecting to OIDC service (WebClient) Problem in connecting to auth service or UNKNOWN Error.\n```",
+    "answers": [
+      {
+        "text": "Dear [@Johann\\_Meza](/u/johann_meza)\n\nThanks for sharing this, and a warm welcome to our community!\n\nApologies for the delayed response — our team was unavailable last week. I’ve flagged this with one of our technical team members, and we’ll take a look at the logs you’ve provided and get back to you shortly.\n\nAppreciate your patience!\n\nBest Regards,  \nMOSIP Team",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@Johann\\_Meza](/u/johann_meza) ,\n\nThanks for trying Inji Stack. Please share me some more details to help me debug this further.\n\n1. Could you please share the README you’ve followed while setting this up?\n2. Inji Certify version/branch/tag/commit you’re if you’re following some version of [this](https://github.com/mosip/inji-certify/tree/release-0.10.x/docker-compose/docker-compose-injistack).\n3. What is the value of `mosip.certify.authorization.url` in your current local setup, are you able to cURL this URL now?",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/not-able-to-deploy-esignet-with-helm/1968",
+    "title": "Not able to deploy eSignet with helm",
+    "tags": [
+      "esignet"
+    ],
+    "question": "I am trying to install esignet in eks cluster, i am able to install keycloak and other dependencies, now esignet fails with the following error. Any help here would be appreciated.\n\nAnd my helm chart version is “1.5.1”\n\n```\nError creating bean with name 'openIdConnectServiceImpl': Unsatisfied dependency expressed through field 'auditWrapper'; nested exception is org.springframework.beans.factory.NoSuchBeanDefinitionException: No qualifying bean of type 'io.mosip.esignet.api.spi.AuditPlugin' available: expected at least 1 bean which qualifies as autowire candidate\n```",
+    "answers": [
+      {
+        "text": "Hi [@Vijay\\_S](/u/vijay_s) ,\n\nThank you for reaching out. We are looking at this issue and one of our experts will get back to you shortly.\n\nBest Regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Vijay\\_S](/u/vijay_s) can you share the refernece tag being used and more service related details like which docker image tag is used.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "I am using the `mosip/esignet` chart and the version is `1.5.1` and it pulls the `docker.io/mosipid/esignet-with-plugins:1.5.1` image.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Vijay\\_S](/u/vijay_s)\n\nCan you try adding the below in esignet deployment config under containers “env”\n\n* name: MOSIP\\_ESIGNET\\_INTEGRATION\\_AUDIT\\_PLUGIN  \n  value: LoggerAuditService",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/resident-app-037-private-key-entry-is-missing-for-the-alias-wallet-demo-client/1950",
+    "title": "RESIDENT-APP-037 --> Private Key Entry is Missing for the alias wallet-demo-client",
+    "tags": [
+      "inji"
+    ],
+    "question": "Hello,\n\nI am received this error from Mimoto when i tried to login on the esignet-collab. I am trying to make functional the mock sample from github:inji-certify. This happens using de inji-web.",
+    "answers": [
+      {
+        "text": "Hi [@Dekker](/u/dekker) ,\n\nWelcome to the community! We are currently looking into this query and one of our experts will get back to you.\n\nBest Regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Dekker](/u/dekker) This error comes when client-alias is not present in oidckeystore.p12 file being used to run mimoto.  \nAs you mentioned that you are trying to use esignet-collab, so I would suggest to go through documentation where we have shared client-id, client-alias, oidckeystore.p12 file along with few UINs.  \nThis setup will help to use esignet-mock(collab) with your local inji setup.  \nHere is the [link](https://docs.inji.io/inji-wallet/inji-mobile/customization-overview/credential_providers#use-mock-data-from-collab-sandbox-env)",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hello [@swatigoel](/u/swatigoel) thank you for the support! I copied the .p12 file on the setup page, for the certs and copied the password to the mosip.oidc.p12.password on the mimoto-default.properties. But i still have a problem, a diferent one this time. => **io.mosip.mimoto.exception.VCVerificationException: err\\_signature\\_verification\\_failed → Verification Failed**  \nwhat am i missing?",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@Dekker](/u/dekker)  \nHow did you generate the VC?  \nAs per the error it says signature verification is failed, so I would like to know did you refer any existing use-case or created new use-case for this?",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hello [@swatigoel](/u/swatigoel) I used the information from here => [Credential Providers | Inji](https://docs.inji.io/inji-wallet/inji-mobile/customization-overview/credential_providers#use-mock-data-from-collab-sandbox-env) with docker from github/inji-certify. Downloaded the mock-certify-plugin-0.3.0.jar to the loader\\_path, pasted the .p12 from the link e change the password on mosip.oidc.p12.password. Just this. I trying with the Inji-web e used the UUIN: 2154189532. Answering the question, i used a existing use-case.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@Dekker](/u/dekker)\n\nThere is issue with VC issued with existing mock plugin and this will be fixed in upcoming release.  \ncan you use data-provider plugin to issue VC?",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hello [@swatigoel](/u/swatigoel) , you mean another DataProviderPlugin like postgres-dataprovider-plugin ? did you know when the new versio will be release? Thanks for the support.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@Dekker](/u/dekker) ,  \nYes I meant DataProviderPlugin like postgres.  \nIn new releases, this mock certify plugin will be replaced by DataProviderPlugin only. Existing mock-certify-plugin-0.3.0.jar will be deprecated",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@swatigoel](/u/swatigoel) just one more question, mock-crtify-plugin is a DataproviderPlugin, i mean, use the interface DataProviderPlugin, right ? you will replace this plugin by another one, still loading date from a CSV Mock ? or will be a diferente mock sample.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@Dekker](/u/dekker)  \nYes, you are right. It will use DataProviderPlugin interface.  \nYou can check it here. it will load data from mock identity database not CSV [digital-credential-plugins/mock-certify-plugin/src/main/java/io.mosip.certify.mock.integration/service/MockIdaDataProviderPlugin.java at release-0.4.x · mosip/digital-credential-plugins · GitHub](https://github.com/mosip/digital-credential-plugins/blob/release-0.4.x/mock-certify-plugin/src/main/java/io.mosip.certify.mock.integration/service/MockIdaDataProviderPlugin.java)",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/not-able-to-build-helm-chart-for-standalone-inji-deployment/1956",
+    "title": "Not able to build Helm chart for standalone INJI deployment",
+    "tags": [
+      "inji"
+    ],
+    "question": "Hello team,\n\nI am trying to build the helm chart for a stand alone INJI installation and I could see that we are copying some configs between context in k8s. Am I missing anything",
+    "answers": [
+      {
+        "text": "Hi [@Vijay\\_S](/u/vijay_s) can you share the reference link where you cant find the helm chart.\n\nAlso may I know if you are looking for a helm chart with deployes all the inji stack or specific Inji stack component helm chart?",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "![](https://dub1.discourse-cdn.com/flex017/user_avatar/community.mosip.io/ckm007/48/264_2.png) ckm007:\n\n> Also may I know if you are looking for a helm chart with deployes all the inji stack or specific Inji stack component helm chart?\n\nI am trying to deploy the inji-verify module at the moment. When I tried installing the the helm chart, it uses some configMaps. Do we need them?",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Yes we need these configmaps.\n\nthese are not part of helm chart of inji verify as it is an external dependency to same.\n\nplease share the error here to better help you on this.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "I am able to run the services now. The readme doesn’t have proper steps to deploy.\n\n1. Install istio, prometheus, bitnami helm CDRs\n2. Change the values.yaml to exclude the configMap",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Noted. Happy that we are able to deploy.\n\nNote: We have noted the documentation issue and will be taking care of the same in next release.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/inji-stack-one-click-cdk-deployment-on-aws/1763",
+    "title": "Inji stack one-click cdk deployment on AWS",
+    "tags": [
+      "inji"
+    ],
+    "question": "Hello team,  \nI went through the steps prescribed here [inji-infra-cloud/aws/documentation/01-Deployment-CDK-INJI.md at develop · mosip/inji-infra-cloud · GitHub](https://github.com/mosip/inji-infra-cloud/blob/develop/aws/documentation/01-Deployment-CDK-INJI.md) to deploy inji web and inji verify on AWS. All the stacks deploy successfully as per the screenshots. The domains set for inji web and inji verify remain unreachable despite the certificate being added succesfully\n\n```\n(base) antoine@Antoines-MacBook-Pro inji-infra-cloud % cdk deploy --all \n****************************************************\n*** Newer version of CDK is available [2.171.1]  ***\n*** Upgrade recommended (npm install -g aws-cdk) ***\n****************************************************\n--app is required either in command-line, in cdk.json or in ~/.cdk.json\n(base) antoine@Antoines-MacBook-Pro inji-infra-cloud % cd aws\n(base) antoine@Antoines-MacBook-Pro aws % cdk deploy --all \n[WARNING] aws-cdk-lib.aws_ec2.VpcProps#cidr is deprecated.\n  Use ipAddresses instead\n  This API will be removed in the next major release.\n\n✨  Synthesis time: 2.68s\n\nvpcstackinji\nvpcstackinji: deploying... [1/5]\n\n ✅  vpcstackinji (no changes)\n\n✨  Deployment time: 5.16s\n\n\n✨  Total time: 7.85s\n\neksec2stackinji\neksec2stackinji: deploying... [2/5]\neksec2stackinji: creating CloudFormation changeset...\n\n ✅  eksec2stackinji\n\n✨  Deployment time: 65.73s\n\n\n✨  Total time: 68.42s\n\nmimotohelmStackinji\nmimotohelmStackinji: deploying... [3/5]\n\n ✅  mimotohelmStackinji (no changes)\n\n✨  Deployment time: 3.35s\n\n\n✨  Total time: 6.03s\n\ninjiwebhelmStackinji\ninjiwebhelmStackinji: deploying... [4/5]\n\n ✅  injiwebhelmStackinji (no changes)\n\n✨  Deployment time: 4.28s\n\n\n\n✨  Total time: 6.97s\n\ninjiverifyhelmStackinji\ninjiverifyhelmStackinji: deploying... [5/5]\n\n ✅  injiverifyhelmStackinji (no changes)\n\n✨  Deployment time: 3.54s\n\n\n\n✨  Total time: 6.22s\n\n\n\n(base) antoine@Antoines-MacBook-Pro aws %\n```",
+    "answers": [
+      {
+        "text": "Dear [@Antony\\_Muriithi](/u/antony_muriithi) ,\n\nWelcome to the community and thank you for reaching out, We are looking into your query and one of our expert collegues will respond with inputs here.\n\nBest Regards  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/esignet-associated-with-inij-certify-keeps-restarting/1701",
+    "title": "Esignet Associated with Inij-certify keeps restarting",
+    "tags": [
+      "inji",
+      "esignet"
+    ],
+    "question": "I am deploying inji-certify docker compose ([inji-certify/docker-compose/docker-compose-certify/docker-compose.yml at master · mosip/inji-certify · GitHub](https://github.com/mosip/inji-certify/blob/master/docker-compose/docker-compose-certify/docker-compose.yml)), but the container for the esignet keeps restarting.\n\nThe error from the container is as seen below in the link below:  \n[Error](https://drive.google.com/file/d/1mEmYZP78i8w-I9yKfd0dMOjx708eY7Do/view?usp=sharing)",
+    "answers": [
+      {
+        "text": "Dear [@Samuel\\_Emmanuel](/u/samuel_emmanuel) ,\n\nThank you for reaching out, We are looking into your query and one of our expert colleagues will respond to it here.\n\nBest Regards  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@Samuel\\_Emmanuel](/u/samuel_emmanuel)\n\nPlease use the below steps to fix this:\n\n1. Please find the esignet container and stop it.\n2. Go to the `docker-compose-certify` directory where you’re deploying certify from and do `docker compose up`. This will bring up a new eSignet container back up again with the same configuration and the issue will be resolved.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hello [@Harsh\\_Vardhan](/u/harsh_vardhan)\n\nThank you for the response,\n\nDid as instructed, but issues persist,",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@Samuel\\_Emmanuel](/u/samuel_emmanuel) ,\n\nAsking [@balaji-alluru](/u/balaji-alluru) to take a look.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Thank you [@Harsh\\_Vardhan](/u/harsh_vardhan)\n\nJust trying to do a follow up on the status of this.\n\nAlso, I’d like to ask if there’s a documentation on how to run the inji-certify locally (i.e without the use of docker-compose. Just building and running the source code)\n\nRegards,",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hello [@Samuel\\_Emmanuel](/u/samuel_emmanuel)\n\nBased on the details shared, you are using 1.4.1 version of esignet. In the inji-certify docker compose we can notice that it is configured to download the required runtime dependencies from “<http://artifactory-server:8080/artifactory/libs-release-local/esignet/esignet-wrapper.zip>” [here](https://github.com/mosip/inji-certify/blob/master/docker-compose/docker-compose-certify/docker-compose.yml#L83)\n\nBut in the shared logs we see this log line - *“Downloaded wrapper file is not a zip archive”*\n\nWe are checking this from our side. I hope there is no local changes in the docker compose.\n\nThank you for being so patient. We will soon come back on this.\n\nthanks & regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Samuel\\_Emmanuel](/u/samuel_emmanuel) could you confirm the esignet-wrapper.zip file in the artifactory container? It should look like the screenshot below.\n\n[![image](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/optimized/2X/f/f6d8699d719d8fee9390d62dc6eb7c1169c940fc_2_690x141.png)\n\nimage978×200 52.8 KB](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/original/2X/f/f6d8699d719d8fee9390d62dc6eb7c1169c940fc.png \"image\")",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Thank you Anusha,\n\nNo local change was made in the docker compose file. We are using it as is.\n\nFind the screenshot attached.  \n\n[![image](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/optimized/2X/3/39b1c14d45abaf29cd6fd37bcc7f34a4151008a4_2_690x151.png)\n\nimage1111×244 32 KB](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/original/2X/3/39b1c14d45abaf29cd6fd37bcc7f34a4151008a4.png \"image\")\n\nThank you",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hello [@Samuel\\_Emmanuel](/u/samuel_emmanuel)\n\nKindly follow either one of the approach:\n\n**Approach 1:** Using the loader\\_path to load runtime dependencies\n\n1. Download below 2 jars and copy them to the external mount directory (“loader\\_path/esignet”)  \n   <https://repo1.maven.org/maven2/io/mosip/esignet/mock/mock-esignet-integration-impl/0.9.3/mock-esignet-integration-impl-0.9.3.jar>  \n   <https://repo1.maven.org/maven2/io/mosip/esignet/sunbirdrc/sunbird-rc-esignet-integration-impl/0.2.1/sunbird-rc-esignet-integration-impl-0.2.1.jar>\n2. Open terminal and go to this directory “inji-certify/docker-compose/docker-compose-certify”\n3. Run this command `docker compose down -v --remove-orphans`\n4. Execute the install.sh script under “docker-compose” directory.\n5. Check `docker ps -a` to see if the esignet is up and running.\n6. Try to open [esignet swagger](http://localhost:8088/v1/esignet/swagger-ui/index.html)\n\n**Approach 2:** Using artifcatory-server to load runtime dependencies\n\n1. Go to “inji-certify/docker-compose/docker-compose-certify” directory and Open docker-compose.yml file. Comment loader\\_path volume mount line in the esignet component. And Uncomment  `esignet_wrapper_url_env=http://artifactory-server:8080/artifactory/libs-release-local/esignet/esignet-wrapper.zip` line under environment in esignet component.\n2. Save the docker-compose.yml file.\n3. Open terminal and go to this directory “inji-certify/docker-compose/docker-compose-certify”\n4. Run this command `docker compose down -v --remove-orphans`\n5. Execute the install.sh script under “docker-compose” directory.\n6. Check `docker ps -a` to check if the esignet is up and running.\n7. Try to open [esignet swagger](http://localhost:8088/v1/esignet/swagger-ui/index.html)\n\n**Note: “mock-esignet-integration-impl-0.9.3.jar” dependency is added in the loader\\_path in the first approach and the second approach both the jars are pulled from artifactory-server automatically.**\n\n**AuditPlugin implementation is present in the “mock-esignet-integration-impl-0.9.3.jar” dependency**\n\nthanks & regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Thank you [@Anusha\\_sunkadh](/u/anusha_sunkadh)\n\nI use the first approach as recommended and issue solved.\n\nRegards,",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/installing-inji-web-on-local-environment-please-guide/1677",
+    "title": "Installing Inji web on local environment - please guide",
+    "tags": [],
+    "question": "we wish to import VCs issued from an existing Sunbird RC installation into the wallet and I am setting up the Inji Web project in a local environment for demo purposes and to test its functionality. As a beginner, I find the documentation a bit confusing. While following the local setup steps, I came across references to Mimito. Do I need to set up Mimito locally to run the Inji Web portal? I would appreciate your guidance on this.\n\nTo run Mimito I am following this link - https://docs.mosip.io/inji/inji-wallet/inji-mobile/build-and-deployment/local-setup",
+    "answers": [
+      {
+        "text": "Hi [@poonam\\_tekdi](/u/poonam_tekdi) ,\n\nWelcome to the community! and thank you for reaching out.  \nWe are reviewing your query and will provide a detailed response shortly.\n\nBest Regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@poonam\\_tekdi](/u/poonam_tekdi) ,\n\nThe Inji Wallet is tightly integrated with Mimoto and requires a Mimoto service to be running. This service does not necessarily need to be hosted locally; you can use a cloud-based Mimoto service if available.\n\nFor the Inji Wallet (Web) to function, Mimoto should typically run locally, unless you need to make changes directly to the Mimoto instance.\n\n* [Here](https://github.com/mosip/inji-web/blob/develop/docker-compose/docker-compose.yml) is the docker compose file which you can use to run the services together.\n* If you are interested in running all other components locally, please refer [here](https://github.com/mosip/inji-certify/blob/develop/docker-compose/docker-compose-injistack/docker-compose.yaml)\n* [Here](https://github.com/mosip/inji-web/blob/develop/docker-compose/docker-compose.yml) is the docker compose file which you can use to run the services together.\n\nif you are interested in running all other components locally, please refer [here](https://github.com/mosip/inji-certify/blob/develop/docker-compose/docker-compose-injistack/docker-compose.yaml)\n\n**Note :** This works on the **develop** branch\n\nIf you wish to run the only Inji Web, you point the MIMOTO\\_HOST to the cloud deployed Mimoto host in the inji web proxy service.\n\nLet us know if you still have any doubts.\n\nBest Regards,  \nOn Behalf of Vijay  \nInji Wallet ( Web ) Tech Lead  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/adding-issuers-in-the-app/1592",
+    "title": "Adding Issuers in the app",
+    "tags": [],
+    "question": "Hello Colleagues, I wanted to inquire whether we can create issuers using the [admin.collab.mosip.net](http://admin.collab.mosip.net) and they surface in the app?",
+    "answers": [
+      {
+        "text": "Dear [@Asasira\\_Martin](/u/asasira_martin) ,\n\nThank you for reaching out, We will look into your query and respond. Also, I would request you to kindly provide a little more detail about the context and what you want to achieve.\n\nBest Regards  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/mimoto-check-certificate-error/1582",
+    "title": "Mimoto - check certificate error",
+    "tags": [
+      "inji"
+    ],
+    "question": "Hello,\n\nI am getting the error below while running the mimoto services on local dev env.  \nThe e-signet services and mock identity services are also running locally OK.\n\nmimoto version : release-0.13-x.  \nINJI-web version : release-0.10\n\nI am using the [uat2.mosip.net](http://uat2.mosip.net) env for other services.\n\ncould you kindly provide why this error is showing?\n\nThank you\n\n2024-10-02 08:57:41.337e[0;39m e[31mERROR [mimoto,]e[0;39m e[35m36852e[0;39m e[2m—e[0;39m e[2m[TaskScheduler-1]e[0;39m e[36mo.s.s.s.TaskUtils$LoggingErrorHandler e[0;39m e[2m:e[0;39m Unexpected error occurred in scheduled task.\n\nreactor.core.Exceptions$ReactiveException: javax.net.ssl.SSLHandshakeException: PKIX path validation failed: java.security.cert.CertPathValidatorException: validity check failed  \nat reactor.core.Exceptions.propagate(Exceptions.java:326) ~[reactor-core-3.1.7.RELEASE.jar:3.1.7.RELEASE]  \nat reactor.core.publisher.BlockingSingleSubscriber.blockingGet(BlockingSingleSubscriber.java:91) ~[reactor-core-3.1.7.RELEASE.jar:3.1.7.RELEASE]  \nat reactor.core.publisher.Mono.block(Mono.java:1175) ~[reactor-core-3.1.7.RELEASE.jar:3.1.7.RELEASE]  \nat io.mosip.kernel.auth.defaultadapter.helper.TokenHelper.getClientToken(TokenHelper.java:130) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat io.mosip.kernel.auth.defaultadapter.config.SelfTokenRenewalTaskExecutor$SelfTokenHandlerTask.run(SelfTokenRenewalTaskExecutor.java:76) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.springframework.scheduling.support.DelegatingErrorHandlingRunnable.run(DelegatingErrorHandlingRunnable.java:54) ~[spring-context-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515) ~[na:na]  \nat java.base/java.util.concurrent.FutureTask.runAndReset(FutureTask.java:305) ~[na:na]  \nat java.base/java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:305) ~[na:na]  \nat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128) ~[na:na]  \nat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628) ~[na:na]  \nat java.base/java.lang.Thread.run(Thread.java:834) ~[na:na]  \nSuppressed: java.lang.Exception: #block terminated with an error  \nat reactor.core.publisher.BlockingSingleSubscriber.blockingGet(BlockingSingleSubscriber.java:93) ~[reactor-core-3.1.7.RELEASE.jar:3.1.7.RELEASE]  \n… 10 common frames omitted  \nCaused by: javax.net.ssl.SSLHandshakeException: PKIX path validation failed: java.security.cert.CertPathValidatorException: validity check failed  \nat java.base/sun.security.ssl.Alert.createSSLException(Alert.java:131) ~[na:na]  \nat java.base/sun.security.ssl.TransportContext.fatal(TransportContext.java:376) ~[na:na]  \nat java.base/sun.security.ssl.TransportContext.fatal(TransportContext.java:319) ~[na:na]  \nat java.base/sun.security.ssl.TransportContext.fatal(TransportContext.java:314) ~[na:na]  \nat java.base/sun.security.ssl.CertificateMessage$T12CertificateConsumer.checkServerCerts(CertificateMessage.java:654) ~[na:na]  \nat java.base/sun.security.ssl.CertificateMessage$T12CertificateConsumer.onCertificate(CertificateMessage.java:473) ~[na:na]  \nat java.base/sun.security.ssl.CertificateMessage$T12CertificateConsumer.consume(CertificateMessage.java:369) ~[na:na]  \nat java.base/sun.security.ssl.SSLHandshake.consume(SSLHandshake.java:392) ~[na:na]  \nat java.base/sun.security.ssl.HandshakeContext.dispatch(HandshakeContext.java:478) ~[na:na]  \nat java.base/sun.security.ssl.SSLEngineImpl$DelegatedTask$DelegatedAction.run(SSLEngineImpl.java:1082) ~[na:na]  \nat java.base/sun.security.ssl.SSLEngineImpl$DelegatedTask$DelegatedAction.run(SSLEngineImpl.java:1069) ~[na:na]  \nat java.base/java.security.AccessController.doPrivileged(Native Method) ~[na:na]  \nat java.base/sun.security.ssl.SSLEngineImpl$DelegatedTask.run(SSLEngineImpl.java:1016) ~[na:na]  \nat io.netty.handler.ssl.SslHandler.runDelegatedTasks(SslHandler.java:1435) ~[netty-handler-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.handler.ssl.SslHandler.unwrap(SslHandler.java:1343) ~[netty-handler-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.handler.ssl.SslHandler.decodeJdkCompatible(SslHandler.java:1177) ~[netty-handler-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.handler.ssl.SslHandler.decode(SslHandler.java:1221) ~[netty-handler-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.handler.codec.ByteToMessageDecoder.decodeRemovalReentryProtection(ByteToMessageDecoder.java:489) ~[netty-codec-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.handler.codec.ByteToMessageDecoder.callDecode(ByteToMessageDecoder.java:428) ~[netty-codec-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:265) ~[netty-codec-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:362) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:348) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:340) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1434) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:362) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:348) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:965) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:163) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:645) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.nio.NioEventLoop.processSelectedKeysPlain(NioEventLoop.java:545) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:499) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:459) ~[netty-transport-4.1.24.Final.jar:4.1.24.Final]  \nat io.netty.util.concurrent.SingleThreadEventExecutor$5.run(SingleThreadEventExecutor.java:884) ~[netty-common-4.1.24.Final.jar:4.1.24.Final]  \n… 1 common frames omitted  \nSuppressed: reactor.core.publisher.FluxOnAssembly$OnAssemblyException:  \nAssembly trace from producer [reactor.core.publisher.MonoLift] :  \nreactor.core.publisher.Mono.error(Mono.java:252)  \norg.springframework.cloud.sleuth.instrument.web.client.TraceExchangeFilterFunction.lambda$filter$2(TraceWebClientBeanPostProcessor.java:143)  \nreactor.core.publisher.MonoFlatMap$FlatMapMain.onNext(MonoFlatMap.java:118)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onNext(ScopePassingSpanSubscriber.java:82)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onNext(LazySpanSubscriber.java:52)  \nreactor.core.publisher.Operators$MonoSubscriber.complete(Operators.java:1080)  \nreactor.core.publisher.MonoZip$ZipCoordinator.signal(MonoZip.java:241)  \nreactor.core.publisher.MonoZip$ZipInner.onNext(MonoZip.java:323)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onNext(ScopePassingSpanSubscriber.java:82)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onNext(LazySpanSubscriber.java:52)  \nreactor.core.publisher.FluxOnErrorResume$ResumeSubscriber.onNext(FluxOnErrorResume.java:73)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onNext(ScopePassingSpanSubscriber.java:82)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onNext(LazySpanSubscriber.java:52)  \nreactor.core.publisher.Operators$ScalarSubscription.request(Operators.java:1637)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.request(ScopePassingSpanSubscriber.java:70)  \nreactor.core.publisher.Operators$MultiSubscriptionSubscriber.set(Operators.java:1451)  \nreactor.core.publisher.FluxOnErrorResume$ResumeSubscriber.onSubscribe(FluxOnErrorResume.java:68)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onSubscribe(ScopePassingSpanSubscriber.java:64)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onSubscribe(LazySpanSubscriber.java:40)  \nreactor.core.publisher.MonoJust.subscribe(MonoJust.java:54)  \nreactor.core.publisher.MonoLift.subscribe(MonoLift.java:46)  \nreactor.core.publisher.Mono.subscribe(Mono.java:3080)  \nreactor.core.publisher.FluxOnErrorResume$ResumeSubscriber.onError(FluxOnErrorResume.java:97)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \nreactor.core.publisher.FluxMap$MapSubscriber.onError(FluxMap.java:120)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \nreactor.core.publisher.FluxMap$MapSubscriber.onError(FluxMap.java:120)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \nreactor.core.publisher.FluxPeek$PeekSubscriber.onError(FluxPeek.java:207)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \nreactor.core.publisher.FluxPeek$PeekSubscriber.onError(FluxPeek.java:207)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \nreactor.core.publisher.FluxPeek$PeekSubscriber.onError(FluxPeek.java:207)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \nreactor.core.publisher.FluxMap$MapSubscriber.onError(FluxMap.java:120)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \nreactor.core.publisher.FluxMap$MapSubscriber.onError(FluxMap.java:120)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \nreactor.core.publisher.FluxRetryPredicate$RetryPredicateSubscriber.onError(FluxRetryPredicate.java:100)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \norg.springframework.cloud.sleuth.instrument.reactor.ScopePassingSpanSubscriber.onError(ScopePassingSpanSubscriber.java:87)  \norg.springframework.cloud.sleuth.instrument.reactor.LazySpanSubscriber.onError(LazySpanSubscriber.java:56)  \nreactor.core.publisher.MonoCreate$DefaultMonoSink.error(MonoCreate.java:160)  \nreactor.ipc.netty.channel.ContextHandler.fireContextError(ContextHandler.java:272)  \nreactor.ipc.netty.channel.SslReadHandler.userEventTriggered(SslReadHandler.java:63)  \nio.netty.channel.AbstractChannelHandlerContext.invokeUserEventTriggered(AbstractChannelHandlerContext.java:329)  \nio.netty.channel.AbstractChannelHandlerContext.invokeUserEventTriggered(AbstractChannelHandlerContext.java:315)  \nio.netty.channel.AbstractChannelHandlerContext.fireUserEventTriggered(AbstractChannelHandlerContext.java:307)  \nio.netty.handler.ssl.SslHandler.handleUnwrapThrowable(SslHandler.java:1202)  \nio.netty.handler.ssl.SslHandler.decodeJdkCompatible(SslHandler.java:1183)  \nio.netty.handler.ssl.SslHandler.decode(SslHandler.java:1221)  \nio.netty.handler.codec.ByteToMessageDecoder.decodeRemovalReentryProtection(ByteToMessageDecoder.java:489)  \nio.netty.handler.codec.ByteToMessageDecoder.callDecode(ByteToMessageDecoder.java:428)  \nio.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:265)  \nio.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:362)  \nio.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:348)  \nio.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:340)  \nio.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1434)  \nio.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:362)  \nio.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:348)  \nio.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:965)  \nio.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:163)  \nio.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:645)  \nio.netty.channel.nio.NioEventLoop.processSelectedKeysPlain(NioEventLoop.java:545)  \nio.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:499)  \nio.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:459)  \nio.netty.util.concurrent.SingleThreadEventExecutor$5.run(SingleThreadEventExecutor.java:884)  \nError has been observed by the following operator(s):  \n|\\_ Mono.error(TraceWebClientBeanPostProcessor.java:143)  \n|\\_ Mono.doAfterSuccessOrError(TraceWebClientBeanPostProcessor.java:147)",
+    "answers": [
+      {
+        "text": "Hi [@Zakaria\\_Daoudi1](/u/zakaria_daoudi1)\n\nThanks for sharing your query as our team checks the error logs shared by you and gives you a resolution for this please try mimoto **[0.14.x](https://github.com/mosip/mimoto/tree/release-0.14.x)** branch from the GitHub and then run Inji Web 0.10.x. We will reach back to you asap with a resolution.\n\nThanks for being patient with us.\n\nBest regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/mimoto-api-local-setup-error/1233",
+    "title": "Mimoto API Local setup error",
+    "tags": [],
+    "question": "Hi Team,\n\nI have already successfully set up esignet after attempting to run the Mimoto  \nAPI locally, but I encountered the following error. Please guide us on how to resolve  \nthis.\n\norg.springframework.web.client.ResourceAccessException: I/O error on POST request for “<https://iam.dev2.mosip.net/auth/realms/mosip/protocol/openid-connect/token>”: Connect to  \nat org.springframework.web.client.RestTemplate.execute(RestTemplate.java:680) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.web.client.RestTemplate.postForEntity(RestTemplate.java:466) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat io.mosip.kernel.auth.defaultadapter.helper.TokenHelper.getClientToken(TokenHelper.java:80) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat io.mosip.kernel.auth.defaultadapter.config.SelfTokenRestInterceptor.intercept(SelfTokenRestInterceptor.java:67) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]",
+    "answers": [
+      {
+        "text": "Hi [@Muthukumar](/u/muthukumar)\n\nThanks for sharing the error log but it would be good if you could share the full logs for our team to look into the issue and what exactly you are facing in Mimoto API locally.\n\n[@swatigoel](/u/swatigoel) Please look into this!\n\nBest Regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@swatigoel](/u/swatigoel) ,\n\nI have been running Mimoto locally using the Maven command ‘**mvn spring-boot:run -Dspring.profiles.active=local**’, but it’s showing the following error:\n\norg.springframework.web.client.ResourceAccessException: I/O error on POST request for “<https://iam.dev2.mosip.net/auth/realms/mosip/protocol/openid-connect/token>”: Connect to [iam.dev2.mosip.net:443](http://iam.dev2.mosip.net:443) [[iam.dev2.mosip.net/10.3.148.169](http://iam.dev2.mosip.net/10.3.148.169)] failed: Connection timed out: connect; nested exception is org.apache.http.conn.HttpHostConnectException: Connect to [iam.dev2.mosip.net:443](http://iam.dev2.mosip.net:443) [[iam.dev2.mosip.net/10.3.148.169](http://iam.dev2.mosip.net/10.3.148.169)] failed: Connection timed out: connect  \nat org.springframework.web.client.RestTemplate.doExecute(RestTemplate.java:732) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.web.client.RestTemplate.execute(RestTemplate.java:680) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.web.client.RestTemplate.postForEntity(RestTemplate.java:466) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat io.mosip.kernel.auth.defaultadapter.helper.TokenHelper.getClientToken(TokenHelper.java:80) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat io.mosip.kernel.auth.defaultadapter.config.SelfTokenRestInterceptor.intercept(SelfTokenRestInterceptor.java:67) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.springframework.http.client.InterceptingClientHttpRequest$InterceptingRequestExecution.execute(InterceptingClientHttpRequest.java:92) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat brave.spring.web.TracingClientHttpRequestInterceptor.intercept(TracingClientHttpRequestInterceptor.java:53) ~[brave-instrumentation-spring-web-5.6.1.jar:na]  \nat org.springframework.cloud.sleuth.instrument.web.client.LazyTracingClientHttpRequestInterceptor.intercept(TraceWebClientAutoConfiguration.java:293) ~[spring-cloud-sleuth-core-2.0.4.RELEASE.jar:2.0.4.RELEASE]  \nat org.springframework.http.client.InterceptingClientHttpRequest$InterceptingRequestExecution.execute(InterceptingClientHttpRequest.java:92) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.http.client.InterceptingClientHttpRequest.executeInternal(InterceptingClientHttpRequest.java:76) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.http.client.AbstractBufferingClientHttpRequest.executeInternal(AbstractBufferingClientHttpRequest.java:48) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.http.client.AbstractClientHttpRequest.execute(AbstractClientHttpRequest.java:53) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.web.client.RestTemplate.doExecute(RestTemplate.java:723) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.web.client.RestTemplate.execute(RestTemplate.java:680) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.web.client.RestTemplate.exchange(RestTemplate.java:600) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat io.mosip.kernel.websub.api.client.SubscriberClientImpl.subscribe(SubscriberClientImpl.java:92) ~[kernel-websubclient-api-1.2.0.1-B1.jar:na]  \nat io.mosip.kernel.websub.api.client.SubscriberClientImpl.subscribe(SubscriberClientImpl.java:50) ~[kernel-websubclient-api-1.2.0.1-B1.jar:na]  \nat io.mosip.mimoto.util.WebSubSubscriptionHelper.subscribeEvent(WebSubSubscriptionHelper.java:76) ~[classes/:na]  \nat io.mosip.mimoto.util.WebSubSubscriptionHelper.initSubscriptions(WebSubSubscriptionHelper.java:51) ~[classes/:na]  \nat io.mosip.mimoto.util.WebSubSubscriptionHelper$$FastClassBySpringCGLIB$$3169152c.invoke() ~[classes/:na]  \nat org.springframework.cglib.proxy.MethodProxy.invoke(MethodProxy.java:204) ~[spring-core-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.invokeJoinpoint(CglibAopProxy.java:746) ~[spring-aop-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:163) ~[spring-aop-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.aop.aspectj.MethodInvocationProceedingJoinPoint.proceed(MethodInvocationProceedingJoinPoint.java:88) ~[spring-aop-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.cloud.sleuth.instrument.scheduling.TraceSchedulingAspect.traceBackgroundThread(TraceSchedulingAspect.java:72) ~[spring-cloud-sleuth-core-2.0.4.RELEASE.jar:2.0.4.RELEASE]  \nat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:na]  \nat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[na:na]  \nat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:na]  \nat java.base/java.lang.reflect.Method.invoke(Method.java:566) ~[na:na]  \nat org.springframework.aop.aspectj.AbstractAspectJAdvice.invokeAdviceMethodWithGivenArgs(AbstractAspectJAdvice.java:644) ~[spring-aop-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.aop.aspectj.AbstractAspectJAdvice.invokeAdviceMethod(AbstractAspectJAdvice.java:633) ~[spring-aop-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.aop.aspectj.AspectJAroundAdvice.invoke(AspectJAroundAdvice.java:70) ~[spring-aop-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:185) ~[spring-aop-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.aop.interceptor.ExposeInvocationInterceptor.invoke(ExposeInvocationInterceptor.java:92) ~[spring-aop-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:185) ~[spring-aop-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:688) ~[spring-aop-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat io.mosip.mimoto.util.WebSubSubscriptionHelper$$EnhancerBySpringCGLIB$$b94a9569.initSubscriptions() ~[classes/:na]  \nat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:na]  \nat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[na:na]  \nat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:na]  \nat java.base/java.lang.reflect.Method.invoke(Method.java:566) ~[na:na]  \nat org.springframework.scheduling.support.ScheduledMethodRunnable.run(ScheduledMethodRunnable.java:65) ~[spring-context-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.scheduling.support.DelegatingErrorHandlingRunnable.run(DelegatingErrorHandlingRunnable.java:54) ~[spring-context-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515) ~[na:na]  \nat java.base/java.util.concurrent.FutureTask.runAndReset(FutureTask.java:305) ~[na:na]  \nat java.base/java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:305) ~[na:na]  \nat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128) ~[na:na]  \nat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628) ~[na:na]  \nat java.base/java.lang.Thread.run(Thread.java:834) ~[na:na]  \nCaused by: org.apache.http.conn.HttpHostConnectException: Connect to [iam.dev2.mosip.net:443](http://iam.dev2.mosip.net:443) [[iam.dev2.mosip.net/10.3.148.169](http://iam.dev2.mosip.net/10.3.148.169)] failed: Connection timed out: connect  \nat org.apache.http.impl.conn.DefaultHttpClientConnectionOperator.connect(DefaultHttpClientConnectionOperator.java:159) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.apache.http.impl.conn.PoolingHttpClientConnectionManager.connect(PoolingHttpClientConnectionManager.java:373) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.apache.http.impl.execchain.MainClientExec.establishRoute(MainClientExec.java:394) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.apache.http.impl.execchain.MainClientExec.execute(MainClientExec.java:237) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.apache.http.impl.execchain.ProtocolExec.execute(ProtocolExec.java:185) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.apache.http.impl.execchain.RetryExec.execute(RetryExec.java:89) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.apache.http.impl.execchain.RedirectExec.execute(RedirectExec.java:110) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.apache.http.impl.client.InternalHttpClient.doExecute(InternalHttpClient.java:185) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.apache.http.impl.client.CloseableHttpClient.execute(CloseableHttpClient.java:83) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.apache.http.impl.client.CloseableHttpClient.execute(CloseableHttpClient.java:56) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.springframework.http.client.HttpComponentsClientHttpRequest.executeInternal(HttpComponentsClientHttpRequest.java:87) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.http.client.AbstractBufferingClientHttpRequest.executeInternal(AbstractBufferingClientHttpRequest.java:48) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.http.client.AbstractClientHttpRequest.execute(AbstractClientHttpRequest.java:53) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.http.client.InterceptingClientHttpRequest$InterceptingRequestExecution.execute(InterceptingClientHttpRequest.java:108) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat io.mosip.kernel.auth.defaultadapter.config.RestTemplateInterceptor.intercept(RestTemplateInterceptor.java:54) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.springframework.http.client.InterceptingClientHttpRequest$InterceptingRequestExecution.execute(InterceptingClientHttpRequest.java:92) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat io.mosip.kernel.auth.defaultadapter.config.RestTemplateInterceptor.intercept(RestTemplateInterceptor.java:54) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.springframework.http.client.InterceptingClientHttpRequest$InterceptingRequestExecution.execute(InterceptingClientHttpRequest.java:92) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat brave.spring.web.TracingClientHttpRequestInterceptor.intercept(TracingClientHttpRequestInterceptor.java:53) ~[brave-instrumentation-spring-web-5.6.1.jar:na]  \nat org.springframework.cloud.sleuth.instrument.web.client.LazyTracingClientHttpRequestInterceptor.intercept(TraceWebClientAutoConfiguration.java:293) ~[spring-cloud-sleuth-core-2.0.4.RELEASE.jar:2.0.4.RELEASE]  \nat org.springframework.http.client.InterceptingClientHttpRequest$InterceptingRequestExecution.execute(InterceptingClientHttpRequest.java:92) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.http.client.InterceptingClientHttpRequest.executeInternal(InterceptingClientHttpRequest.java:76) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.http.client.AbstractBufferingClientHttpRequest.executeInternal(AbstractBufferingClientHttpRequest.java:48) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.http.client.AbstractClientHttpRequest.execute(AbstractClientHttpRequest.java:53) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat org.springframework.web.client.RestTemplate.doExecute(RestTemplate.java:723) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \n… 48 common frames omitted  \nCaused by: java.net.ConnectException: Connection timed out: connect  \nat java.base/java.net.PlainSocketImpl.connect0(Native Method) ~[na:na]  \nat java.base/java.net.PlainSocketImpl.socketConnect(PlainSocketImpl.java:101) ~[na:na]  \nat java.base/java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:412) ~[na:na]  \nat java.base/java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:255) ~[na:na]  \nat java.base/java.net.AbstractPlainSocketImpl.connect(AbstractPlainSocketImpl.java:237) ~[na:na]  \nat java.base/java.net.SocksSocketImpl.connect(SocksSocketImpl.java:392) ~[na:na]  \nat java.base/java.net.Socket.connect(Socket.java:608) ~[na:na]  \nat org.apache.http.conn.ssl.SSLConnectionSocketFactory.connectSocket(SSLConnectionSocketFactory.java:339) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \nat org.apache.http.impl.conn.DefaultHttpClientConnectionOperator.connect(DefaultHttpClientConnectionOperator.java:142) ~[kernel-auth-adapter-1.2.0.1-B1.jar:na]  \n… 72 common frames omitted\n\nRegards,  \nMuthukumar M",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@swatigoel](/u/swatigoel),[@Anusha\\_sunkadh](/u/anusha_sunkadh),\n\nFacing the same above issue while run the mimoto service in local.\n\n**Issue** : org.springframework.web.client.ResourceAccessException: I/O error on POST request for “[https://iam.dev2.mosip.net/auth/realms/mosip/protocol/openid-connect/token”:](https://iam.dev2.mosip.net/auth/realms/mosip/protocol/openid-connect/token%E2%80%9D:) Connect to  \nat org.springframework.web.client.RestTemplate.execute(RestTemplate.java:680) ~[spring-web-5.0.6.RELEASE.jar:5.0.6.RELEASE]  \nat\n\nYour response in this matter is greatly appreciated. Thank you.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@narayana\\_prakash](/u/narayana_prakash) I think this is the same issue we are discussing here [Inji Component system - #11 by swatigoel](https://community.mosip.io/t/inji-component-system/1562/11)",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/upcoming-release-of-inji-web-inji-verify-v0-10-0/1515",
+    "title": "Upcoming Release of Inji Web & Inji Verify v0.10.0",
+    "tags": [
+      "announcement",
+      "inji"
+    ],
+    "question": "Dear Community User,\n\nWe are excited ![:slightly_smiling_face:](https://emoji.discourse-cdn.com/twitter/slightly_smiling_face.png?v=15 \":slightly_smiling_face:\") to announce the upcoming release of **Inji Verify and Inji Web v0.10.0**, which brings several new features and enhancements to improve the user experience and streamline credential verification processes.\n\n### Online Sharing Using OpenID4VP Standards:\n\nTo address the problem of dense QR Codes that are difficult to scan, the new release introduces:\n\n* **Embedded URLs in QR Codes:** The QR Code will now contain a URL pointing to the VC storage, facilitating easier scanning and sharing.\n* **Config-Based Approach:** QR Code content can be configured per issuer and credential type, allowing flexibility between URL or JSON VC formats.\n* **Cross-Device Sharing:** Users can share VCs by scanning QR Codes from physical or digital copies using the Inji Verify portal.\n\n### Key Features and Enhancements:\n\n**Inji Verify:**\n\n* **OVP Integration:** QR Code generation is now configurable for Verifiable Credentials (VC) or Verifiable Presentations (VP).\n* **Enhanced Error Handling:** Improved mechanisms for detecting and addressing issues during the verification process.\n* **Docker Compose Support:** Simplified deployment using Docker Compose for streamlined setup and management.\n\n**Inji Web:**\n\n* **OVP Integration:** Similar QR Code configuration for VP, enabling flexible and secure credential presentation.\n* **Persistent Storage:** Integration with Durian storage for reliable and persistent credential storage.\n* **Enhanced Error Handling:** Added layers of error management to ensure smoother operations.\n* **Draft 13 Changes for OpenID4VCI:** Implemented updates based on the latest Draft 13 specifications for OpenID4VCI.\n\n### QR Code Generation Flow in Inji Web:\n\n1. **User Interaction:** The User opens the Inji Web portal and selects the issuer and credential type.\n2. **Keypair Generation:** Mimoto generates a keypair and interacts with the authorization layer.\n3. **Token Exchange:** Inji Web exchanges the auth code for an access token.\n4. **VC Retrieval:** Inji Web retrieves the VC from the issuer and stores it in Durian via data share-service integration.\n5. **QR Code Generation:** A QR Code is generated using the URL returned from the data share-service.\n6. **PDF Generation:** A PDF file with the VC details and QR Code is generated and sent back to the Inji Web client.\n\n### Additional Functionalities:\n\n* **Inji Web to Datashare Storage Integration:** Enables VC storage within Inji Web, ensuring secure and persistent access.\n* **QR Code Content:** Now includes authorization requests with resource URIs for enhanced verification.\n* **Inji Verify Enhancements:** Improved QR Code scanning, with the client ID and redirect URI support for seamless integration with Inji Web.\n\nWe encourage everyone to explore these new features and improvements as we continue to enhance the capabilities of Inji Verify and Inji Web. **Stay tuned for the official release notes and further updates.**\n\nCurrently, this is in the **development phase** and will soon be available for community users.\n\n**Inji Web** -[GitHub - mosip/inji-web at release-0.10.x](https://github.com/mosip/inji-web/tree/release-0.10.x)  \n**Inji Verify** - [GitHub - mosip/inji-verify at release-0.10.x](https://github.com/mosip/inji-verify/tree/release-0.10.x)\n\nThank you for your continued support!\n\n**Best regards,**  \n**On behalf of the MOSIP Team,**  \n**Sanchi Singh, Product Owner - Inji Verify**  \n**Harini Sampathkumar, Product Owner - Inji Web**",
+    "answers": [
+      {
+        "text": "Dear Community User,\n\nWe’re thrilled about the upcoming release of **Inji Verify and Inji Web v0.10.0** which primarily focusses on Online Sharing of verifiable credentials based on OpenID4VP standards. While our QAs are testing this currently, you can find the latest changes and updates on the release branch , which is now available to the community for **beta testing.** We encourage everyone who are interested to explore the features ahead of the official release.\n\nYou can find the branch here for your reference:\n\n* **Inji Web**: GitHub - [Release 0.10.x branch](https://github.com/mosip/inji-web/tree/release-0.10.x)\n* **Inji Verify**: GitHub - [Release 0.10.x branch](https://github.com/mosip/inji-verify/tree/release-0.10.x)\n\nYour feedback is valuable, so please feel free to share any suggestions, insights or issues you encounter. We’re excited to bring these enhancements to the community soon!\n\nThanks for your ongoing support!\n\n**Best regards,**  \n**On behalf of the MOSIP Team,**  \n**Sanchi Singh, Product Owner - Inji Verify**  \n**Harini Sampathkumar, Product Owner - Inji Web**",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/upcoming-features-of-inji-verify-v0-9-0/1422",
+    "title": "Upcoming Features of Inji Verify v0.9.0",
+    "tags": [
+      "announcement",
+      "inji"
+    ],
+    "question": "Dear MOSIP Community,\n\nWe are thrilled to announce the **upcoming release of Inji Verify v0.9.0**, which brings several exciting enhancements designed to improve usability, compatibility, and overall user experience.\n\n### Overview\n\nRelease 0.9.0 of Inji Verify includes a mobile-responsive portal, support for CBOR QR code decoding, and critical bug fixes. Key updates such as UI improvements using Tailwind CSS, PDF scanning with QR codes, and enhanced credential displays—including expired credentials—aim to elevate user experience and system functionality.\n\n### New Features\n\n#### 1. UI Enhancements\n\n* **Mobile Optimization**: The user interface has been optimized for mobile devices, providing responsive views that adapt seamlessly to different screen sizes. Users can now conveniently access and utilize the scan and upload features across devices.\n* **GenderMag Principles**: The interface has been enhanced based on GenderMag principles, ensuring improved accessibility and usability.\n\n#### 2. CBOR QR Code Support\n\n* **Expanded Compatibility**: Support for CBOR-encoded QR codes has been added, allowing Inji Verify to decode these QR codes using the pixel pass library.\n\n#### 3. Tech Upgrades\n\n* **Tailwind CSS**: Transition from MaterialUI to the Tailwind CSS library offers enhanced flexibility and customization options.\n\n#### 4. Critical Bug Fixes\n\n* **Improved Functionality**: Several critical bugs related to the scan and upload functionalities have been identified and fixed, ensuring smoother user experiences.\n\n#### 5. Support for PDFs Containing QR Codes\n\n* **Broadened Document Range**: Inji Verify now supports scanning and verifying QR codes within PDFs, broadening the range of documents that can be processed.\n\n#### 6. Credential Display Enhancements\n\n* **Consistent Representation**: Credential details retrieved from the issuer’s well-known configuration include display properties, ensuring a consistent and accurate representation of credential information.\n* **Expired Credentials**: Users can now view expired credentials within the Inji Verify portal.\n\n#### 7. Browser Support\n\n* **Full Support**: Chrome, Edge, and Firefox now have full support for both scan and upload features, ensuring a seamless user experience across these popular browsers.\n* **Safari**: Currently supports scanning but not the upload feature. We are working on fixing the upload functionality and will release an intermediate update to address this issue in the coming weeks.\n\nWe appreciate your understanding and patience as we finalize this release. We are confident that these updates will significantly enhance the capabilities and performance of Inji Verify.\n\nWe appreciate your ongoing support and look forward to your feedback on these updates.\n\nBest regards,\n\nSanchi Singh  \nProduct Owner - Inji Verify  \nOn behalf of the MOSIP Team",
+    "answers": [
+      {
+        "text": "Dear Community User,\n\nThe Inji Verify v0.9.0 is released please refer this : [Release Announcement : Discover What’s New in Inji Verify v0.9.0!](https://community.mosip.io/t/release-announcement-discover-what-s-new-in-inji-verify-v0-9-0/1438)\n\nThank you for all the support!",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/inji-mobile-app-error-on-deployed-mimoto/1336",
+    "title": "Inji mobile app error on deployed mimoto",
+    "tags": [],
+    "question": "Hello,\n\nWe are able to successfully deploy mimoto on our environment but when we are providing the mimoto host in inji app it’s throwing the error stack mentioned below (Could not get keychain credentials). Is there a repo to implement for Telemetry ?\n\nError while Telemetry sync to server: {“message”:“Request failed with status code 500”,“name”:“AxiosError”,“stack”:“AxiosError: Request failed with status code 500\\n at settle ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:250440:37](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:250440:37__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloTacwKfx$))\\n at onloadend ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:250336:29](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:250336:29__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloV46bkoK$))\\n at call (native)\\n at dispatchEvent ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:31681:31](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:31681:31__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloSCc_pYf$))\\n at setReadyState ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:30311:29](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:30311:29__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloVHOfZ_m$))\\n at \\_\\_didCompleteResponse ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:30113:29](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:30113:29__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloQZkudu8$))\\n at apply (native)\\n at anonymous ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:30238:52](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:30238:52__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloYV2lReE$))\\n at apply (native)\\n at emit ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:2146:40](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:2146:40__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloZSgCOl8$))\\n at apply (native)\\n at \\_\\_callFunction ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:2716:36](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:2716:36__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloeaEtzcg$))\\n at anonymous ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:2476:31](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:2476:31__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloWKmVUsc$))\\n at \\_\\_guard ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:2666:15](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:2666:15__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTelocr3n5Jb$))\\n at callFunctionReturnFlushedQueue ([http://10.0.2.2:8081/index.bundle//&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:2475:21](https://urldefense.com/v3/__http:/10.0.2.2:8081/index.bundle/*&platform=android&dev=true&minify=false&app=io.mosip.residentapp&modulesOnly=false&runModule=true:2475:21__;Lw!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloYCEK9f1$))”,“config”:{“transitional”:{“silentJSONParsing”:true,“forcedJSONParsing”:true,“clarifyTimeoutError”:false},“adapter”:[“xhr”,“http”],“transformRequest”:[null],“transformResponse”:[null],“timeout”:0,“xsrfCookieName”:“XSRF-TOKEN”,“xsrfHeaderName”:“X-XSRF-TOKEN”,“maxContentLength”:-1,“maxBodyLength”:-1,“env”:{},“headers”:{“Accept”:“application/json, text/plain, */*”,“Content-Type”:“application/json”,“dataType”:“json”},“method”:“post”,“url”:“[https://dataset-api.obsrv.mosip.net/obsrv/v1/data/mosip-dataset](https://urldefense.com/v3/__https:/dataset-api.obsrv.mosip.net/obsrv/v1/data/mosip-dataset__;!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloVyeteGs$)”,“data”:“{\"data\":{\"id\":\"api.mosip.telemetry\",\"params\":{\"msgid\":\"94f39b72391c2ca14db4098cc3ffe308\"},\"ets\":1716650786000,\"events\":[{\"eid\":\"ERROR\",\"ets\":1716650573000,\"mid\":\"ERROR:9745b1d34814dabe84fb056d9e61a3ab\",\"actor\":{},\"edata\":{\"type\":\"Fetch Data\",\"errorId\":\"\",\"errorMessage\":\"Could not get keychain credentials\",\"stacktrace\":{},\"env\":\"[http://20.193.138.163](https://urldefense.com/v3/__http:/20.193.138.163__;!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloZmyZrPw$)\",\"brandName\":\"google\",\"modelName\":\"Android SDK built for x86\",\"osName\":\"Android\",\"osVersion\":\"10\",\"osApiLevel\":\"29\",\"isHardwareKeystoreSupported\":false,\"dateTime\":1716650573881,\"zone\":\"Asia/Kolkata\",\"offset\":-19800000,\"preferredLanguage\":\"English\",\"buildNumber\":\"1\",\"injiVersion\":\"0.2.1\\_489a550\\_main\",\"tuvaliVersion\":\"0.4.9\"}},{\"eid\":\"APPINFO\",\"ets\":1716650574000,\"mid\":\"APPINFO:86f2be492998d1cb978134604199f5b1\",\"sid\":\"5OpmHr2mTMXr1716650569369\",\"appid\":\"D7LTUCTF5678\",\"actor\":{},\"edata\":{\"env\":\"[http://20.193.138.163](https://urldefense.com/v3/__http:/20.193.138.163__;!!N8Xdb1VRTUMlZeI!lVpwI-0LJAnqdSKYgwnPQhoe3OyuZFMxaPy29Ypr--nR2HGhKNapRI8gopM3mHP4Y7GkFb2GD1Q_128_cTeloZmyZrPw$)\",\"brandName\":\"google\",\"modelName\":\"Android SDK built for x86\",\"osName\":\"Android\",\"osVersion\":\"10\",\"osApiLevel\":\"29\",\"isHardwareKeystoreSupported\":false,\"dateTime\":1716650574645,\"zone\":\"Asia/Kolkata\",\"offset\":-19800000,\"preferredLanguage\":\"English\",\"buildNumber\":\"1\",\"injiVersion\":\"0.2.1\\_489a550\\_main\",\"tuvaliVersion\":\"0.4.9\"}},{\"eid\":\"START\",\"ets\":1716650786000,\"mid\":\"START:b6e751f2bc54a97abaaae0b07f1a02ed\",\"sid\":\"5OpmHr2mTMXr1716650569369\",\"appid\":\"D7LTUCTF5678\",\"actor\":{},\"edata\":{\"type\":\"App Onboarding\",\"additionalParameters\":{}}},{\"eid\":\"INTERACT\",\"ets\":1716650786000,\"mid\":\"INTERACT:1ebef46345a0a078d15262babf8d803c\",\"sid\":\"5OpmHr2mTMXr1716650569369\",\"appid\":\"D7LTUCTF5678\",\"actor\":{},\"edata\":{\"type\":\"App Onboarding\",\"subtype\":\"CLICK\\_Use Passcode Button\",\"additionParameters\":{}}},{\"eid\":\"IMPRESSION\",\"ets\":1716650786000,\"mid\":\"IMPRESSION:55694d837ff24e43c4538af5e961a09d\",\"sid\":\"5OpmHr2mTMXr1716650569369\",\"appid\":\"D7LTUCTF5678\",\"actor\":{},\"edata\":{\"type\":\"App Onboarding\",\"subtype\":\"Passcode\",\"additionalParameters\":{}}}]}}”},“code”:“ERR\\_BAD\\_RESPONSE”,“status”:500}",
+    "answers": [
+      {
+        "text": "Dear [@dhanendra](/u/dhanendra),\n\nThank you for contacting us, We appreciate your query and would like to assure you that our team is looking into this and will respond, We are dedicated to providing you with a prompt and comprehensive response.\n\nBest Regards  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@dhanendra](/u/dhanendra) Please let me know if this is resolved based on our last AMA call. If not, I can request one of our devs to help you out.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Dear [@dhanendra](/u/dhanendra),\n\nI am writing to check back on your query and if this got resolved, Kindly respond.\n\nBest Regards  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@dhanendra](/u/dhanendra) ,\n\nHope you are doing good! This is in regards to the issue you were facing. Please let us know if you require further help.\n\nThanks,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/inji-verify-local-setup/1308",
+    "title": "Inji Verify local setup",
+    "tags": [],
+    "question": "Hi Team,\n\nI’m trying to install and run Inji verify on my local setup. I have generated the verifiable credential using Inji Certify module but when generating QR code using pixelpass libarary I’m getting an error `SyntaxError: Unexpected token 'export'`.  \nFollowing is the code snippet I’m trying to run:\n\n```\nconst pixelpass = require('@mosip/pixelpass');\n\nconst credential_data = <credential_json>\nconst qrCode = pixelpass.generateQRCode(JSON.parse(credential_data));\n\nconsole.log(qrCode);\n```",
+    "answers": [
+      {
+        "text": "Hi [@Aniket\\_Aditya](/u/aniket_aditya)\n\n[@swatigoel](/u/swatigoel) will come back to you on this sometime today.\n\nBest Regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Aniket\\_Aditya](/u/aniket_aditya) Please share the error you got after using 0.l.4 version of pixelpass with import statement.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Aniket\\_Aditya](/u/aniket_aditya) current pixelpass library is supporting web and mobile application. We will be releasing an update today to support simple node js.  \nOnce release is done, we will update here.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Aniket\\_Aditya](/u/aniket_aditya) please update pixelpass to latest version 0.1.6, and check it",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@swatigoel](/u/swatigoel) I was able to generate the qr code through example app but while verifying the qr in Inji verify I’m getting `Unfortunately, the given credential is invalid!` I’m running Inji verify from main branch.  \nAttaching the QR code for reference.  \n\n[![QR_v37](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/original/2X/a/af8c35ada5c18958fbf3f4cfcebd838d3ddc5de4.png)\n\nQR\\_v371710×1710 49.9 KB](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/original/2X/a/af8c35ada5c18958fbf3f4cfcebd838d3ddc5de4.png \"QR_v37\")\n\nDo we need to do any configuration for verification sdk? How does inji verify verifies the legitimacy of the VC data? How does it verifies the issuer?",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Aniket\\_Aditya](/u/aniket_aditya) Right now, we only support web dids and we can see that the method in the vc is **upai** - *did:**upai**:fb40941f-2b18-4a0b-bafa-35fc7b69e541*",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@ShivaKumar](/u/shivakumar) I have followed the demo-mosip-rc postman collection for creating DID and schemas. Can you please point me to the correct documentation related to DIDs and what exactly I need to follow for Inji Verify to work?",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Aniket\\_Aditya](/u/aniket_aditya) Please follow these steps:\n\n* Update WEB\\_DID\\_BASE\\_URL env in the [docker compose file here](https://github.com/Sunbird-RC/demo-mosip-rc/blob/main/.env) and restart the services.\n* Please check regarding how [web did works here](https://w3c-ccg.github.io/did-method-web/#did-method-operations).\n* We need to host the DIDs. For that, construct the the issuer did based on site where we are going to host the DID and pass this while generating the DID for the issuer.\n* And we need to make sure that the issuer did doc is available at this location after that and the same did will be passed while generating the VC as well\n* We generally hosted them in a github repository and then constructed the web did based on that while testing. Please try this once.\n\nPlease try these steps and let me know if there are any queries.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@ShivaKumar](/u/shivakumar) Could you please help me with the following queries :\n\n1. Update WEB\\_DID\\_BASE\\_URL env in the docker compose file here and restart the services - **what should be passed as a value here? If we’re hosting it on github will it be [github.com](http://github.com)?**\n2. We need to host the DIDs. For that, construct the the issuer did based on site where we are going to host the DID and pass this while generating the DID for the issuer. - **is there any guide on how we are constructing the DID doc? I have found a sample DID doc [here](https://challabeehyv.github.io/DID-Resolve/3313e611-d08a-49c8-b478-7f55eafe62f2/did.json) but not sure how are we creating this doc**\n3. Following is the request body available in the demo-mosip-rc postman collection for generating the DID:\n\n```\n{\n    \"content\": [\n        {\n            \"alsoKnownAs\": [\n                \"testUUID\",\n                \"test@gmail.com\"\n            ],\n            \"services\": [\n                {\n                    \"id\": \"IdentityHub\",\n                    \"type\": \"IdentityHub\",\n                    \"serviceEndpoint\": {\n                        \"@context\": \"schema.identity.foundation/hub\",\n                        \"@type\": \"UserServiceEndpoint\",\n                        \"instance\": [\n                            \"did:test:hub.id\"\n                        ]\n                    }\n                }\n            ],\n            \"method\": \"upai\"\n        }\n    ]\n}\n```\n\n**can you please help with the updated request body for creating web based DID?**",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Aniket\\_Aditya](/u/aniket_aditya) please check the [examples provided here](https://w3c-ccg.github.io/did-method-web/#did-method-operations) This link should give idea about how we construct the web dids from urls.  \nplease update the method from upai to web in the payload to have a web did.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "And regarding the configuration of WEB\\_DID\\_BASE\\_URL, let me give an example. Let’s say we are hosting the dids on github in repo named as **webdids** and **xxxxx**(will be a uuid) is the os id of the did doc returned in the response.\n\nNow we need to create a folder with the os id and add a file called did.json with the issuer did document in it. Once we host them on Github pages, the url will look something like **<https://username.github.io/webdids/xxxxx/did.json>**. The issuer did for the same looks like: **did:web:username.github.io:webdids:xxxxx**. So, the WEB\\_DID\\_BASE\\_URL should look like **<https://username.github.io/webdids>** (replace username with the actual github handle of the account where the repo is created)\n\nWhen we pass the method as web, the issuer did as shown above will automaticlly be generated in that format and the verify app will be able to resolve the issuer did.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@ShivaKumar](/u/shivakumar) I followed the steps that you mentioned and generated the VC again using Inji Certify. but while verifying I’m still getting **Invalid Credentials** error. Attaching the QR for your reference  \n\n[![QR_v25](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/original/2X/8/8558e4c27c3622c9b873e4757c9e6e8d92e22030.png)\n\nQR\\_v251230×1230 4.35 KB](https://europe1.discourse-cdn.com/flex017/uploads/mosip1/original/2X/8/8558e4c27c3622c9b873e4757c9e6e8d92e22030.png \"QR_v25\")",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@Aniket\\_Aditya](/u/aniket_aditya) I see that the did document is [hosted here](https://aniket-aditya.github.io/DID-Resolve/e76af62f-a494-4eeb-b296-3038c2500269/did.json).  \nI see that this is an array of a did document instead of just the did document. Please remove the array part and try again. The verification should work after that.",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "[@ShivaKumar](/u/shivakumar) Yes that helped and it is working fine now. Thanks!",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/sample-sunbird-credentials-for-collab-environment/1260",
+    "title": "Sample sunbird credentials for collab environment",
+    "tags": [],
+    "question": "Hello,\n\nTo test Sunbird in Inji we need set of credentials including policy number, Name and DOB.  \nCould you please provide some sample credentials to test sunbird for inji on collab environment. The application referred is \"<https://esignet-insurance.collab.mosip.net>.",
+    "answers": [
+      {
+        "text": "Hi [@dhanendra](/u/dhanendra)\n\nFor you to test our eSignet insurance on collab we will share the sample credentials to explore the portal. We will look into this today!\n\nBest regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      },
+      {
+        "text": "Hi [@dhanendra](/u/dhanendra)\n\nSorry for the delay in response. Please use the below credentials.\n\nPolicy Number: 55555  \nName: TGSStudio  \nDOB: 26/01/2000\n\nPlease let us know if you need further details.\n\nBest regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/colab-environment-vid-and-uin/1235",
+    "title": "Colab environment Vid and UIn",
+    "tags": [],
+    "question": "Hello, Could you please provide some sample uin and vid numbers please",
+    "answers": [
+      {
+        "text": "Hi [@dhanendra](/u/dhanendra)\n\nFew sample UINs you can refer given below :\n\n2140957687  \n9564103175  \n6910254273  \n2317036493  \n6094207586\n\nBest Regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/mimoto-api-local-setup/1217",
+    "title": "Mimoto API local setup",
+    "tags": [],
+    "question": "Hello,\n\nWe are trying to run the Mimoto API locally but facing below error. Kindly guide us as how to solve this.\n\norg.springframework.web.client.ResourceAccessException: I/O error on POST request for “<https://iam.dev2.mosip.net/auth/realms/mosip/protocol/openid-connect/token>”: [[iam.dev2.mosip.net/10.3.148.169](http://iam.dev2.mosip.net/10.3.148.169)] failed: Operation timed out (Connection timed out); nested exception is org.apache.http.conn.HttpHostConnectException: Connect to failed: Operation timed out (Connection timed out)",
+    "answers": [
+      {
+        "text": "Hi [@dhanendra](/u/dhanendra)  \nWe are working on creating docker compose file to start mimoto in local.  \nAs per current configuration, it requires few changes in code to start spring boot from maven command.\n\nLet me work on that and share a patch to start mimoto using maven command\n\nWhat is our expectation from mimoto? Mimoto is just a BFF(Backend for Frontend). It requires few downstream services to work. In case of OpenId4VCI, it requires esignet to perform authorization and get the VC from any provider.",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  },
+  {
+    "source_type": "community",
+    "url": "https://community.mosip.io/t/graphic-design-for-inji/851",
+    "title": "Graphic Design for INJI",
+    "tags": [],
+    "question": "Just met the MOSIP team at OSI. I am flattered by your vision. Would love to contribute as a Graphic Designer!",
+    "answers": [
+      {
+        "text": "Hi [@Monish\\_Choudhary](/u/monish_choudhary)\n\nNice connecting with you at the OSI Event!\n\nFor now, you can explore our documentation of MOSIP to understand the modules that we have and how this ecosystem works.\n\n> <https://docs.mosip.io/1.2.0/modules>\n\n**Use-Cases:**\n\n> [Inji - Inji](https://docs.mosip.io/inji/)  \n> <https://docs.esignet.io/>\n\nYou can explore few topics [**here.**](https://mosip.atlassian.net/jira/dashboards/10388)\n\nYou can explore our Inji & e-Signet UI from our collab env [**here**](https://collab.mosip.net/) and share your ideas and inputs there as a contributor.\n\nBest Regards,  \nTeam MOSIP",
+        "vote_count": 0,
+        "accepted": false
+      }
+    ],
+    "accepted_answer": null
+  }
+]
