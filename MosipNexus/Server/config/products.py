@@ -38,6 +38,8 @@ class ProductProfile:
     code_collection: str
     confluence_collection: str
     jira_collection: str
+    esignet_collection: str = ""
+    website_collection: str = ""
     # When False, chat defaults to direct BYOK LLM (no vector retrieval).
     retrieval_enabled: bool = True
     default_answer_mode: AnswerMode = "rag"
@@ -53,6 +55,23 @@ class ProductProfile:
         return f"{base}{path}" if path else base
 
     def public_dict(self) -> dict[str, Any]:
+        # Build the sources list dynamically so the UI renders whatever is
+        # actually configured for this product — no hardcoded labels.
+        sources: list[dict[str, str]] = []
+        if self.docs_collection:
+            sources.append({"key": "docs", "label": "Documentation"})
+        if self.esignet_collection:
+            sources.append({"key": "esignet", "label": "eSignet Docs"})
+        if self.website_collection:
+            sources.append({"key": "website", "label": f"{self.short} Website"})
+        if self.community_collection:
+            sources.append({"key": "community", "label": "Community Forum"})
+        if self.github_collection:
+            sources.append({"key": "github", "label": "GitHub Issues"})
+        if self.confluence_collection:
+            sources.append({"key": "confluence", "label": "Confluence"})
+        if self.code_collection:
+            sources.append({"key": "code", "label": "Source Code"})
         return {
             "product_name": self.name,
             "product_short": self.short,
@@ -64,6 +83,7 @@ class ProductProfile:
             "logo_url": self.logo_url,
             "retrieval_enabled": self.retrieval_enabled,
             "default_answer_mode": self.default_answer_mode,
+            "sources": sources,
         }
 
 
@@ -88,6 +108,8 @@ def _build_catalog() -> dict[str, ProductProfile]:
         code_collection=_env("MOSIP_CODE_COLLECTION", "mosip_code"),
         confluence_collection=_env("MOSIP_CONFLUENCE_COLLECTION", "mosip_confluence"),
         jira_collection=_env("MOSIP_JIRA_COLLECTION", "mosip_jira"),
+        esignet_collection=_env("ESIGNET_COLLECTION", "esignet_docs"),
+        website_collection=_env("WEBSITE_COLLECTION", "mosip_website"),
         retrieval_enabled=True,
         default_answer_mode="rag",
     )

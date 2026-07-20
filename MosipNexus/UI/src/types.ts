@@ -16,6 +16,12 @@ export type AnswerMode = 'rag' | 'direct'
 /** Confidence label returned with an assistant answer. */
 export type Confidence = 'high' | 'medium' | 'low' | 'n/a' | string
 
+/** One knowledge source shown in the sidebar. */
+export interface KnowledgeSource {
+  key: string
+  label: string
+}
+
 /** Branding and deep-link URLs from `GET /config` (one product). */
 export interface ProductConfig {
   product_name: string
@@ -32,6 +38,8 @@ export interface ProductConfig {
   active_product?: string
   products?: Record<string, ProductConfig>
   answer_modes?: AnswerMode[]
+  /** Knowledge sources configured for this product (from server). */
+  sources?: KnowledgeSource[]
 }
 
 /** One cited source attached to a chat answer. */
