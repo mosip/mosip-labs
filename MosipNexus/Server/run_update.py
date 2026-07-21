@@ -272,6 +272,6 @@ if __name__ == "__main__":
         try:
             from notifications.email_notifier import send_job_failure_alert
             send_job_failure_alert("nexus-updater", error_detail)
-        except Exception:
-            pass  # don't mask the original error
+        except Exception as notify_exc:
+            print(f"WARNING: failed to send failure notification: {notify_exc}", flush=True)
         raise

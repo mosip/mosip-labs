@@ -38,6 +38,11 @@ metadata:
     # cert-manager issues and auto-renews the TLS certificate
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Block external access to /metrics — internal ServiceMonitor scrapes via ClusterIP only
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      location = /metrics {
+        return 403;
+      }
 spec:
   ingressClassName: nginx
   tls:

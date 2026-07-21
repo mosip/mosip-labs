@@ -70,7 +70,8 @@ Measured from the actual built image (`docker image inspect`), not estimated:
 | nginx Ingress Controller | Any current | Included with Rancher by default |
 | cert-manager | v1.13+ | For automatic TLS via Let's Encrypt. Install via Rancher UI → Apps → cert-manager |
 | Sealed Secrets controller | Latest | For encrypting secrets safe for git. `kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/latest/download/controller.yaml` |
-| Rancher Monitoring *(optional)* | Any | Enables Prometheus alert rules and HPA metrics. Rancher UI → Apps → Monitoring → Install |
+| metrics-server | Latest | **Required for HPA.** Provides CPU/memory resource metrics. Included in RKE2 by default — verify with `kubectl top pods` |
+| Rancher Monitoring *(optional)* | Any | Enables Prometheus ServiceMonitor scraping and PrometheusRule alert rules only — not needed for HPA. Rancher UI → Apps → Monitoring → Install |
 | Storage class | Any ReadWriteOnce | `local-path` works for single-node; use Longhorn/NFS for multi-node |
 | Container registry | Any | Docker Hub, GitHub Container Registry, or MOSIP Harbor |
 | kubectl | Latest | For applying manifests |
@@ -98,6 +99,7 @@ Measured from the actual built image (`docker image inspect`), not estimated:
 | `DOCS_BASE_URL` / `COMMUNITY_BASE_URL` / `GITHUB_ORG` | Product docs/org | Optional overrides for crawl targets |
 | `GITHUB_TOKEN` | github.com → Settings → Developer settings | Optional (raises rate limit from 60 to 5,000 req/hr) |
 | `CONFLUENCE_TOKEN` | id.atlassian.com → Security → API tokens | Optional (Confluence knowledge source) |
+| `JIRA_TOKEN` | id.atlassian.com → Security → API tokens | Optional (Jira knowledge source — enables Jira bootstrapping during initial ingest) |
 | `LANGCHAIN_API_KEY` | smith.langchain.com (free) | Optional (observability tracing) |
 | `MCP_TRANSPORT` / `MCP_PORT` | — | Set `sse` / `8002` when deploying MCP for Claude Desktop URL access |
 
@@ -190,9 +192,26 @@ kubectl create secret docker-registry registry-credentials `
   --namespace mosip-nexus
 ```
 
-Add `imagePullSecrets` to each deployment:
+Add `imagePullSecrets` to every workload that pulls from the private registry — Deployments, CronJobs, and Jobs all have their own pod template:
 
 ```yaml
+# Deployment
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+
+# CronJob (note the nested path)
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          imagePullSecrets:
+            - name: registry-credentials
+
+# Job (same as Deployment)
 spec:
   template:
     spec:
@@ -273,7 +292,7 @@ Apply the sealed secret:
 kubectl apply -f Server/k8s/02-sealed-secret.yaml
 ```
 
-> **Note:** The Sealed Secrets controller decrypts it automatically. `02-sealed-secret.yaml` is cluster-specific — regenerate it when rotating credentials or deploying to a new cluster. It is listed in `.gitignore` to prevent accidental cross-environment reuse.
+> **Note:** The Sealed Secrets controller decrypts it automatically. `02-sealed-secret.yaml` is cluster-specific and listed in `.gitignore` — **do not commit it**. Apply it locally and regenerate via `seal-secrets.sh` whenever rotating credentials or targeting a new cluster.
 
 ---
 
@@ -323,7 +342,12 @@ kubectl get certificate -n mosip-nexus
 
 cert-manager issues the Let's Encrypt certificate automatically within 1–2 minutes. Status should show `READY = True`. If it stays `False`, run `kubectl describe certificaterequest -n mosip-nexus` to see the reason.
 
-> **Prerequisite:** A `ClusterIssuer` named `letsencrypt-prod` must exist before applying the ingress. A commented YAML template is included at the bottom of `Server/k8s/05-ingress-api.yaml` — apply it once per cluster.
+> **Prerequisite:** A `ClusterIssuer` named `letsencrypt-prod` must exist before applying the ingress. Edit `Server/k8s/letsencrypt-prod-clusterissuer.yaml` (set `spec.acme.email`) then apply it once per cluster:
+>
+> ```powershell
+> kubectl apply -f Server/k8s/letsencrypt-prod-clusterissuer.yaml
+> kubectl get clusterissuer letsencrypt-prod
+> ```
 
 ---
 
@@ -487,9 +511,14 @@ docker build -t your-registry.io/mosip/nexus-ui:v1.1.0 -f UI/Dockerfile UI
 docker push your-registry.io/mosip/nexus-server:v1.1.0
 docker push your-registry.io/mosip/nexus-ui:v1.1.0
 
-# Rolling update with zero downtime
+# Rolling update — Deployments (zero downtime)
 kubectl set image deployment/nexus-api nexus-api=your-registry.io/mosip/nexus-server:v1.1.0 -n mosip-nexus
 kubectl set image deployment/nexus-ui nexus-ui=your-registry.io/mosip/nexus-ui:v1.1.0 -n mosip-nexus
+
+# Also update the CronJob and ingest Job — they use the same nexus-server image
+# Edit image: in Server/k8s/06-cronjob.yaml and 07-initial-ingest-job.yaml, then:
+kubectl apply -f Server/k8s/06-cronjob.yaml
+kubectl apply -f Server/k8s/07-initial-ingest-job.yaml
 
 # Verify rollout
 kubectl rollout status deployment/nexus-api -n mosip-nexus
@@ -536,16 +565,19 @@ kubectl rollout restart deployment/nexus-api -n mosip-nexus
 Backups are stored in the `nexus-db-backups` PVC. To restore:
 
 ```powershell
-# Shell into the backup pod
+# Shell into a restore pod — mounts the backup PVC and injects DB password from the secret
 kubectl run -n mosip-nexus restore-shell --image=pgvector/pgvector:pg16 --restart=Never `
-  --overrides='{"spec":{"volumes":[{"name":"bak","persistentVolumeClaim":{"claimName":"nexus-db-backups"}}],"containers":[{"name":"restore-shell","image":"pgvector/pgvector:pg16","command":["sleep","3600"],"volumeMounts":[{"name":"bak","mountPath":"/backups"}]}]}}'
+  --overrides='{"spec":{"volumes":[{"name":"bak","persistentVolumeClaim":{"claimName":"nexus-db-backups"}}],"containers":[{"name":"restore-shell","image":"pgvector/pgvector:pg16","command":["sleep","3600"],"envFrom":[{"secretRef":{"name":"nexus-env"}}],"volumeMounts":[{"name":"bak","mountPath":"/backups"}]}]}}'
+
+# Wait for pod to be ready
+kubectl wait pod/restore-shell -n mosip-nexus --for=condition=Ready --timeout=60s
 
 # List available dumps
 kubectl exec -n mosip-nexus restore-shell -- ls /backups
 
 # Restore (replace the filename with the desired dump)
 kubectl exec -n mosip-nexus restore-shell -- `
-  pg_restore -h nexus-postgres -U mosip -d mosipnexus -F c /backups/mosipnexus_20260720_033001.dump
+  sh -c 'PGPASSWORD=$POSTGRES_PASSWORD pg_restore -h nexus-postgres -U mosip -d mosipnexus -F c /backups/mosipnexus_20260720_033001.dump'
 
 kubectl delete pod restore-shell -n mosip-nexus
 ```
@@ -601,7 +633,8 @@ kubectl exec -n mosip-nexus deploy/nexus-api -- `
 | `Server/k8s/00-namespace.yaml` | `mosip-nexus` namespace |
 | `Server/k8s/01-postgres.yaml` | pgvector StatefulSet, PVC (20 GB), Service, init ConfigMap |
 | `Server/k8s/02-secret.yaml` | Template only — never fill with real values; use `seal-secrets.sh` instead |
-| `Server/k8s/02-sealed-secret.yaml` | Encrypted SealedSecret generated by `seal-secrets.sh` — apply this |
+| `Server/k8s/02-sealed-secret.yaml` | Encrypted SealedSecret generated by `seal-secrets.sh` — apply this; gitignored, do not commit |
+| `Server/k8s/letsencrypt-prod-clusterissuer.yaml` | Let's Encrypt ClusterIssuer — apply once per cluster after setting `spec.acme.email` |
 | `Server/k8s/03-deployment-api.yaml` | FastAPI (`PYTHONPATH=Server`, port 8000), `imagePullPolicy: IfNotPresent` |
 | `Server/k8s/04-service-api.yaml` | ClusterIP for API (:8000) |
 | `Server/k8s/05-ingress-api.yaml` | nginx Ingress → `nexus-api.mosip.io` with TLS via cert-manager |

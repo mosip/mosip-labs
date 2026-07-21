@@ -27,11 +27,15 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
+# Use a unique temp file and clean it up on exit regardless of success/failure
+CERT_FILE=$(mktemp)
+trap 'rm -f "$CERT_FILE"' EXIT
+
 echo "Fetching Sealed Secrets public key from cluster..."
 kubeseal --fetch-cert \
   --controller-namespace "$CONTROLLER_NS" \
   --controller-name "$CONTROLLER_NAME" \
-  > /tmp/sealed-secrets-pub.pem
+  > "$CERT_FILE"
 
 echo "Creating and sealing the Kubernetes Secret..."
 kubectl create secret generic "$SECRET_NAME" \
@@ -40,14 +44,14 @@ kubectl create secret generic "$SECRET_NAME" \
   --dry-run=client \
   -o yaml \
 | kubeseal \
-    --cert /tmp/sealed-secrets-pub.pem \
+    --cert "$CERT_FILE" \
     --format yaml \
     --namespace "$NAMESPACE" \
   > "$OUTPUT"
 
 echo ""
 echo "Done: $OUTPUT"
-echo "  → Commit this file to git — it is encrypted and safe."
 echo "  → Apply with: kubectl apply -f $OUTPUT"
+echo "  → Do NOT commit this file — it is cluster-specific and gitignored."
 echo ""
 echo "To rotate secrets later, update $ENV_FILE and re-run this script."

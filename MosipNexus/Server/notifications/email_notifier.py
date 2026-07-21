@@ -183,10 +183,7 @@ def send_job_failure_alert(job_name: str, error: str = "") -> tuple[bool, str]:
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     body = (
         f"The Nexus background job '{job_name}' failed at {timestamp}.\n\n"
-        f"{'━' * 42}\n"
-        f"{error[:2000] if error else 'No error details captured.'}\n"
-        f"{'━' * 42}\n\n"
-        f"Action: check logs with:\n"
+        f"Retrieve error details from Kubernetes logs (RBAC-controlled):\n\n"
         f"  kubectl logs -n mosip-nexus job/{job_name} --previous\n"
         f"  kubectl get jobs -n mosip-nexus\n"
     )
