@@ -38,8 +38,9 @@ spec:
               done
       containers:
         - name: initial-ingest
-          image: nexus-server:latest
-          imagePullPolicy: Always
+          # Pin to a semver tag — never use :latest in production.
+          image: nexus-server:v1.0.0
+          imagePullPolicy: IfNotPresent
           command:
             - sh
             - -c

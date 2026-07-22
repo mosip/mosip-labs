@@ -1,0 +1,91 @@
+# ── PostgreSQL Daily Backup ────────────────────────────────────────────────────
+# Runs pg_dump every night at 03:00 UTC (30 min after nexus-updater finishes).
+# Stores compressed dumps in a dedicated PVC. Retains the last 7 days.
+#
+# Restore from backup:
+#   POD=$(kubectl get pod -n mosip-nexus -l app=nexus-postgres -o name | head -1)
+#   kubectl exec -n mosip-nexus $POD -- \
+#     pg_restore -U mosip -d mosipnexus /backups/nexus_<DATE>.dump
+#
+# To trigger a manual backup:
+#   kubectl create job --from=cronjob/nexus-db-backup nexus-db-backup-manual -n mosip-nexus
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nexus-db-backups
+  namespace: mosip-nexus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  # storageClassName: longhorn
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nexus-db-backup
+  namespace: mosip-nexus
+spec:
+  schedule: "30 3 * * *"          # 03:30 UTC daily — after nexus-updater completes
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600  # 1 hour max
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-backup
+              image: pgvector/pgvector:pg16
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 999          # postgres uid in the pgvector image
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  DATE=$(date +%Y%m%d_%H%M%S)
+                  DUMP=/backups/nexus_${DATE}.dump
+                  echo "Starting backup → ${DUMP}"
+                  pg_dump \
+                    -h nexus-postgres \
+                    -U mosip \
+                    -d mosipnexus \
+                    -F c \
+                    -f "${DUMP}"
+                  echo "Backup complete: $(du -sh ${DUMP} | cut -f1)"
+                  # Retain last 7 dumps — delete older ones
+                  ls -t /backups/nexus_*.dump | tail -n +8 | xargs -r rm -v
+                  echo "Retention: kept $(ls /backups/nexus_*.dump | wc -l) dumps"
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: nexus-env
+                      key: POSTGRES_PASSWORD
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  cpu: "1"
+                  memory: 1Gi
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: nexus-db-backups

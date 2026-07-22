@@ -17,9 +17,10 @@ spec:
     spec:
       containers:
         - name: nexus-api
-          # Built from Server/Dockerfile → nexus-server:latest
-          image: nexus-server:latest
-          imagePullPolicy: Always
+          # Pin to a semver tag — never use :latest in production.
+          # Update this tag whenever Server/Dockerfile is rebuilt and pushed.
+          image: nexus-server:v1.0.0
+          imagePullPolicy: IfNotPresent
           command:
             - uv
             - run
@@ -52,9 +53,6 @@ spec:
           envFrom:
             - secretRef:
                 name: nexus-env
-          volumeMounts:
-            - name: nexus-data
-              mountPath: /app/MosipNexus/Server/data
           resources:
             requests:
               cpu: 500m
@@ -76,9 +74,6 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 10
-      # Same PVC the nightly nexus-updater CronJob uses (Server/k8s/06-cronjob.yaml) —
-      # gives this pod access to data/*.json for one-time ingestion via kubectl exec.
-      volumes:
-        - name: nexus-data
-          persistentVolumeClaim:
-            claimName: nexus-data
+      # No data PVC — the API reads only from pgvector at runtime.
+      # Mounting nexus-data here would hold the ReadWriteOnce PVC on this node
+      # and prevent the nightly CronJob from mounting it if scheduled elsewhere.

@@ -1,0 +1,49 @@
+# ── Horizontal Pod Autoscaler — nexus-api ─────────────────────────────────────
+# Scales nexus-api between 1 and 4 replicas based on CPU and memory.
+# Sessions are persisted in Postgres so multi-replica is safe.
+#
+# Prerequisite: metrics-server must be running in the cluster.
+#   Rancher RKE2 ships it by default. Verify:
+#     kubectl top pods -n mosip-nexus
+#
+# Scale-up  fires when average CPU > 70% OR memory > 80% for 3 minutes.
+# Scale-down fires when both drop below threshold for 5 minutes (cooldown).
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nexus-api
+  namespace: mosip-nexus
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nexus-api
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300   # wait 5 min before scaling down
+      policies:
+        - type: Replicas
+          value: 1
+          periodSeconds: 120            # remove at most 1 replica per 2 min
+    scaleUp:
+      stabilizationWindowSeconds: 180   # wait 3 min before scaling up
+      policies:
+        - type: Replicas
+          value: 2
+          periodSeconds: 60             # add at most 2 replicas per minute

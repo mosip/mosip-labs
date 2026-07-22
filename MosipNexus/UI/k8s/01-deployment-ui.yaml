@@ -17,9 +17,10 @@ spec:
     spec:
       containers:
         - name: nexus-ui
-          # Built from UI/Dockerfile → nexus-ui:latest (nginx + React)
-          image: nexus-ui:latest
-          imagePullPolicy: Always
+          # Pin to a semver tag — never use :latest in production.
+          # Update this tag whenever UI/Dockerfile is rebuilt and pushed.
+          image: nexus-ui:v1.0.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8501
           resources:
