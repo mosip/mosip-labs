@@ -1,4 +1,4 @@
-name: MosipNexus — Build and Publish Docker Image
+name: MosipNexus — Build and Publish Docker Images
 
 on:
   push:
@@ -7,10 +7,24 @@ on:
       - develop
     paths:
       - "MosipNexus/**"
+    tags:
+      - "nexus-v*"          # e.g. nexus-v1.0.0 triggers a versioned release build
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - name: server
+            context: MosipNexus/Server
+            dockerfile: MosipNexus/Server/Dockerfile
+            image_suffix: nexus-server
+          - name: ui
+            context: MosipNexus/UI
+            dockerfile: MosipNexus/UI/Dockerfile
+            image_suffix: nexus-ui
 
     steps:
       - name: Checkout
@@ -28,18 +42,29 @@ jobs:
       - name: Compute image tags
         id: tags
         run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_suffix }}"
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          if [ "${{ github.ref_name }}" = "master" ]; then
-            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/mosip-nexus:latest,${{ secrets.DOCKERHUB_USERNAME }}/mosip-nexus:${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # e.g. nexus-v1.2.3 → tag as v1.2.3 and latest
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#nexus-}"        # strip the "nexus-" prefix
+            echo "tags=${IMAGE}:${VERSION},${IMAGE}:latest" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref_name }}" = "master" ]; then
+            echo "tags=${IMAGE}:latest,${IMAGE}:${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "version=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           else
-            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/mosip-nexus:develop,${{ secrets.DOCKERHUB_USERNAME }}/mosip-nexus:develop-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "tags=${IMAGE}:develop,${IMAGE}:develop-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "version=develop-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and push
+      - name: Build and push ${{ matrix.name }}
         uses: docker/build-push-action@v6
         with:
-          context: ./MosipNexus
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
