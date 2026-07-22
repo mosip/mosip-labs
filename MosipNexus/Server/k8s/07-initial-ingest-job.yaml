@@ -1,19 +1,26 @@
-# ── One-time first-deployment bootstrap ───────────────────────────────────────
-# Runs automatically when applied — no manual `kubectl create job` needed.
+# ── One-time bootstrap: restore vectors from S3 ───────────────────────────────
+# Replaces the old re-embed approach (4–8 hours) with an S3 pg_restore (~10 min).
 #
-# Step 1: ingestion/store.py — full ingest of docs/community/github/code from
-#         the already-committed data/*.json files (fast, no live re-crawl).
-# Step 2: run_update.py      — picks up any docs/community/github delta since
-#         those files were committed, AND fully bootstraps Confluence/Jira via
-#         their live APIs (since crawl_state.json has no record of them yet).
+# Prerequisites:
+#   1. A snapshot must already exist in S3 (run dump-vectors-to-s3.sh first).
+#   2. The nexus-env secret must contain AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+#      AWS_DEFAULT_REGION, S3_VECTORS_BUCKET, and S3_VECTORS_KEY.
+#   3. nexus-postgres must be running (init container waits for it).
 #
-# Prerequisite: data/*.json must already be in the nexus-data PVC before this
-# runs (see docs/MOSIP_Nexus_Rancher_Deployment_Guide.md, Step 9's kubectl cp).
+# What this job does:
+#   Init 1 — wait-for-postgres : polls pg_isready until the DB is accepting connections
+#   Init 2 — download-vectors  : aws s3 cp the dump.gz + crawl_state.json to an EmptyDir
+#   Main   — restore-vectors   : pg_restore into nexus-postgres; copy crawl_state to PVC
 #
-# Jobs are immutable — re-applying this file after it has run is a no-op.
-# To intentionally re-run it (e.g. after a schema change), delete it first:
+# After this job completes:
+#   - All vectors are in pgvector, ready to serve queries immediately.
+#   - crawl_state.json reflects what was indexed at snapshot time.
+#   - The nightly nexus-updater CronJob picks up only content new since the snapshot.
+#
+# Jobs are immutable — re-applying after completion is a no-op.
+# To re-run (e.g. after a fresh snapshot): delete then re-apply:
 #   kubectl delete job nexus-initial-ingest -n mosip-nexus
-#   kubectl apply -f Server/k8s/07-initial-ingest-job.yaml
+#   kubectl apply  -f Server/k8s/07-initial-ingest-job.yaml
 
 apiVersion: batch/v1
 kind: Job
@@ -21,11 +28,15 @@ metadata:
   name: nexus-initial-ingest
   namespace: mosip-nexus
 spec:
-  backoffLimit: 3
+  backoffLimit: 2
+  activeDeadlineSeconds: 3600   # 1 hour hard limit — pg_restore should finish in ~10 min
   template:
     spec:
       restartPolicy: OnFailure
+
       initContainers:
+
+        # ── Stage 1: wait for PostgreSQL ───────────────────────────────────────
         - name: wait-for-postgres
           image: pgvector/pgvector:pg16
           command:
@@ -36,34 +47,109 @@ spec:
                 echo "Waiting for nexus-postgres..."
                 sleep 5
               done
+              echo "PostgreSQL is ready."
+
+        # ── Stage 2: download vectors snapshot from S3 ─────────────────────────
+        - name: download-vectors
+          image: amazon/aws-cli
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Downloading vectors snapshot from s3://$S3_VECTORS_BUCKET/$S3_VECTORS_KEY ..."
+              aws s3 cp "s3://$S3_VECTORS_BUCKET/$S3_VECTORS_KEY" /vectors/nexus_vectors.dump.gz
+              echo "Download complete: $(du -sh /vectors/nexus_vectors.dump.gz | cut -f1)"
+
+              # Also pull crawl_state.json if it exists alongside the dump
+              STATE_KEY="${S3_VECTORS_KEY%.*.*}_crawl_state.json"
+              if aws s3 ls "s3://$S3_VECTORS_BUCKET/$STATE_KEY" > /dev/null 2>&1; then
+                aws s3 cp "s3://$S3_VECTORS_BUCKET/$STATE_KEY" /vectors/crawl_state.json
+                echo "crawl_state.json downloaded."
+              else
+                echo "No crawl_state.json found in S3 — updater will do a full delta on first run."
+              fi
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: nexus-env
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nexus-env
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: nexus-env
+                  key: AWS_DEFAULT_REGION
+            - name: S3_VECTORS_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: nexus-env
+                  key: S3_VECTORS_BUCKET
+            - name: S3_VECTORS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nexus-env
+                  key: S3_VECTORS_KEY
+          volumeMounts:
+            - name: vectors-transfer
+              mountPath: /vectors
+
+      # ── Stage 3: restore into PostgreSQL ──────────────────────────────────────
       containers:
-        - name: initial-ingest
-          # Pin to a semver tag — never use :latest in production.
-          image: nexus-server:v1.0.0
-          imagePullPolicy: IfNotPresent
+        - name: restore-vectors
+          image: pgvector/pgvector:pg16
           command:
             - sh
             - -c
             - |
-              uv run python ingestion/store.py && \
-              uv run python run_update.py
-          env:
-            - name: PYTHONPATH
-              value: /app/MosipNexus/Server
+              set -e
+              echo "Decompressing dump..."
+              gunzip /vectors/nexus_vectors.dump.gz
+
+              echo "Restoring into nexus-postgres (this takes ~5–10 minutes)..."
+              PGPASSWORD=$POSTGRES_PASSWORD pg_restore \
+                -h nexus-postgres \
+                -U mosip \
+                -d mosipnexus \
+                -F c \
+                --no-owner \
+                --no-acl \
+                --exit-on-error \
+                /vectors/nexus_vectors.dump
+              echo "pg_restore complete."
+
+              # Copy crawl_state.json to the nexus-data PVC so run_update
+              # knows what was already indexed and only processes new content.
+              if [ -f /vectors/crawl_state.json ]; then
+                cp /vectors/crawl_state.json /data/crawl_state.json
+                echo "crawl_state.json written to nexus-data PVC."
+              fi
+
+              echo "Bootstrap complete. The nightly updater will sync any new content."
           envFrom:
             - secretRef:
                 name: nexus-env
           volumeMounts:
+            - name: vectors-transfer
+              mountPath: /vectors
             - name: nexus-data
-              mountPath: /app/MosipNexus/Server/data
+              mountPath: /data
           resources:
             requests:
-              cpu: "1"
-              memory: 4Gi
+              cpu: 500m
+              memory: 1Gi
             limits:
-              cpu: "4"
-              memory: 8Gi
+              cpu: "2"
+              memory: 2Gi
+
       volumes:
+        - name: vectors-transfer
+          emptyDir: {}
         - name: nexus-data
           persistentVolumeClaim:
             claimName: nexus-data
