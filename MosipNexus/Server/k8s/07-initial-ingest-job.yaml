@@ -37,6 +37,7 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
+        fsGroup: 999      # ensures shared emptyDir volumes are group-writable by GID 999
 
       initContainers:
 

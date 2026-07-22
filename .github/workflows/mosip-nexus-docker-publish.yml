@@ -61,6 +61,12 @@ jobs:
             # e.g. nexus-v1.2.3 → tag as v1.2.3 and latest
             VERSION="${GH_REF_NAME}"
             VERSION="${VERSION#nexus-}"        # strip the "nexus-" prefix
+            # Docker tags allow [a-zA-Z0-9._-], max 128 chars — reject semver build metadata (+) etc.
+            if ! echo "${VERSION}" | grep -qE '^[a-zA-Z0-9._-]{1,128}$'; then
+              echo "ERROR: '${VERSION}' is not a valid Docker image tag." >&2
+              echo "       Allowed characters: [a-zA-Z0-9._-], max 128 chars. Remove any '+' or spaces from the git tag." >&2
+              exit 1
+            fi
             echo "tags=${IMAGE}:${VERSION},${IMAGE}:latest" >> "$GITHUB_OUTPUT"
             echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           elif [ "${GH_REF_NAME}" = "master" ]; then
