@@ -7,7 +7,7 @@ restores it in ~10 minutes instead of running a 4–8 hour full re-embed.
 
 ## Overview
 
-```
+```text
 Engineer machine                   S3 bucket                   Rancher cluster
 ──────────────────                 ─────────                   ───────────────
 Full local ingest
@@ -124,10 +124,11 @@ winget install PostgreSQL.PostgreSQL
 aws sts get-caller-identity
 ```
 
-The IAM user must have `s3:PutObject` and `s3:ListBucket` on the snapshot bucket.
+The IAM user must have `s3:PutObject`, `s3:GetObject`, and `s3:ListBucket` on the snapshot bucket.
+(`s3:GetObject` is required for the tagging step, which copies the dated dump to the `latest` key.)
 See the [bucket setup section](#s3-bucket-setup) below if the bucket doesn't exist yet.
 
-### 2.2 Create the S3 bucket (first time only)
+### S3 Bucket Setup
 
 ```bash
 # Create the bucket in your region
@@ -174,6 +175,7 @@ bash Server/k8s/dump-vectors-to-s3.sh
 ```
 
 The script:
+
 1. Streams `pg_dump | gzip` directly to S3 — no local disk space needed
 2. Saves a dated copy: `nexus/nexus_vectors_20260721_140000.dump.gz`
 3. Tags it as `latest`: `nexus/nexus_vectors_latest.dump.gz`
@@ -181,7 +183,7 @@ The script:
 
 Expected output:
 
-```
+```text
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   MOSIP Nexus — vector snapshot upload
   DB:     mosip@localhost:5436/mosipnexus
@@ -252,7 +254,7 @@ kubectl wait --for=condition=complete job/nexus-initial-ingest \
 
 ### 3.3 What happens during the restore job
 
-```
+```text
 Init 1 — wait-for-postgres:
   Polls pg_isready until PostgreSQL is accepting connections.
 
@@ -284,6 +286,7 @@ Publish a new snapshot whenever:
 - The snapshot is more than 3 months old (prevents long delta catch-up on new deployments)
 
 Steps:
+
 1. Run `run_update.py` locally to ensure the local DB is fully up to date
 2. Re-run `dump-vectors-to-s3.sh` — overwrites the `latest` key
 3. Notify DevOps that a new snapshot is available (no manifest changes needed — `S3_VECTORS_KEY` already points to `latest`)
@@ -331,7 +334,7 @@ Consider separate IAM users (or IRSA roles on EKS) so the cluster never holds wr
 ## Related docs
 
 | Document | What it covers |
-|---|---|
+| --- | --- |
 | [Server/README.md](../Server/README.md) | Local dev setup, folder structure |
 | [Server/docs/ENVIRONMENT.md](../Server/docs/ENVIRONMENT.md) | All environment variables |
 | [Server/docs/DATABASE_SETUP.md](../Server/docs/DATABASE_SETUP.md) | Local PostgreSQL + pgvector setup |

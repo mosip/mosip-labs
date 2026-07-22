@@ -34,11 +34,22 @@ spec:
     spec:
       restartPolicy: OnFailure
 
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
       initContainers:
 
         # ── Stage 1: wait for PostgreSQL ───────────────────────────────────────
         - name: wait-for-postgres
           image: pgvector/pgvector:pg16
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999        # postgres uid in pgvector image
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command:
             - sh
             - -c
@@ -52,6 +63,11 @@ spec:
         # ── Stage 2: download vectors snapshot from S3 ─────────────────────────
         - name: download-vectors
           image: amazon/aws-cli
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command:
             - /bin/sh
             - -c
@@ -103,6 +119,13 @@ spec:
       containers:
         - name: restore-vectors
           image: pgvector/pgvector:pg16
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999        # postgres uid in pgvector image
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command:
             - sh
             - -c
