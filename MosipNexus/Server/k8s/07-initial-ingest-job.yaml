@@ -123,6 +123,7 @@ spec:
           securityContext:
             runAsNonRoot: true
             runAsUser: 999        # postgres uid in pgvector image
+            runAsGroup: 999
             allowPrivilegeEscalation: false
             capabilities:
               drop:
