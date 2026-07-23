@@ -1,4 +1,4 @@
-name: MosipNexus — Build and Publish Docker Image
+name: MosipNexus — Build and Publish Docker Images
 
 on:
   push:
@@ -7,39 +7,82 @@ on:
       - develop
     paths:
       - "MosipNexus/**"
+    tags:
+      - "nexus-v*"          # e.g. nexus-v1.0.0 triggers a versioned release build
+
+# Minimum permissions — only repo read needed; Docker Hub auth uses secrets
+permissions:
+  contents: read
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        include:
+          - name: server
+            context: MosipNexus/Server
+            dockerfile: MosipNexus/Server/Dockerfile
+            image_suffix: nexus-server
+          - name: ui
+            context: MosipNexus/UI
+            dockerfile: MosipNexus/UI/Dockerfile
+            image_suffix: nexus-ui
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2a301b1f0c2e6afc4659  # v3
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Compute image tags
         id: tags
+        # Pass GitHub context values as env vars — never interpolate ${{ }} directly
+        # in shell to prevent injection via branch/tag names containing metacharacters.
+        env:
+          GH_REF: ${{ github.ref }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_SHA: ${{ github.sha }}
+          DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_SUFFIX: ${{ matrix.image_suffix }}
         run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          if [ "${{ github.ref_name }}" = "master" ]; then
-            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/mosip-nexus:latest,${{ secrets.DOCKERHUB_USERNAME }}/mosip-nexus:${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          IMAGE="${DOCKERHUB_USER}/${IMAGE_SUFFIX}"
+          SHORT_SHA=$(echo "${GH_SHA}" | cut -c1-7)
+
+          if [[ "${GH_REF}" == refs/tags/* ]]; then
+            # e.g. nexus-v1.2.3 → tag as v1.2.3 and latest
+            VERSION="${GH_REF_NAME}"
+            VERSION="${VERSION#nexus-}"        # strip the "nexus-" prefix
+            # Docker tags allow [a-zA-Z0-9._-], max 128 chars — reject semver build metadata (+) etc.
+            if ! echo "${VERSION}" | grep -qE '^[a-zA-Z0-9._-]{1,128}$'; then
+              echo "ERROR: '${VERSION}' is not a valid Docker image tag." >&2
+              echo "       Allowed characters: [a-zA-Z0-9._-], max 128 chars. Remove any '+' or spaces from the git tag." >&2
+              exit 1
+            fi
+            echo "tags=${IMAGE}:${VERSION},${IMAGE}:latest" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          elif [ "${GH_REF_NAME}" = "master" ]; then
+            echo "tags=${IMAGE}:latest,${IMAGE}:${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "version=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           else
-            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/mosip-nexus:develop,${{ secrets.DOCKERHUB_USERNAME }}/mosip-nexus:develop-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "tags=${IMAGE}:develop,${IMAGE}:develop-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "version=develop-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
-          context: ./MosipNexus
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

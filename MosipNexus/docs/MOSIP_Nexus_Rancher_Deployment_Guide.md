@@ -98,8 +98,12 @@ Measured from the actual built image (`docker image inspect`), not estimated:
 | `PRODUCT_NAME` / `PRODUCT_SHORT` / `PRODUCT_SLUG` | Your choice | Optional (defaults MOSIP); set for Inji or rebranding |
 | `DOCS_BASE_URL` / `COMMUNITY_BASE_URL` / `GITHUB_ORG` | Product docs/org | Optional overrides for crawl targets |
 | `GITHUB_TOKEN` | github.com → Settings → Developer settings | Optional (raises rate limit from 60 to 5,000 req/hr) |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | IAM user with S3 read access | **Required** for initial ingest S3 restore |
+| `AWS_DEFAULT_REGION` | Your S3 bucket region (e.g. `ap-south-1`) | **Required** for S3 restore |
+| `S3_VECTORS_BUCKET` | Name of the S3 bucket holding snapshots | **Required** for S3 restore |
+| `S3_VECTORS_KEY` | Path to the snapshot (e.g. `nexus/nexus_vectors_latest.dump.gz`) | **Required** for S3 restore |
 | `CONFLUENCE_TOKEN` | id.atlassian.com → Security → API tokens | Optional (Confluence knowledge source) |
-| `JIRA_TOKEN` | id.atlassian.com → Security → API tokens | Optional (Jira knowledge source — enables Jira bootstrapping during initial ingest) |
+| `JIRA_TOKEN` | id.atlassian.com → Security → API tokens | Optional (Jira knowledge source) |
 | `LANGCHAIN_API_KEY` | smith.langchain.com (free) | Optional (observability tracing) |
 | `MCP_TRANSPORT` / `MCP_PORT` | — | Set `sse` / `8002` when deploying MCP for Claude Desktop URL access |
 
@@ -386,52 +390,37 @@ kubectl apply -f Server/k8s/10-monitoring.yaml
 
 ---
 
-### Step 10 — First-Time Knowledge Ingestion
+### Step 10 — First-Time Knowledge Ingestion (S3 restore)
 
-The pgvector database is empty on first deployment. First, copy the crawled
-data files into the `nexus-data` PVC (these already exist — committed to the
-repo, no crawling needed for docs/community/github/code):
+The initial ingest Job restores a pre-built vector snapshot from S3 directly into pgvector — **~10 minutes** instead of the 4–8 hours a full re-embed would take. The nightly CronJob picks up any content new since the snapshot was taken.
 
-```powershell
-# Create a temporary transfer pod with the nexus-data PVC mounted
-kubectl run -n mosip-nexus data-transfer --image=alpine --restart=Never `
-  --overrides='{"spec":{"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"nexus-data"}}],"containers":[{"name":"data-transfer","image":"alpine","command":["sleep","3600"],"volumeMounts":[{"name":"data","mountPath":"/data"}]}]}}'
-
-# Wait for the pod to start
-kubectl wait pod/data-transfer -n mosip-nexus --for=condition=Ready --timeout=60s
-
-# Copy data files from your local machine to the PVC
-kubectl cp data/mosip_docs.json mosip-nexus/data-transfer:/data/
-kubectl cp data/mosip_community.json mosip-nexus/data-transfer:/data/
-kubectl cp data/mosip_github.json mosip-nexus/data-transfer:/data/
-kubectl cp data/mosip_code.json mosip-nexus/data-transfer:/data/
-
-# Clean up the transfer pod
-kubectl delete pod data-transfer -n mosip-nexus
-```
-
-Then apply the one-time bootstrap Job:
+> **Prerequisite:** Engineering must have already uploaded a snapshot using `dump-vectors-to-s3.sh`. Confirm `S3_VECTORS_BUCKET` and `S3_VECTORS_KEY` are set in the sealed secret.
 
 ```powershell
 kubectl apply -f Server/k8s/07-initial-ingest-job.yaml
 ```
 
-This runs `ingestion/store.py` (full ingest of docs/community/github/code from the files you copied — no live re-crawl) followed immediately by `run_update.py` (bootstraps Confluence/Jira from their live APIs if `CONFLUENCE_TOKEN`/`JIRA_TOKEN` are set in the sealed secret). Total runtime: 2–6 hours, mostly the embedding step.
-
 Watch progress:
 
 ```powershell
-kubectl logs -n mosip-nexus job/nexus-initial-ingest -f
+kubectl logs -n mosip-nexus job/nexus-initial-ingest -c download-vectors -f
+kubectl logs -n mosip-nexus job/nexus-initial-ingest -c restore-vectors -f
 ```
 
 Wait for completion before proceeding:
 
 ```powershell
-kubectl wait --for=condition=complete job/nexus-initial-ingest \
-  -n mosip-nexus --timeout=7200s
+kubectl wait --for=condition=complete job/nexus-initial-ingest `
+  -n mosip-nexus --timeout=3600s
 ```
 
-> **Re-running:** Jobs are immutable — re-applying after completion is a no-op. To re-run (e.g. after changing `EMBED_MODEL`/`CHUNK_SIZE`), delete it first: `kubectl delete job nexus-initial-ingest -n mosip-nexus`, then re-apply.
+Once complete:
+
+- pgvector contains all embedded knowledge from the snapshot
+- `crawl_state.json` is written to the `nexus-data` PVC (if included in the S3 snapshot)
+- The next `run_update` run (nightly CronJob or manual) syncs only content new since the snapshot
+
+> **Re-running:** Jobs are immutable — re-applying after completion is a no-op. To re-run after a new snapshot: `kubectl delete job nexus-initial-ingest -n mosip-nexus`, then re-apply.
 
 ---
 
@@ -639,7 +628,8 @@ kubectl exec -n mosip-nexus deploy/nexus-api -- `
 | `Server/k8s/04-service-api.yaml` | ClusterIP for API (:8000) |
 | `Server/k8s/05-ingress-api.yaml` | nginx Ingress → `nexus-api.mosip.io` with TLS via cert-manager |
 | `Server/k8s/06-cronjob.yaml` | Nightly update CronJob (02:00 UTC), `activeDeadlineSeconds: 21600`, data PVC (10 GB) |
-| `Server/k8s/07-initial-ingest-job.yaml` | One-time bootstrap Job — full ingest + Confluence/Jira population |
+| `Server/k8s/07-initial-ingest-job.yaml` | One-time bootstrap Job — restores pgvector from S3 snapshot (~10 min); nightly updater syncs delta |
+| `Server/k8s/dump-vectors-to-s3.sh` | Engineering script — pg_dump → gzip → S3; run locally after full ingestion to publish a new snapshot |
 | `Server/k8s/08-postgres-backup.yaml` | Daily pg_dump CronJob (03:30 UTC), backup PVC (20 GB), 7-day retention |
 | `Server/k8s/09-hpa.yaml` | HorizontalPodAutoscaler — nexus-api, 1–4 replicas, CPU 70% / memory 80% |
 | `Server/k8s/10-monitoring.yaml` | ServiceMonitor + PrometheusRule (6 alert rules) — requires Rancher Monitoring |
