@@ -123,6 +123,7 @@ def add_turn(
     similar_questions: list,
     language: str,
     token_usage: dict | None = None,
+    chunk_ids: list | None = None,
 ) -> dict[str, Any]:
     """Persist one Q&A turn and return a serialisable turn dict.
 
@@ -140,8 +141,16 @@ def add_turn(
         similar_questions=similar_questions,
         language=language,
         token_usage=token_usage,
+        chunk_ids=chunk_ids,
     )
     return session_crud.turn_to_dict(turn)
+
+
+def get_last_turn_chunk_ids(session_id: str) -> list[str]:
+    """Chunk ids used to answer the most recent turn (for the follow-up signal)."""
+    sid = _parse_id(session_id)
+    turn = session_crud.get_last_turn(sid)
+    return list(turn.chunk_ids or []) if turn else []
 
 
 def get_history(session_id: str) -> dict[str, Any]:

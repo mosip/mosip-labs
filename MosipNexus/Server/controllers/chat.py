@@ -11,6 +11,8 @@ from typing import Any, Callable
 
 from langchain_core.messages import AIMessage, HumanMessage
 
+from chain.confidence.scorer import apply_follow_up_penalty
+from chain.context_budget import needs_condense
 from chain.query_engine import ask
 from controllers import sessions as sessions_ctrl
 from controllers import stats as stats_ctrl
@@ -59,6 +61,16 @@ def run_chat_turn(
         len(memory.messages),
     )
 
+    # Implicit confidence signal: a quick follow-up on the same topic suggests the
+    # PREVIOUS turn's answer was incomplete or missed the point. Best-effort —
+    # never blocks the chat turn if scoring fails.
+    if memory.messages and needs_condense(question, memory.messages):
+        try:
+            prev_chunk_ids = sessions_ctrl.get_last_turn_chunk_ids(sid)
+            apply_follow_up_penalty(prev_chunk_ids)
+        except Exception:
+            logger.exception("Follow-up confidence signal failed session=%s", sid)
+
     try:
         result = ask(
             question,
@@ -83,7 +95,7 @@ def run_chat_turn(
         (result.get("token_usage") or {}).get("total_tokens"),
     )
 
-    sessions_ctrl.add_turn(
+    turn_dict = sessions_ctrl.add_turn(
         sid,
         question=question,
         answer=result["answer"],
@@ -93,6 +105,7 @@ def run_chat_turn(
         similar_questions=result.get("similar_questions", []),
         language=language,
         token_usage=result.get("token_usage") or {},
+        chunk_ids=result.get("chunk_ids", []),
     )
     stats_ctrl.record_query(result, language, session_id=sid)
 
@@ -104,7 +117,7 @@ def run_chat_turn(
         and source_type not in ("none", "chat", "web", "n/a", "llm")
     )
 
-    payload = {**result, "session_id": sid}
+    payload = {**result, "session_id": sid, "turn": turn_dict["turn"]}
     return payload, should_notify
 
 
@@ -163,7 +176,7 @@ def run_batch(
 
     payloads: list[dict[str, Any]] = []
     for question, result in raw_results:
-        sessions_ctrl.add_turn(
+        turn_dict = sessions_ctrl.add_turn(
             sid,
             question=question,
             answer=result["answer"],
@@ -173,9 +186,10 @@ def run_batch(
             similar_questions=result.get("similar_questions", []),
             language=language,
             token_usage=result.get("token_usage") or {},
+            chunk_ids=result.get("chunk_ids", []),
         )
         stats_ctrl.record_query(result, language, session_id=sid)
-        payloads.append({**result, "session_id": sid})
+        payloads.append({**result, "session_id": sid, "turn": turn_dict["turn"]})
 
     logger.info("batch done session=%s total=%d", sid, len(payloads))
     return sid, payloads

@@ -380,6 +380,11 @@ class ChatResponse(BaseModel):
             "Zeros when no LLM call ran (e.g. meta answer)."
         ),
     )
+    turn: int | None = Field(
+        default=None,
+        description="1-based turn number for this Q&A — pass to `POST /feedback` to rate it.",
+        examples=[1],
+    )
 
 
 class BatchRequest(BaseModel):
