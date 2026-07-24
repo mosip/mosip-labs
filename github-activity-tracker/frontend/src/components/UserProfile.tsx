@@ -13,6 +13,7 @@ import {
 
 import PRIcon from "../assets/PRIcon.svg";
 import CodeReviewIcon from "../assets/CodeReviewIcon.svg";
+import IssueIcon from "../assets/IssueIcon.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
 
 interface UserProfileProps {
@@ -25,6 +26,7 @@ interface DailyActivityRow {
   date: string;
   prs: number;
   reviews: number;
+  issues: number;
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
@@ -56,14 +58,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
   const prs = userData?.summary?.prs || 0;
   const reviews = userData?.summary?.reviews || 0;
+  const issues = userData?.summary?.issues || 0;
 
   const changePRs = userData?.summary?.change?.prs;
   const changeReviews = userData?.summary?.change?.reviews;
+  const changeIssues = userData?.summary?.change?.issues;
 
   const chartData = {
     labels: userData?.overview?.labels || [],
     prs: userData?.overview?.prs || [],
     reviews: userData?.overview?.reviews || [],
+    issues: userData?.overview?.issues || [],
   };
 
   const detailed: DailyActivityRow[] = userData?.daily_activity || [];
@@ -128,7 +133,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
       <div className="max-w-7xl mx-auto px-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-10">
           <StatsCard
             title="Pull Requests"
             value={prs}
@@ -141,6 +146,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
             value={reviews}
             change={changeReviews}
             icon={CodeReviewIcon}
+          />
+
+          <StatsCard
+            title="Issues"
+            value={issues}
+            change={changeIssues}
+            icon={IssueIcon}
           />
         </div>
 
@@ -160,6 +172,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
               date: label,
               prs: userData.trend.prs[i],
               reviews: userData.trend.reviews[i],
+              issues: userData.trend.issues?.[i] ?? 0,
             })) || []
           }
         />
@@ -174,6 +187,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
                 <th className="pb-3">Date</th>
                 <th className="pb-3">Pull Requests</th>
                 <th className="pb-3">Reviews</th>
+                <th className="pb-3">Issues</th>
                 <th className="pb-3">Total</th>
               </tr>
             </thead>
@@ -191,8 +205,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
                     {row.reviews}
                   </td>
 
+                  <td className="font-medium" style={{ color: "#7C3AED" }}>
+                    {row.issues ?? 0}
+                  </td>
+
                   <td className="font-semibold">
-                    {row.prs + row.reviews}
+                    {row.prs + row.reviews + (row.issues ?? 0)}
                   </td>
                 </tr>
               ))}

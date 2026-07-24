@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import { fetchOrgUsers } from "../lib/api";
 import type { PeriodValue } from "../lib/periods";
 
-type SortField = "prs" | "reviews";
+type SortField = "prs" | "reviews" | "issues";
 type SortOrder = "asc" | "desc";
 const UserIcon = () => (
   <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-2xl">
@@ -172,8 +172,9 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
       <div className="overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[45%]" />
-            <col className="w-[25%]" />
+            <col className="w-[35%]" />
+            <col className="w-[20%]" />
+            <col className="w-[15%]" />
             <col className="w-[15%]" />
             <col className="w-[15%]" />
           </colgroup>
@@ -191,6 +192,13 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
               <SortableHeader
                 label="Reviews"
                 field="reviews"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Issues"
+                field="issues"
                 sortBy={sortBy}
                 sortOrder={sortOrder}
                 onSort={handleSort}
@@ -267,6 +275,22 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
                   >
                     ({m.diffReviews > 0 ? "+" : ""}
                     {m.diffReviews})
+                  </div>
+                </td>
+
+                <td className="px-4 py-4 text-center">
+                  <div
+                    className="font-semibold"
+                    style={{ color: getDiffColor(m.diffIssues) }}
+                  >
+                    {m.issues ?? 0}
+                  </div>
+                  <div
+                    className="text-sm"
+                    style={{ color: getDiffColor(m.diffIssues ?? 0) }}
+                  >
+                    ({(m.diffIssues ?? 0) > 0 ? "+" : ""}
+                    {m.diffIssues ?? 0})
                   </div>
                 </td>
               </tr>

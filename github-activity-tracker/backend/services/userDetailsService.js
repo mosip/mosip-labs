@@ -67,7 +67,8 @@ async function getUserDetails(orgId, login, period, role = null) {
       DATE(e.created_at) as date,
       COUNT(*) FILTER (WHERE e.event_type = 'commit') AS commits,
       COUNT(*) FILTER (WHERE e.event_type = 'pr') AS prs,
-      COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews
+      COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews,
+      COUNT(*) FILTER (WHERE e.event_type = 'issue') AS issues
     FROM activity_events e
     JOIN github_users u ON u.id = e.user_id
     JOIN repos r ON r.github_repo_id = e.repo_id
@@ -106,13 +107,14 @@ async function getUserDetails(orgId, login, period, role = null) {
   });
 
   const dailyActivity = dateRange.map(date => {
-    const row = dailyMap[date] || { commits: 0, prs: 0, reviews: 0 };
+    const row = dailyMap[date] || { commits: 0, prs: 0, reviews: 0, issues: 0 };
     return {
       date,
       commits: Number(row.commits) || 0,
       prs: Number(row.prs) || 0,
       reviews: Number(row.reviews) || 0,
-      total: (Number(row.commits) || 0) + (Number(row.prs) || 0) + (Number(row.reviews) || 0),
+      issues: Number(row.issues) || 0,
+      total: (Number(row.commits) || 0) + (Number(row.prs) || 0) + (Number(row.reviews) || 0) + (Number(row.issues) || 0),
     };
   });
 
@@ -120,6 +122,7 @@ async function getUserDetails(orgId, login, period, role = null) {
   const totalCommits = dailyActivity.reduce((a, b) => a + b.commits, 0);
   const totalPRs = dailyActivity.reduce((a, b) => a + b.prs, 0);
   const totalReviews = dailyActivity.reduce((a, b) => a + b.reviews, 0);
+  const totalIssues = dailyActivity.reduce((a, b) => a + b.issues, 0);
 
   /* 6. Fetch previous period totals */
   const prevParams = [userId, prevStart.toDate(), prevEnd.toDate(), orgOwner];
@@ -131,12 +134,14 @@ async function getUserDetails(orgId, login, period, role = null) {
   const prevCommits = prevRes.rows.reduce((a, b) => a + Number(b.commits), 0);
   const prevPRs = prevRes.rows.reduce((a, b) => a + Number(b.prs), 0);
   const prevReviews = prevRes.rows.reduce((a, b) => a + Number(b.reviews), 0);
+  const prevIssues = prevRes.rows.reduce((a, b) => a + Number(b.issues), 0);
 
   /* 7. Compute % changes */
   const change = {
     commits: percentChange(totalCommits, prevCommits),
     prs: percentChange(totalPRs, prevPRs),
     reviews: percentChange(totalReviews, prevReviews),
+    issues: percentChange(totalIssues, prevIssues),
   };
 
   /* 8. Trend chart data (daily) */
@@ -145,10 +150,11 @@ async function getUserDetails(orgId, login, period, role = null) {
     commits: dailyActivity.map(d => d.commits),
     prs: dailyActivity.map(d => d.prs),
     reviews: dailyActivity.map(d => d.reviews),
+    issues: dailyActivity.map(d => d.issues),
   };
 
   /* 9. Overview (weekly buckets for monthly) */
-  let overview = { labels: [], commits: [], prs: [], reviews: [] };
+  let overview = { labels: [], commits: [], prs: [], reviews: [], issues: [] };
 
   if (period === 'monthly') {
     const weeks = [0, 1, 2, 3, 4];
@@ -158,6 +164,7 @@ async function getUserDetails(orgId, login, period, role = null) {
         commits: slice.reduce((a, b) => a + b.commits, 0),
         prs: slice.reduce((a, b) => a + b.prs, 0),
         reviews: slice.reduce((a, b) => a + b.reviews, 0),
+        issues: slice.reduce((a, b) => a + b.issues, 0),
       };
     });
 
@@ -166,6 +173,7 @@ async function getUserDetails(orgId, login, period, role = null) {
       commits: grouped.map(g => g.commits),
       prs: grouped.map(g => g.prs),
       reviews: grouped.map(g => g.reviews),
+      issues: grouped.map(g => g.issues),
     };
   }
 
@@ -182,6 +190,7 @@ async function getUserDetails(orgId, login, period, role = null) {
       commits: totalCommits,
       prs: totalPRs,
       reviews: totalReviews,
+      issues: totalIssues,
       change,
     },
     overview,

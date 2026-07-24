@@ -11,6 +11,7 @@ interface Leader {
   project: string;
   prs: number;
   reviews: number;
+  issues: number;
   total: number;
 }
 
@@ -80,8 +81,8 @@ const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaders }) => {
             </div>
 
             {/* METRICS ROW */}
-            <div className="flex mt-4 text-sm pl-10 w-full">
-              <div className="flex justify-between flex-1 pr-10">
+            <div className="flex mt-4 text-sm pl-10 w-full gap-6">
+              <div className="flex justify-between flex-1">
                 <span style={{ color: "#4A5565" }}>PRs:</span>
                 <span style={{ color: "#00A63E", fontWeight: 600 }}>
                   {user.prs}
@@ -92,6 +93,13 @@ const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaders }) => {
                 <span style={{ color: "#4A5565" }}>Reviews:</span>
                 <span style={{ color: "#F54900", fontWeight: 600 }}>
                   {user.reviews}
+                </span>
+              </div>
+
+              <div className="flex justify-between flex-1">
+                <span style={{ color: "#4A5565" }}>Issues:</span>
+                <span style={{ color: "#7C3AED", fontWeight: 600 }}>
+                  {user.issues}
                 </span>
               </div>
             </div>

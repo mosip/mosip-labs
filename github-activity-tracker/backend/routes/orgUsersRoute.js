@@ -30,7 +30,7 @@ router.get("/orgs/:org_id/users", async (req, res) => {
     const searchFilter =
       typeof search === "string" && search.trim() ? search.trim() : null;
 
-    const allowedSortFields = ["prs", "reviews"];
+    const allowedSortFields = ["prs", "reviews", "issues"];
     const sortByFilter =
       typeof sortBy === "string" && allowedSortFields.includes(sortBy)
         ? sortBy

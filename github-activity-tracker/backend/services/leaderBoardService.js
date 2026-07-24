@@ -45,6 +45,7 @@ const getLeaderboard = async (orgId, period = "weekly", limit = 10, role = null)
       COUNT(*) FILTER (WHERE e.event_type = 'commit') AS commits,
       COUNT(*) FILTER (WHERE e.event_type = 'pr') AS prs,
       COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews,
+      COUNT(*) FILTER (WHERE e.event_type = 'issue') AS issues,
       COUNT(*) AS score
     FROM activity_events e
     JOIN github_users u ON u.id = e.user_id
@@ -89,6 +90,7 @@ const getLeaderboard = async (orgId, period = "weekly", limit = 10, role = null)
     commits: Number(row.commits),
     prs: Number(row.prs),
     reviews: Number(row.reviews),
+    issues: Number(row.issues),
     score: Number(row.score),
   }));
 
