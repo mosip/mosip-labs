@@ -3,9 +3,11 @@
  * User messages are plain text; assistant messages use GFM markdown plus
  * confidence, sources, similar questions, community CTA, and optional ExpertForm.
  */
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { ChatMessage } from '../types'
+import { submitFeedback } from '../api/client'
+import type { ChatMessage, FeedbackRating } from '../types'
 import { ExpertForm } from './ExpertForm'
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -30,6 +32,10 @@ interface Props {
   communityNewTopicUrl: string
   language: string
   onExpertDone?: () => void
+  /** Session this message belongs to — required to submit feedback. */
+  sessionId?: string | null
+  /** Called after a feedback click succeeds, so the parent can persist the rating. */
+  onFeedbackSubmitted?: (rating: FeedbackRating) => void
 }
 
 /**
@@ -40,9 +46,29 @@ export function MessageBubble({
   productShort,
   communityNewTopicUrl,
   language,
+  sessionId,
+  onFeedbackSubmitted,
 }: Props) {
   const isUser = message.role === 'user'
   const confidence = message.confidence
+  const [feedbackBusy, setFeedbackBusy] = useState(false)
+  const [feedbackError, setFeedbackError] = useState(false)
+
+  async function handleFeedback(rating: FeedbackRating) {
+    if (feedbackBusy || message.feedbackRating || !sessionId || message.turn == null) return
+    setFeedbackBusy(true)
+    setFeedbackError(false)
+    try {
+      await submitFeedback({ sessionId, turn: message.turn, rating })
+      onFeedbackSubmitted?.(rating)
+    } catch {
+      setFeedbackError(true)
+    } finally {
+      setFeedbackBusy(false)
+    }
+  }
+
+  const canRate = !isUser && !!sessionId && message.turn != null && message.source_type !== 'chat'
   const showExpert =
     !isUser &&
     (message.source_type === 'web' ||
@@ -92,6 +118,33 @@ export function MessageBubble({
             {confidence === 'high' && 'High confidence'}
             {confidence === 'medium' && 'Medium confidence'}
             {confidence === 'low' && 'Low confidence — answer may be incomplete'}
+          </div>
+        )}
+
+        {canRate && (
+          <div className="feedback-actions">
+            <button
+              type="button"
+              className={`feedback-btn${message.feedbackRating === 'positive' ? ' active' : ''}`}
+              disabled={feedbackBusy || !!message.feedbackRating}
+              onClick={() => void handleFeedback('positive')}
+              aria-label="This answer was helpful"
+              title="This answer was helpful"
+            >
+              👍
+            </button>
+            <button
+              type="button"
+              className={`feedback-btn${message.feedbackRating === 'negative' ? ' active' : ''}`}
+              disabled={feedbackBusy || !!message.feedbackRating}
+              onClick={() => void handleFeedback('negative')}
+              aria-label="This answer was not helpful"
+              title="This answer was not helpful"
+            >
+              👎
+            </button>
+            {message.feedbackRating && <span className="feedback-thanks">Thanks for the feedback!</span>}
+            {feedbackError && <span className="feedback-error">Couldn't submit — try again.</span>}
           </div>
         )}
 

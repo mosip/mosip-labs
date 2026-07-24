@@ -595,6 +595,47 @@ html[data-product='inji'] {
   color: var(--danger);
 }
 
+.feedback-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.feedback-btn {
+  border: 1px solid var(--border, #e2e8f0);
+  background: transparent;
+  border-radius: 6px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.feedback-btn:hover:not(:disabled) {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.04));
+}
+
+.feedback-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.feedback-btn.active {
+  border-color: var(--brand-orange, #ea580c);
+  opacity: 1;
+}
+
+.feedback-thanks {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+.feedback-error {
+  font-size: 0.78rem;
+  color: var(--danger, #dc2626);
+}
+
 .token-usage {
   display: flex;
   flex-wrap: wrap;

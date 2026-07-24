@@ -183,6 +183,7 @@ export function ChatPage({
         token_usage: result.token_usage,
         similarThread,
         userQuestion: question,
+        turn: result.turn,
       }
       setMessages((prev) => {
         const next = [...prev, assistant]
@@ -341,6 +342,12 @@ export function ChatPage({
               productShort={config.product_short}
               communityNewTopicUrl={config.community_new_topic_url}
               language={language}
+              sessionId={sessionId}
+              onFeedbackSubmitted={(rating) => {
+                setMessages((prev) =>
+                  prev.map((msg) => (msg.id === m.id ? { ...msg, feedbackRating: rating } : msg)),
+                )
+              }}
             />
           ))}
 

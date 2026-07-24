@@ -184,6 +184,7 @@ def add_turn(
     similar_questions: list,
     language: str,
     token_usage: dict | None = None,
+    chunk_ids: list | None = None,
     uow: UnitOfWork | None = None,
 ) -> ChatTurn:
     """Append a Q&A turn to a session (creates session if needed)."""
@@ -200,6 +201,7 @@ def add_turn(
             similar_questions=similar_questions,
             language=language,
             token_usage=token_usage,
+            chunk_ids=chunk_ids,
         )
 
     if uow is not None:
@@ -218,6 +220,22 @@ def get_turn(
 
     def _run(w: UnitOfWork) -> ChatTurn | None:
         return w.sessions.get_turn(session_id, turn_number)
+
+    if uow is not None:
+        return _run(uow)
+    with unit_of_work() as w:
+        return _run(w)
+
+
+def get_last_turn(
+    session_id: uuid.UUID,
+    *,
+    uow: UnitOfWork | None = None,
+) -> ChatTurn | None:
+    """Load the most recent turn for a session, or ``None`` if empty."""
+
+    def _run(w: UnitOfWork) -> ChatTurn | None:
+        return w.sessions.get_last_turn(session_id)
 
     if uow is not None:
         return _run(uow)
@@ -310,5 +328,6 @@ def turn_to_dict(turn: ChatTurn) -> dict[str, Any]:
         "confidence": turn.confidence,
         "similar_questions": turn.similar_questions,
         "token_usage": turn.token_usage or {},
+        "chunk_ids": turn.chunk_ids or [],
         "language": turn.language,
     }

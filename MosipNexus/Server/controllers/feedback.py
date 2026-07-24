@@ -8,6 +8,7 @@ from __future__ import annotations
 import uuid
 
 from errors import BadRequestError, NotFoundError
+from chain.confidence.scorer import apply_explicit_feedback
 from db.crud import feedback as feedback_crud
 from db.crud import sessions as session_crud
 from db.crud import unit_of_work
@@ -67,6 +68,7 @@ def record_feedback(
             comment=comment,
             uow=uow,
         )
+        chunk_ids = list(turn_row.chunk_ids or [])
         logger.info(
             "Recorded feedback id=%s session=%s turn=%s rating=%s",
             row.id,
@@ -74,7 +76,16 @@ def record_feedback(
             turn,
             rating,
         )
-        return str(row.id)
+
+    # Best-effort: propagate to chunk_scores after the feedback row commits.
+    # Separate transaction (different table, no need to be atomic with it) —
+    # never let a scoring failure turn a successful feedback submission into an error.
+    try:
+        apply_explicit_feedback(chunk_ids, rating)
+    except Exception:
+        logger.exception("Failed to apply explicit feedback to chunk_scores session=%s turn=%s", sid, turn)
+
+    return str(row.id)
 
 
 def feedback_counts() -> tuple[int, int, int]:

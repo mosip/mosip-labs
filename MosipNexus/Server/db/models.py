@@ -5,6 +5,7 @@ Tables:
 * ``chat_sessions`` / ``chat_turns`` — conversational history for RAG
 * ``feedback`` — thumbs up/down on a specific turn
 * ``query_events`` — one row per answered query for ``/stats``
+* ``chunk_scores`` — per-chunk confidence signal accumulators (see ``chain.confidence``)
 
 Migrated exclusively via Alembic (see ``docs/DATABASE_LAYER.md``).
 """
@@ -14,7 +15,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -65,6 +66,9 @@ class ChatTurn(Base):
     sources: Mapped[list | dict] = mapped_column(JSONB, nullable=False, default=list)
     source_type: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     confidence: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    # pgvector row UUIDs (as strings) for the chunks used to answer this turn — links
+    # this turn to chunk_scores rows for explicit feedback / follow-up signal propagation.
+    chunk_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     similar_questions: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     token_usage: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     language: Mapped[str] = mapped_column(String(64), nullable=False, default="English")
@@ -115,3 +119,37 @@ class QueryEvent(Base):
     source_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     token_usage: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
+
+
+class ChunkScore(Base):
+    """Autonomous confidence-signal accumulators for one retrieved chunk.
+
+    ``chunk_id`` references a ``langchain_pg_embedding.id`` row (a LangChain-managed
+    table, not declared here — no hard FK across schemas). Signal accumulators are
+    raw running values; the weighted ``final_score`` is computed on read by
+    ``chain.confidence.scorer`` (recency decay applied live from ``first_seen_at``),
+    not recomputed by a background job. ``resolution_score`` stays neutral (0.5)
+    until the environment-log diagnostic system (log resolution watcher) exists.
+    """
+
+    __tablename__ = "chunk_scores"
+    __table_args__ = (
+        Index("ix_chunk_scores_source_type", "source_type"),
+        Index("ix_chunk_scores_product_slug", "product_slug"),
+    )
+
+    chunk_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    collection_name: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    source_type: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    retrieval_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Accumulators, each clamped to [0, 1] with 0.5 as the neutral starting point.
+    agreement_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    follow_up_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    explicit_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    resolution_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
+    last_retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_updated: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )

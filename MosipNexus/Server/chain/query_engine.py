@@ -364,6 +364,10 @@ def _build_system_prompt(
         f"only use strings that appear in the context. If missing, say so briefly.\n"
         f"- No hedging ('refer to the docs', 'may vary', 'I would need more info'). "
         f"Give one concrete answer; cite [ACCEPTED ANSWER] / GitHub / file names when present.\n"
+        f"- If retrieved context chunks disagree with each other on a material fact "
+        f"(e.g. different values for the same setting), say so explicitly in the answer "
+        f"(e.g. 'Sources disagree on X — docs say A, GitHub says B') rather than silently "
+        f"picking one.\n"
         f"- Output {_NO_SOURCE_MARKER} only if the question is unrelated to {product.short}.\n"
         f"- Respond in {language}. Keep the answer concise but complete.\n\n"
         f"Context:\n{{context}}"
@@ -582,6 +586,10 @@ def _ask_impl(
 
     # ── Retrieve from product collections ──────────────────────────────────────
     docs, confidence = retrieve(standalone)
+    # Chunk ids (pgvector row UUIDs) survive on Document.id through retrieval/dedup/
+    # annotation — persisted on the turn so feedback/follow-up signals can target
+    # the exact chunks used (see chain/confidence).
+    chunk_ids = [d.id for d in docs if d.id]
     context = pack_context(
         docs,
         max_chars=MAX_CONTEXT_CHARS,
@@ -656,6 +664,14 @@ def _ask_impl(
     if any(p in answer.lower() for p in _NOT_FOUND_PHRASES):
         confidence = "low"
 
+    # ── Contradiction override — downgrade when sources disagree (see system prompt) ─
+    _DISAGREEMENT_PHRASES = (
+        "sources disagree", "conflicting information", "conflicting sources",
+        "documentation is inconsistent", "not consistent across", "may be outdated",
+    )
+    if any(p in answer.lower() for p in _DISAGREEMENT_PHRASES) and confidence == "high":
+        confidence = "medium"
+
     # ── [NO_DOC_SOURCE] → not available in this product's knowledge base ────────
     if _NO_SOURCE_MARKER in answer:
         clean = answer.replace(_NO_SOURCE_MARKER, "").strip()
@@ -725,6 +741,7 @@ def _ask_impl(
         "source_type": source_type,
         "confidence": confidence,
         "similar_questions": similar_questions,
+        "chunk_ids": [str(cid) for cid in chunk_ids],
     }
     logger.info(
         "ask done kind=rag source_type=%s confidence=%s sources=%d elapsed_ms=%.0f",

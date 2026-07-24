@@ -67,7 +67,12 @@ export interface ChatResponse {
   similar_questions: string[]
   session_id: string
   token_usage?: TokenUsage
+  /** 1-based turn number — pass to `submitFeedback` to rate this answer. */
+  turn?: number
 }
+
+/** Feedback rating submitted for one turn. */
+export type FeedbackRating = 'positive' | 'negative'
 
 /** Response body from `POST /similar`. */
 export interface SimilarResult {
@@ -98,6 +103,10 @@ export interface ChatMessage {
     source: string
     similarity_score: number
   }
+  /** 1-based turn number (on assistant messages) — needed to submit feedback. */
+  turn?: number
+  /** Rating already submitted for this turn, if any (prevents double-submit). */
+  feedbackRating?: FeedbackRating
 }
 
 /** BYOK settings persisted under `nexus-ui-settings` in localStorage. */

@@ -9,7 +9,7 @@
  *
  * Older plain-string ``detail`` values are still accepted.
  */
-import type { ChatResponse, ProductConfig, ProductMode, SimilarResult } from '../types'
+import type { ChatResponse, FeedbackRating, ProductConfig, ProductMode, SimilarResult } from '../types'
 
 /** Active product mode for API calls (set by App when settings change). */
 let _productMode: ProductMode = 'mosip'
@@ -303,6 +303,24 @@ export async function chat(params: {
 export async function findSimilar(question: string): Promise<SimilarResult | null> {
   const result = await request<SimilarResult>('POST', '/similar', { question }, 30_000)
   return result.found ? result : null
+}
+
+/**
+ * Rate one turn's answer (`POST /feedback`) — thumbs up/down in the UI.
+ * Errors are the caller's responsibility to handle (e.g. revert optimistic UI state).
+ */
+export async function submitFeedback(params: {
+  sessionId: string
+  turn: number
+  rating: FeedbackRating
+  comment?: string
+}): Promise<{ status: string; feedback_id: string }> {
+  return request('POST', '/feedback', {
+    session_id: params.sessionId,
+    turn: params.turn,
+    rating: params.rating,
+    comment: params.comment ?? '',
+  })
 }
 
 /**

@@ -26,8 +26,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.products import ProductProfile, get_product, list_products
 from config.settings import (
     CODE_RETRIEVAL_K,
-    CONFIDENCE_HIGH,
-    CONFIDENCE_MEDIUM,
     EMBED_CACHE_SIZE,
     EMBED_MODEL,
     GITHUB_RETRIEVAL_K,
@@ -37,6 +35,7 @@ from config.settings import (
     RETRIEVAL_PARALLELISM,
 )
 from db.engine import get_engine
+from chain.confidence import scorer as confidence_scorer
 
 
 logger = logging.getLogger(__name__)
@@ -257,7 +256,7 @@ def _exact_code_search(error_code: str, collection_name: str, limit: int = 5) ->
         with _get_pg_engine().connect() as conn:
             rows = conn.execute(
                 _sql_text(
-                    "SELECT e.document, e.cmetadata "
+                    "SELECT e.id, e.document, e.cmetadata "
                     "FROM langchain_pg_embedding e "
                     "JOIN langchain_pg_collection c ON e.collection_id = c.uuid "
                     "WHERE c.name = :coll "
@@ -266,7 +265,7 @@ def _exact_code_search(error_code: str, collection_name: str, limit: int = 5) ->
                 ),
                 {"coll": collection_name, "pattern": f"%{error_code}%", "limit": limit},
             ).fetchall()
-        return [Document(page_content=row[0], metadata=row[1] or {}) for row in rows]
+        return [Document(id=str(row[0]), page_content=row[1], metadata=row[2] or {}) for row in rows]
     except Exception:
         return []
 
@@ -277,7 +276,7 @@ def _sibling_chunks(title: str, collection_name: str, limit: int = 8) -> list[Do
         with _get_pg_engine().connect() as conn:
             rows = conn.execute(
                 _sql_text(
-                    "SELECT e.document, e.cmetadata "
+                    "SELECT e.id, e.document, e.cmetadata "
                     "FROM langchain_pg_embedding e "
                     "JOIN langchain_pg_collection c ON e.collection_id = c.uuid "
                     "WHERE c.name = :coll "
@@ -286,7 +285,7 @@ def _sibling_chunks(title: str, collection_name: str, limit: int = 8) -> list[Do
                 ),
                 {"coll": collection_name, "title": title, "limit": limit},
             ).fetchall()
-        return [Document(page_content=row[0], metadata=row[1] or {}) for row in rows]
+        return [Document(id=str(row[0]), page_content=row[1], metadata=row[2] or {}) for row in rows]
     except Exception:
         return []
 
@@ -322,6 +321,7 @@ def _annotate_format_specifiers(docs: list[Document]) -> list[Document]:
                 "Tell the user to read their actual error response for the substituted value."
             )
             doc = Document(
+                id=doc.id,
                 page_content=doc.page_content + annotation,
                 metadata=doc.metadata,
             )
@@ -479,11 +479,22 @@ def retrieve(
             _seen.add(doc.page_content)
             _deduped.append(doc)
 
-    if best_score >= CONFIDENCE_HIGH:
-        confidence = "high"
-    elif best_score >= CONFIDENCE_MEDIUM:
-        confidence = "medium"
-    else:
-        confidence = "low"
+    final_docs = _annotate_format_specifiers(_deduped[:MAX_CONTEXT_DOCS])
 
-    return _annotate_format_specifiers(_deduped[:MAX_CONTEXT_DOCS]), confidence
+    # Upsert chunk_scores + blend this-query relevance with each chunk's historical
+    # reliability (source-type weight, retrieval consistency, agreement, recency,
+    # feedback). Falls back to relevance-only for any doc missing a scorable id.
+    try:
+        confidence_scorer.record_retrieval(final_docs, product_slug=profile.slug)
+        confidence = confidence_scorer.score_answer(final_docs, mmr_relevance=best_score)
+    except Exception:
+        logger.exception("Confidence scoring failed — falling back to relevance-only")
+        from config.settings import CONFIDENCE_HIGH, CONFIDENCE_MEDIUM
+        if best_score >= CONFIDENCE_HIGH:
+            confidence = "high"
+        elif best_score >= CONFIDENCE_MEDIUM:
+            confidence = "medium"
+        else:
+            confidence = "low"
+
+    return final_docs, confidence

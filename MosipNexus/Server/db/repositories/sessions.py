@@ -92,6 +92,7 @@ class SessionRepository:
         similar_questions: list,
         language: str,
         token_usage: dict | None = None,
+        chunk_ids: list | None = None,
     ) -> ChatTurn:
         """Append the next numbered turn and touch the parent session.
 
@@ -105,6 +106,9 @@ class SessionRepository:
             similar_questions: Related community titles.
             language: Response language for this turn.
             token_usage: Optional ``{prompt_tokens, completion_tokens, total_tokens}``.
+            chunk_ids: pgvector chunk UUIDs (as strings) used to answer this turn —
+                lets explicit feedback / follow-up signals target the exact chunks
+                (see ``chain.confidence``).
 
         Returns:
             The flushed ``ChatTurn`` with assigned ``turn_number``.
@@ -127,6 +131,7 @@ class SessionRepository:
             confidence=confidence or "",
             similar_questions=similar_questions or [],
             token_usage=token_usage or {},
+            chunk_ids=chunk_ids or [],
             language=language,
         )
         self.db.add(turn)
@@ -151,6 +156,15 @@ class SessionRepository:
                 ChatTurn.session_id == session_id,
                 ChatTurn.turn_number == turn_number,
             )
+        )
+
+    def get_last_turn(self, session_id: uuid.UUID) -> ChatTurn | None:
+        """Load the most recent turn for a session, or ``None`` if empty."""
+        return self.db.scalar(
+            select(ChatTurn)
+            .where(ChatTurn.session_id == session_id)
+            .order_by(ChatTurn.turn_number.desc())
+            .limit(1)
         )
 
     def clear(self, session: ChatSession) -> None:
