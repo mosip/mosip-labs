@@ -98,6 +98,7 @@ async function fetchCounts(orgId, start, end, role) {
     commits: 0,
     prs: 0,
     reviews: 0,
+    issues: 0,
     activity: 0,
   };
 
@@ -105,9 +106,10 @@ async function fetchCounts(orgId, start, end, role) {
     if (row.event_type === "commit") summary.commits = Number(row.count);
     if (row.event_type === "pr") summary.prs = Number(row.count);
     if (row.event_type === "review") summary.reviews = Number(row.count);
+    if (row.event_type === "issue") summary.issues = Number(row.count);
   });
 
-  summary.activity = summary.prs + summary.reviews;
+  summary.activity = summary.prs + summary.reviews + summary.issues;
 
   return summary;
 }
@@ -125,6 +127,7 @@ function calculateChange(current, previous) {
     commits: safePercent(current.commits, previous.commits),
     prs: safePercent(current.prs, previous.prs),
     reviews: safePercent(current.reviews, previous.reviews),
+    issues: safePercent(current.issues, previous.issues),
     activity: safePercent(current.activity, previous.activity),
   };
 }
@@ -142,6 +145,7 @@ async function getOrgSummary(orgId, period, role) {
     total_commits: current.commits,
     total_prs: current.prs,
     total_reviews: current.reviews,
+    total_issues: current.issues,
     total_activity: current.activity,
     change,
   };

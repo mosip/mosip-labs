@@ -71,7 +71,9 @@ async function getOrgActivity(orgId, period, role) {
 
       COUNT(*) FILTER (WHERE e.event_type = 'pr') AS prs,
 
-      COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews
+      COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews,
+
+      COUNT(*) FILTER (WHERE e.event_type = 'issue') AS issues
 
     FROM activity_events e
 
@@ -103,6 +105,8 @@ async function getOrgActivity(orgId, period, role) {
 
   const reviews = [];
 
+  const issues = [];
+
   const total = [];
 
 
@@ -125,7 +129,7 @@ async function getOrgActivity(orgId, period, role) {
 
 
 
-    const row = map[d] || { commits: 0, prs: 0, reviews: 0 };
+    const row = map[d] || { commits: 0, prs: 0, reviews: 0, issues: 0 };
 
 
 
@@ -133,21 +137,25 @@ async function getOrgActivity(orgId, period, role) {
 
     const p = Number(row.prs);
 
-    const r = Number(row.reviews);
+    const rv = Number(row.reviews);
+
+    const issueCount = Number(row.issues);
 
     commits.push(c);
 
     prs.push(p);
 
-    reviews.push(r);
+    reviews.push(rv);
 
-    total.push(c + p + r);
+    issues.push(issueCount);
+
+    total.push(c + p + rv + issueCount);
 
   }
 
 
 
-  return { labels, commits, prs, reviews, total };
+  return { labels, commits, prs, reviews, issues, total };
 
 }
 

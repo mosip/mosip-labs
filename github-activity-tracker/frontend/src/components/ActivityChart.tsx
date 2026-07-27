@@ -88,6 +88,7 @@ interface ActivityChartProps {
     labels: string[];
     prs: number[];
     reviews: number[];
+    issues?: number[];
   };
   period: PeriodValue;
   showTitle?: boolean;
@@ -107,40 +108,48 @@ function aggregateDailyIntoWeeks(
   labels: string[],
   pullRequests: number[],
   reviews: number[],
+  issues: number[],
 ) {
   const weekLabels: string[] = [];
   const weekPRs: number[] = [];
   const weekReviews: number[] = [];
+  const weekIssues: number[] = [];
 
   for (let i = 0; i < labels.length; i += 7) {
     const weekIndex = Math.floor(i / 7) + 1;
     weekLabels.push(`Week ${weekIndex}`);
     weekPRs.push(pullRequests.slice(i, i + 7).reduce((a, b) => a + b, 0));
     weekReviews.push(reviews.slice(i, i + 7).reduce((a, b) => a + b, 0));
+    weekIssues.push(issues.slice(i, i + 7).reduce((a, b) => a + b, 0));
   }
 
-  return { labels: weekLabels, pullRequests: weekPRs, reviews: weekReviews };
+  return { labels: weekLabels, pullRequests: weekPRs, reviews: weekReviews, issues: weekIssues };
 }
 
 function aggregateDailyIntoMonths(
   labels: string[],
   pullRequests: number[],
   reviews: number[],
+  issues: number[],
 ) {
   const monthLabels: string[] = [];
   const monthPRs: number[] = [];
   const monthReviews: number[] = [];
+  const monthIssues: number[] = [];
 
   let currentMonth = "";
   let prSum = 0;
   let reviewSum = 0;
+  let issueSum = 0;
 
   const flush = (monthKey: string) => {
     monthLabels.push(formatMonthLabel(monthKey));
     monthPRs.push(prSum);
     monthReviews.push(reviewSum);
+    monthIssues.push(issueSum);
     prSum = 0;
     reviewSum = 0;
+    issueSum = 0;
   };
 
   for (let i = 0; i < labels.length; i++) {
@@ -151,6 +160,7 @@ function aggregateDailyIntoMonths(
     currentMonth = monthKey;
     prSum += pullRequests[i];
     reviewSum += reviews[i];
+    issueSum += issues[i];
   }
 
   if (currentMonth) {
@@ -161,6 +171,7 @@ function aggregateDailyIntoMonths(
     labels: monthLabels,
     pullRequests: monthPRs,
     reviews: monthReviews,
+    issues: monthIssues,
   };
 }
 
@@ -172,6 +183,7 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
   let labels = data?.labels ?? [];
   let pullRequests = data?.prs ?? [];
   let reviews = data?.reviews ?? [];
+  let issues = data?.issues ?? [];
 
   /* -------------------------------
      WEEKLY AGGREGATION FOR MONTHLY
@@ -186,21 +198,24 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
     labels.every((l) => !ISO_DATE.test(l));
 
   if (period === "monthly" && labels.length > 0 && !isPreAggregatedWeekly) {
-    const aggregated = aggregateDailyIntoWeeks(labels, pullRequests, reviews);
+    const aggregated = aggregateDailyIntoWeeks(labels, pullRequests, reviews, issues);
     labels = aggregated.labels;
     pullRequests = aggregated.pullRequests;
     reviews = aggregated.reviews;
+    issues = aggregated.issues;
   }
 
   if (period === "yearly" && labels.length > 0 && !isPreAggregatedMonthly) {
-    const aggregated = aggregateDailyIntoMonths(labels, pullRequests, reviews);
+    const aggregated = aggregateDailyIntoMonths(labels, pullRequests, reviews, issues);
     labels = aggregated.labels;
     pullRequests = aggregated.pullRequests;
     reviews = aggregated.reviews;
+    issues = aggregated.issues;
   }
 
   const COLOR_PULLS = "#10B981";
   const COLOR_REVIEWS = "#F59E0B";
+  const COLOR_ISSUES = "#7C3AED";
 
   const chartData = {
     labels,
@@ -211,6 +226,7 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
         backgroundColor: COLOR_PULLS,
       },
       { label: "Reviews", data: reviews, backgroundColor: COLOR_REVIEWS },
+      { label: "Issues", data: issues, backgroundColor: COLOR_ISSUES },
     ],
   };
 
@@ -243,6 +259,7 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
 
             if (label === "Pull Requests") return `Pull Requests : ${value}`;
             if (label === "Reviews") return `Reviews : ${value}`;
+            if (label === "Issues") return `Issues : ${value}`;
 
             return `${label} : ${value}`;
           },
@@ -251,6 +268,7 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
             const label = context.dataset.label;
             if (label === "Pull Requests") return COLOR_PULLS;
             if (label === "Reviews") return COLOR_REVIEWS;
+            if (label === "Issues") return COLOR_ISSUES;
             return "#111";
           },
         },

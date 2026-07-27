@@ -4,24 +4,52 @@ const { GITHUB, POSTGRES } = require('../config/errorCodes');
 const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
 const { upsertGitHubUser } = require('./githubUserService');
 
+const SEARCH_SYNC_CONFIG = {
+  pr: {
+    searchType: 'pr',
+    eventType: 'pr',
+    lastSyncColumn: 'last_prs_sync_at',
+    countColumn: 'prs_count',
+    itemLabel: 'PR',
+    incompleteMessage: 'PR sync incomplete; not advancing last_prs_sync_at',
+    fetchErrorMessage: 'Error fetching PRs from GitHub API:',
+  },
+  issue: {
+    searchType: 'issue',
+    eventType: 'issue',
+    lastSyncColumn: 'last_issues_sync_at',
+    countColumn: 'issues_count',
+    itemLabel: 'issue',
+    incompleteMessage: 'Issue sync incomplete; not advancing last_issues_sync_at',
+    fetchErrorMessage: 'Error fetching issues from GitHub API:',
+  },
+};
+
 /**
- * Sync pull requests for a single repository.
- * - Fetches PRs from GitHub Search API with pagination
- * - Upserts GitHub users into github_users table
- * - Updates repo_users with prs_count and timestamps
- * - Inserts PR events into activity_events table
- *
- * @param {number|string} repoId - The github_repo_id from the repos table
- * @returns {Promise<number>} Total number of PRs processed
+ * Sync GitHub search items (PRs or issues) for a single repository.
  */
-async function syncPRs(repoId) {
-  if (!repoId) {
-    throw new Error('Repository ID is required for syncPRs');
+async function syncSearchItems(repoId, syncKind) {
+  const config = SEARCH_SYNC_CONFIG[syncKind];
+  if (!config) {
+    throw new Error(`Unsupported search sync kind: ${syncKind}`);
   }
 
-  // Fetch repo owner, name, and last sync timestamp from repos table
+  if (!repoId) {
+    throw new Error(`Repository ID is required for sync${syncKind === 'pr' ? 'PRs' : 'Issues'}`);
+  }
+
+  const {
+    searchType,
+    eventType,
+    lastSyncColumn,
+    countColumn,
+    itemLabel,
+    incompleteMessage,
+    fetchErrorMessage,
+  } = config;
+
   const repoResult = await pool.query(
-    'SELECT owner, name, last_prs_sync_at FROM repos WHERE github_repo_id = $1',
+    `SELECT owner, name, ${lastSyncColumn} AS last_sync_at FROM repos WHERE github_repo_id = $1`,
     [repoId]
   );
 
@@ -29,34 +57,32 @@ async function syncPRs(repoId) {
     throw new Error(`Repository with ID ${repoId} not found`);
   }
 
-  const { owner, name, last_prs_sync_at } = repoResult.rows[0];
+  const { owner, name, last_sync_at } = repoResult.rows[0];
   if (!owner || !name) {
     throw new Error(`Repository ${repoId} missing owner or name`);
   }
 
-  // Incremental sync: only PRs created after last sync; first run = last 1 year
   let sinceDate = null;
-  if (last_prs_sync_at) {
-    sinceDate = new Date(last_prs_sync_at);
+  if (last_sync_at) {
+    sinceDate = new Date(last_sync_at);
   } else {
     sinceDate = new Date();
     sinceDate.setFullYear(sinceDate.getFullYear() - 1);
   }
-  const sinceDateStr = sinceDate.toISOString().split('T')[0]; // YYYY-MM-DD format for GitHub Search API
+  const sinceDateStr = sinceDate.toISOString().split('T')[0];
 
   const perPage = 100;
-  const maxPage = 10; // Search API cap: 1000 results = 10 pages × 100
+  const maxPage = 10;
   let page = 1;
   let totalProcessed = 0;
   let hadProcessingErrors = false;
   let hitSearchCap = false;
 
-  // Cache resolved user ids per sync run so repeat authors only upsert once.
   const userIdCache = new Map();
 
   while (page <= maxPage) {
     try {
-      let q = `repo:${owner}/${name} type:pr created:>=${sinceDateStr}`;
+      const q = `repo:${owner}/${name} type:${searchType} created:>=${sinceDateStr}`;
       const response = await githubClient.get('/search/issues', {
         params: {
           q,
@@ -74,11 +100,11 @@ async function syncPRs(repoId) {
       }
 
       let shouldStopPagination = false;
-      for (const pr of items) {
-        const prId = pr.id;
-        const prNumber = pr.number;
-        const createdAt = pr.created_at;
-        const author = pr.user;
+      for (const item of items) {
+        const itemId = item.id;
+        const itemNumber = item.number;
+        const createdAt = item.created_at;
+        const author = item.user;
 
         if (!author || !author.id) {
           continue;
@@ -87,11 +113,9 @@ async function syncPRs(repoId) {
           continue;
         }
 
-        // Filter by since date (additional check in case API doesn't filter perfectly)
         if (sinceDate) {
-          const prDate = new Date(createdAt);
-          if (prDate < sinceDate) {
-            // Since PRs are ordered by created desc, we can stop pagination
+          const itemDate = new Date(createdAt);
+          if (itemDate < sinceDate) {
             shouldStopPagination = true;
             break;
           }
@@ -118,7 +142,6 @@ async function syncPRs(repoId) {
             userIdCache.set(github_user_id, userId);
           }
 
-          // Insert event first; only increment prs_count if this PR is new.
           const eventInsert = await pool.query(
             `
               INSERT INTO activity_events (event_type, event_id, repo_id, user_id, html_url, created_at)
@@ -127,11 +150,10 @@ async function syncPRs(repoId) {
               DO NOTHING
               RETURNING id
             `,
-            ['pr', String(prId), repoId, userId, pr.html_url || null, createdAt]
+            [eventType, String(itemId), repoId, userId, item.html_url || null, createdAt]
           );
 
           if (eventInsert.rowCount === 0) {
-            // Existing PR event: do not increment prs_count, but keep repo_users seen timestamps fresh.
             await pool.query(
               `
                 INSERT INTO repo_users (repo_id, user_id, first_seen_at, last_seen_at)
@@ -144,29 +166,27 @@ async function syncPRs(repoId) {
               [repoId, userId, createdAt]
             );
 
-            // Preserve prior behavior of backfilling html_url when missing, without counting.
-            if (pr.html_url) {
+            if (item.html_url) {
               await pool.query(
                 `
                   UPDATE activity_events
                   SET html_url = COALESCE(activity_events.html_url, $1)
-                  WHERE event_type = 'pr' AND event_id = $2
+                  WHERE event_type = $2 AND event_id = $3
                 `,
-                [pr.html_url, String(prId)]
+                [item.html_url, eventType, String(itemId)]
               );
             }
 
             continue;
           }
 
-          // New PR event: increment prs_count.
           await pool.query(
             `
-              INSERT INTO repo_users (repo_id, user_id, prs_count, first_seen_at, last_seen_at)
+              INSERT INTO repo_users (repo_id, user_id, ${countColumn}, first_seen_at, last_seen_at)
               VALUES ($1, $2, 1, $3, $3)
               ON CONFLICT (repo_id, user_id)
               DO UPDATE SET
-                prs_count = repo_users.prs_count + 1,
+                ${countColumn} = repo_users.${countColumn} + 1,
                 last_seen_at = GREATEST(repo_users.last_seen_at, EXCLUDED.last_seen_at),
                 first_seen_at = LEAST(COALESCE(repo_users.first_seen_at, EXCLUDED.first_seen_at), EXCLUDED.first_seen_at)
             `,
@@ -174,17 +194,15 @@ async function syncPRs(repoId) {
           );
 
           totalProcessed += 1;
-        } catch (prError) {
+        } catch (itemError) {
           hadProcessingErrors = true;
-          if (prError.code === POSTGRES.UNIQUE_VIOLATION) {
-            // Unique constraint on activity_events - skip duplicate
+          if (itemError.code === POSTGRES.UNIQUE_VIOLATION) {
             continue;
           }
-          console.error(`Error processing PR #${prNumber} (id ${prId}):`, prError.message);
+          console.error(`Error processing ${itemLabel} #${itemNumber} (id ${itemId}):`, itemError.message);
         }
       }
 
-      // If we hit the Search API cap boundary, do not advance watermark (risk of missed PRs).
       if (page === maxPage && items.length === perPage) {
         hitSearchCap = true;
       }
@@ -197,7 +215,7 @@ async function syncPRs(repoId) {
       }
       page += 1;
     } catch (apiError) {
-      console.error('Error fetching PRs from GitHub API:', apiError.message);
+      console.error(fetchErrorMessage, apiError.message);
       if (apiError.response) {
         console.error('GitHub API status:', apiError.response.status);
         console.error('GitHub API response:', apiError.response.data);
@@ -216,18 +234,32 @@ async function syncPRs(repoId) {
   }
 
   if (hadProcessingErrors || hitSearchCap) {
-    throw new Error('PR sync incomplete; not advancing last_prs_sync_at');
+    throw new Error(incompleteMessage);
   }
 
-  // Update last_prs_sync_at only after successful sync
   await pool.query(
-    'UPDATE repos SET last_prs_sync_at = NOW() WHERE github_repo_id = $1',
+    `UPDATE repos SET ${lastSyncColumn} = NOW() WHERE github_repo_id = $1`,
     [repoId]
   );
 
   return totalProcessed;
 }
 
+/**
+ * Sync pull requests for a single repository.
+ */
+async function syncPRs(repoId) {
+  return syncSearchItems(repoId, 'pr');
+}
+
+/**
+ * Sync GitHub issues for a single repository.
+ */
+async function syncIssues(repoId) {
+  return syncSearchItems(repoId, 'issue');
+}
+
 module.exports = {
   syncPRs,
+  syncIssues,
 };

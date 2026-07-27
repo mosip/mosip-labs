@@ -19,6 +19,7 @@ import type { Organization } from "./lib/organizations";
 /* SVG ICON IMPORTS */
 import PRIcon from "./assets/PRIcon.svg";
 import CodeReviewIcon from "./assets/CodeReviewIcon.svg";
+import IssueIcon from "./assets/IssueIcon.svg";
 import TotalActivityIcon from "./assets/TotalActivityIcon.svg";
 
 function App() {
@@ -120,6 +121,7 @@ function App() {
           project: "—",
           prs: u.prs,
           reviews: u.reviews,
+          issues: u.issues ?? 0,
           total: u.score,
         }));
 
@@ -179,7 +181,7 @@ function App() {
 
           {!dashboardLoading && !dashboardError && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
                 <StatsCard
                   title="Pull Requests"
                   value={summary?.total_prs ?? 0}
@@ -192,6 +194,13 @@ function App() {
                   value={summary?.total_reviews ?? 0}
                   change={summary?.change?.reviews}
                   icon={CodeReviewIcon}
+                />
+
+                <StatsCard
+                  title="Issues"
+                  value={summary?.total_issues ?? 0}
+                  change={summary?.change?.issues}
+                  icon={IssueIcon}
                 />
 
                 <StatsCard

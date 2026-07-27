@@ -122,7 +122,7 @@ export const fetchOrgUsers = async (
   limit: number = 20,
   role: string = "all",
   search: string = "",
-  sortBy?: "prs" | "reviews" | null,
+  sortBy?: "prs" | "reviews" | "issues" | null,
   sortOrder: "asc" | "desc" = "desc",
 ) => {
   try {
@@ -164,7 +164,7 @@ export const fetchLeaderboard = async (
   }
 };
 
-// Fetch organization summary (commits, PRs, reviews)
+// Fetch organization summary (commits, PRs, reviews, issues)
 export const fetchOrgSummary = async (
   orgId: string,
   period: string,

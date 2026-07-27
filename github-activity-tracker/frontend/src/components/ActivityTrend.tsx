@@ -23,6 +23,7 @@ interface TrendPoint {
   date: string;
   prs: number;
   reviews: number;
+  issues: number;
 }
 
 interface ActivityTrendProps {
@@ -49,6 +50,15 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
         data: data.map((d) => d.reviews),
         borderColor: "#f59e0b",
         backgroundColor: "#f59e0b",
+        tension: 0.4,
+        pointRadius: 4,
+        pointBorderWidth: 2,
+      },
+      {
+        label: "Issues",
+        data: data.map((d) => d.issues),
+        borderColor: "#7c3aed",
+        backgroundColor: "#7c3aed",
         tension: 0.4,
         pointRadius: 4,
         pointBorderWidth: 2,

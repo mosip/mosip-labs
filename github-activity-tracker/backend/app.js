@@ -2,7 +2,7 @@
  * GitHub Activity Tracker – Backend API
  *
  * Express server that exposes admin sync endpoints to pull repository, commit,
- * PR, and review data from GitHub into PostgreSQL.
+ * PR, review, and issue data from GitHub into PostgreSQL.
  */
 require('dotenv').config();
 const express = require('express');
@@ -11,6 +11,7 @@ const repoSyncRoute = require('./routes/repoSyncRoute');
 const commitSyncRoute = require('./routes/commitSyncRoute');
 const prSyncRoute = require('./routes/prSyncRoute');
 const reviewSyncRoute = require('./routes/reviewSyncRoute');
+const issueSyncRoute = require('./routes/issueSyncRoute');
 const leaderboardRoute = require('./routes/leaderBoardRoute');
 const orgActivityRoute = require('./routes/orgActivityRoute');
 const orgSummaryRoute = require('./routes/orgSummaryRoute');
@@ -38,6 +39,7 @@ app.get('/', (req, res) => {
       'POST /admin/sync/commits': 'Sync commits for all repositories in DB',
       'POST /admin/sync/prs': 'Sync PRs for all repositories in DB',
       'POST /admin/sync/reviews': 'Sync PR reviews for all repositories in DB',
+      'POST /admin/sync/issues': 'Sync GitHub issues for all repositories in DB',
       'POST /admin/users/role': 'Assign or change job role for a GitHub user',
       'GET /admin/users/:login/role': 'Fetch job role for a GitHub user',
       'GET /orgs/user-roles': 'List assignable user job roles',
@@ -46,11 +48,12 @@ app.get('/', (req, res) => {
   });
 });
 
-// Mount sync route handlers (POST /admin/sync/repos, /commits, /prs, /reviews)
+// Mount sync route handlers (POST /admin/sync/repos, /commits, /prs, /reviews, /issues)
 app.use(repoSyncRoute);
 app.use(commitSyncRoute);
 app.use(prSyncRoute);
 app.use(reviewSyncRoute);
+app.use(issueSyncRoute);
 app.use(userRoleRoute);
 app.use(userRolesRoute);
 app.use(organizationsRoute);

@@ -48,6 +48,11 @@ function sortUsers(results, sortBy, sortOrder) {
     return;
   }
 
+  if (sortBy === "issues") {
+    results.sort((a, b) => (a.issues - b.issues) * direction);
+    return;
+  }
+
   results.sort((a, b) => {
     if (a.total_activity !== b.total_activity) {
       return (a.total_activity - b.total_activity) * direction;
@@ -109,7 +114,8 @@ async function fetchAssignmentActivityMap(orgId, role, start, end) {
       ud.id AS assignment_id,
       COUNT(*) FILTER (WHERE e.event_type = 'commit') AS commits,
       COUNT(*) FILTER (WHERE e.event_type = 'pr') AS prs,
-      COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews
+      COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews,
+      COUNT(*) FILTER (WHERE e.event_type = 'issue') AS issues
     FROM activity_events e
     JOIN github_users u ON u.id = e.user_id
     JOIN repos r ON r.github_repo_id = e.repo_id
@@ -143,6 +149,7 @@ async function fetchAssignmentActivityMap(orgId, role, start, end) {
       commits: Number(row.commits) || 0,
       prs: Number(row.prs) || 0,
       reviews: Number(row.reviews) || 0,
+      issues: Number(row.issues) || 0,
     };
   });
 
@@ -168,8 +175,8 @@ const getOrgUsers = async (
   const previousMap = await fetchAssignmentActivityMap(orgId, role, prevStart, prevEnd);
 
   const final = assignments.map((row) => {
-    const current = currentMap[row.assignment_id] || { commits: 0, prs: 0, reviews: 0 };
-    const previous = previousMap[row.assignment_id] || { commits: 0, prs: 0, reviews: 0 };
+    const current = currentMap[row.assignment_id] || { commits: 0, prs: 0, reviews: 0, issues: 0 };
+    const previous = previousMap[row.assignment_id] || { commits: 0, prs: 0, reviews: 0, issues: 0 };
 
     return {
       assignment_id: row.assignment_id,
@@ -183,10 +190,12 @@ const getOrgUsers = async (
       commits: current.commits,
       prs: current.prs,
       reviews: current.reviews,
+      issues: current.issues,
       diffCommits: diff(current.commits, previous.commits),
       diffPRs: diff(current.prs, previous.prs),
       diffReviews: diff(current.reviews, previous.reviews),
-      total_activity: current.prs + current.reviews,
+      diffIssues: diff(current.issues, previous.issues),
+      total_activity: current.prs + current.reviews + current.issues,
     };
   });
 
