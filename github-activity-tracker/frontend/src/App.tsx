@@ -33,7 +33,6 @@ function App() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [period, setPeriod] = useState<PeriodValue>(DEFAULT_PERIOD);
   const [role, setRole] = useState("all");
-  const [project, setProject] = useState("all");
 
   const [summary, setSummary] = useState<any | null>(null);
   const [activityChartData, setActivityChartData] = useState<any | null>(null);
@@ -136,7 +135,6 @@ function App() {
 
   const handleOrganizationChange = (org: string) => {
     setSelectedOrg(org);
-    setProject("all");
     setRole("all");
   };
 
@@ -159,8 +157,6 @@ function App() {
           onPeriodChange={setPeriod}
           role={role}
           onRoleChange={setRole}
-          project={project}
-          onProjectChange={setProject}
           onDownloadCSV={() => {}}
           onDownloadJSON={() => {}}
         />
@@ -218,7 +214,6 @@ function App() {
               <TeamMembers
                 org={selectedOrg}
                 role={role}
-                project={project}
                 period={period}
                 onSelectUser={handleSelectUser}
               />

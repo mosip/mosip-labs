@@ -47,11 +47,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
     loadUser();
   }, [org, userName, period]);
 
+  const githubUsername = userData?.login || userName;
+  const githubProfileUrl = `https://github.com/${githubUsername}`;
+
   const profile = {
-    name: userData?.login || userName,
-    email:
-      userData?.email ||
-      `${userName.toLowerCase().replace(" ", ".")}@company.com`,
+    name: githubUsername,
     team: userData?.team || "Frontend Team",
     project: userData?.project || "Project Alpha",
   };
@@ -92,7 +92,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
             <div>
               <h1 className="text-4xl font-bold">{profile.name}</h1>
-              <p className="text-gray-600">{profile.email}</p>
+              <a
+                href={githubProfileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                {githubProfileUrl}
+              </a>
               <p className="text-gray-500">
                 {profile.team} • {profile.project}
               </p>
