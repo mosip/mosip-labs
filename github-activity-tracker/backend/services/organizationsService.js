@@ -2,7 +2,7 @@ const pool = require('../db/dbPool');
 
 async function getAllOrganizations() {
   const result = await pool.query(
-    'SELECT id, slug, name FROM organizations ORDER BY name ASC'
+    'SELECT id, slug, name FROM organizations ORDER BY name DESC'
   );
   return result.rows;
 }

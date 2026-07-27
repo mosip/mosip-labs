@@ -25,9 +25,6 @@ interface TopNavProps {
   role: string;
   onRoleChange: (value: string) => void;
 
-  project: string;
-  onProjectChange: (value: string) => void;
-
   onDownloadCSV: () => void;
   onDownloadJSON: () => void;
 }
@@ -43,8 +40,6 @@ const TopNav: React.FC<TopNavProps> = ({
   onOrganizationChange,
   role,
   onRoleChange,
-  project,
-  onProjectChange,
   onDownloadCSV,
   onDownloadJSON,
 }) => {
@@ -205,24 +200,6 @@ const TopNav: React.FC<TopNavProps> = ({
                 {userRole}
               </option>
             ))}
-          </select>
-        </div>
-
-        {/* PROJECT */}
-        <div className="flex flex-col">
-          <label className="text-gray-600 text-sm font-medium mb-2">
-            Project
-          </label>
-
-          <select
-            value={project}
-            onChange={(e) => onProjectChange(e.target.value)}
-            className={filterSelectClass}
-          >
-            <option value="all">All Projects</option>
-            <option value="alpha">Project Alpha</option>
-            <option value="beta">Project Beta</option>
-            <option value="gamma">Project Gamma</option>
           </select>
         </div>
 

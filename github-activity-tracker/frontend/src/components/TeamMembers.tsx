@@ -14,7 +14,6 @@ const UserIcon = () => (
 interface TeamMembersProps {
   org: string;
   role: string;
-  project: string;
   period: PeriodValue;
   onSelectUser?: (name: string) => void;
 }
@@ -79,7 +78,6 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({
 const TeamMembers: React.FC<TeamMembersProps> = ({
   org,
   role,
-  project,
   period,
   onSelectUser,
 }) => {
@@ -131,7 +129,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
   }, [org, period, page, limit, role, appliedSearch, sortBy, sortOrder]);
   useEffect(() => {
     setPage(1);
-  }, [org, role, project, period]);
+  }, [org, role, period]);
 
   const handleSearch = () => {
     setPage(1);
