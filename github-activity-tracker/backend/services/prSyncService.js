@@ -3,6 +3,7 @@ const pool = require('../db/dbPool');
 const { GITHUB, POSTGRES } = require('../config/errorCodes');
 const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
 const { upsertGitHubUser } = require('./githubUserService');
+const { parsePullNumberFromUrl, fetchPRChangedFiles } = require('../utils/prFileChanges');
 
 const SEARCH_SYNC_CONFIG = {
   pr: {
@@ -24,6 +25,47 @@ const SEARCH_SYNC_CONFIG = {
     fetchErrorMessage: 'Error fetching issues from GitHub API:',
   },
 };
+
+async function rebuildPrFileChangeTotals(repoId, deps = {}) {
+  const db = deps.pool || pool;
+  await db.query(
+    `UPDATE repo_users ru
+     SET pr_files_changed_total = totals.files_changed
+     FROM (
+       SELECT user_id, COALESCE(SUM(files_changed), 0) AS files_changed
+       FROM activity_events
+       WHERE repo_id = $1 AND event_type = 'pr'
+       GROUP BY user_id
+     ) totals
+     WHERE ru.repo_id = $1 AND ru.user_id = totals.user_id`,
+    [repoId]
+  );
+}
+
+async function backfillMissingFilesChanged(repoId, owner, name, deps = {}) {
+  const db = deps.pool || pool;
+  const fetchFn = deps.fetchPRChangedFiles
+    || ((client, o, n, num) => fetchPRChangedFiles(client, o, n, num));
+  const client = deps.githubClient || githubClient;
+
+  const { rows } = await db.query(
+    `SELECT event_id, html_url FROM activity_events WHERE repo_id = $1 AND event_type = 'pr' AND files_changed IS NULL`,
+    [repoId]
+  );
+
+  for (const row of rows) {
+    const prNumber = parsePullNumberFromUrl(row.html_url);
+    if (!prNumber) continue;
+
+    const filesChanged = await fetchFn(client, owner, name, prNumber);
+    if (filesChanged == null) continue;
+
+    await db.query(
+      `UPDATE activity_events SET files_changed = $1 WHERE event_type = 'pr' AND event_id = $2 AND files_changed IS NULL`,
+      [filesChanged, row.event_id]
+    );
+  }
+}
 
 /**
  * Sync GitHub search items (PRs or issues) for a single repository.
@@ -142,18 +184,41 @@ async function syncSearchItems(repoId, syncKind) {
             userIdCache.set(github_user_id, userId);
           }
 
+          let filesChanged = null;
+          if (syncKind === 'pr' && itemNumber) {
+            const existingEvent = await pool.query(
+              `SELECT files_changed FROM activity_events WHERE event_type = $1 AND event_id = $2`,
+              [eventType, String(itemId)]
+            );
+
+            if (existingEvent.rowCount === 0 || existingEvent.rows[0].files_changed == null) {
+              filesChanged = await fetchPRChangedFiles(githubClient, owner, name, itemNumber);
+            }
+          }
+
           const eventInsert = await pool.query(
             `
-              INSERT INTO activity_events (event_type, event_id, repo_id, user_id, html_url, created_at)
-              VALUES ($1, $2, $3, $4, $5, $6)
+              INSERT INTO activity_events (event_type, event_id, repo_id, user_id, html_url, created_at, files_changed)
+              VALUES ($1, $2, $3, $4, $5, $6, $7)
               ON CONFLICT (event_type, event_id)
               DO NOTHING
               RETURNING id
             `,
-            [eventType, String(itemId), repoId, userId, item.html_url || null, createdAt]
+            [eventType, String(itemId), repoId, userId, item.html_url || null, createdAt, filesChanged]
           );
 
           if (eventInsert.rowCount === 0) {
+            if (syncKind === 'pr' && filesChanged != null) {
+              await pool.query(
+                `
+                  UPDATE activity_events
+                  SET files_changed = $1
+                  WHERE event_type = $2 AND event_id = $3 AND files_changed IS NULL
+                `,
+                [filesChanged, eventType, String(itemId)]
+              );
+            }
+
             await pool.query(
               `
                 INSERT INTO repo_users (repo_id, user_id, first_seen_at, last_seen_at)
@@ -180,18 +245,34 @@ async function syncSearchItems(repoId, syncKind) {
             continue;
           }
 
-          await pool.query(
-            `
-              INSERT INTO repo_users (repo_id, user_id, ${countColumn}, first_seen_at, last_seen_at)
-              VALUES ($1, $2, 1, $3, $3)
-              ON CONFLICT (repo_id, user_id)
-              DO UPDATE SET
-                ${countColumn} = repo_users.${countColumn} + 1,
-                last_seen_at = GREATEST(repo_users.last_seen_at, EXCLUDED.last_seen_at),
-                first_seen_at = LEAST(COALESCE(repo_users.first_seen_at, EXCLUDED.first_seen_at), EXCLUDED.first_seen_at)
-            `,
-            [repoId, userId, createdAt]
-          );
+          if (syncKind === 'pr') {
+            await pool.query(
+              `
+                INSERT INTO repo_users (repo_id, user_id, ${countColumn}, pr_files_changed_total, first_seen_at, last_seen_at)
+                VALUES ($1, $2, 1, $3, $4, $4)
+                ON CONFLICT (repo_id, user_id)
+                DO UPDATE SET
+                  ${countColumn} = repo_users.${countColumn} + 1,
+                  pr_files_changed_total = COALESCE(repo_users.pr_files_changed_total, 0) + $3,
+                  last_seen_at = GREATEST(repo_users.last_seen_at, EXCLUDED.last_seen_at),
+                  first_seen_at = LEAST(COALESCE(repo_users.first_seen_at, EXCLUDED.first_seen_at), EXCLUDED.first_seen_at)
+              `,
+              [repoId, userId, filesChanged ?? 0, createdAt]
+            );
+          } else {
+            await pool.query(
+              `
+                INSERT INTO repo_users (repo_id, user_id, ${countColumn}, first_seen_at, last_seen_at)
+                VALUES ($1, $2, 1, $3, $3)
+                ON CONFLICT (repo_id, user_id)
+                DO UPDATE SET
+                  ${countColumn} = repo_users.${countColumn} + 1,
+                  last_seen_at = GREATEST(repo_users.last_seen_at, EXCLUDED.last_seen_at),
+                  first_seen_at = LEAST(COALESCE(repo_users.first_seen_at, EXCLUDED.first_seen_at), EXCLUDED.first_seen_at)
+              `,
+              [repoId, userId, createdAt]
+            );
+          }
 
           totalProcessed += 1;
         } catch (itemError) {
@@ -233,6 +314,11 @@ async function syncSearchItems(repoId, syncKind) {
     }
   }
 
+  if (syncKind === 'pr') {
+    await backfillMissingFilesChanged(repoId, owner, name);
+    await rebuildPrFileChangeTotals(repoId);
+  }
+
   if (hadProcessingErrors || hitSearchCap) {
     throw new Error(incompleteMessage);
   }
@@ -245,16 +331,10 @@ async function syncSearchItems(repoId, syncKind) {
   return totalProcessed;
 }
 
-/**
- * Sync pull requests for a single repository.
- */
 async function syncPRs(repoId) {
   return syncSearchItems(repoId, 'pr');
 }
 
-/**
- * Sync GitHub issues for a single repository.
- */
 async function syncIssues(repoId) {
   return syncSearchItems(repoId, 'issue');
 }
@@ -262,4 +342,6 @@ async function syncIssues(repoId) {
 module.exports = {
   syncPRs,
   syncIssues,
+  backfillMissingFilesChanged,
+  rebuildPrFileChangeTotals,
 };
