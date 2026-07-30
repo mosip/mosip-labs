@@ -114,6 +114,7 @@ async function fetchAssignmentActivityMap(orgId, role, start, end) {
       ud.id AS assignment_id,
       COUNT(*) FILTER (WHERE e.event_type = 'commit') AS commits,
       COUNT(*) FILTER (WHERE e.event_type = 'pr') AS prs,
+      COALESCE(SUM(e.files_changed) FILTER (WHERE e.event_type = 'pr'), 0) AS pr_files_changed,
       COUNT(*) FILTER (WHERE e.event_type = 'review') AS reviews,
       COUNT(*) FILTER (WHERE e.event_type = 'issue') AS issues
     FROM activity_events e
@@ -148,6 +149,7 @@ async function fetchAssignmentActivityMap(orgId, role, start, end) {
     map[row.assignment_id] = {
       commits: Number(row.commits) || 0,
       prs: Number(row.prs) || 0,
+      pr_files_changed: Number(row.pr_files_changed) || 0,
       reviews: Number(row.reviews) || 0,
       issues: Number(row.issues) || 0,
     };
@@ -175,8 +177,8 @@ const getOrgUsers = async (
   const previousMap = await fetchAssignmentActivityMap(orgId, role, prevStart, prevEnd);
 
   const final = assignments.map((row) => {
-    const current = currentMap[row.assignment_id] || { commits: 0, prs: 0, reviews: 0, issues: 0 };
-    const previous = previousMap[row.assignment_id] || { commits: 0, prs: 0, reviews: 0, issues: 0 };
+    const current = currentMap[row.assignment_id] || { commits: 0, prs: 0, pr_files_changed: 0, reviews: 0, issues: 0 };
+    const previous = previousMap[row.assignment_id] || { commits: 0, prs: 0, pr_files_changed: 0, reviews: 0, issues: 0 };
 
     return {
       assignment_id: row.assignment_id,
@@ -189,6 +191,7 @@ const getOrgUsers = async (
       active_to: row.active_to,
       commits: current.commits,
       prs: current.prs,
+      pr_files_changed: current.pr_files_changed,
       reviews: current.reviews,
       issues: current.issues,
       diffCommits: diff(current.commits, previous.commits),

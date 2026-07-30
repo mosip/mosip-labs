@@ -170,8 +170,9 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
       <div className="overflow-x-auto">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[35%]" />
-            <col className="w-[20%]" />
+            <col className="w-[25%]" />
+            <col className="w-[15%]" />
+            <col className="w-[15%]" />
             <col className="w-[15%]" />
             <col className="w-[15%]" />
             <col className="w-[15%]" />
@@ -187,6 +188,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
                 sortOrder={sortOrder}
                 onSort={handleSort}
               />
+              <th className="px-4 py-3 font-semibold text-center">File Changes</th>
               <SortableHeader
                 label="Reviews"
                 field="reviews"
@@ -258,6 +260,10 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
                     ({m.diffPRs > 0 ? "+" : ""}
                     {m.diffPRs})
                   </div>
+                </td>
+
+                <td className="px-4 py-4 text-center font-semibold text-gray-900">
+                  {m.pr_files_changed ?? 0}
                 </td>
 
                 <td className="px-4 py-4 text-center">
