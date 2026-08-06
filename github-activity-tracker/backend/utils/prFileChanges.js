@@ -9,8 +9,10 @@ function parsePullNumberFromUrl(htmlUrl) {
 async function fetchPRChangedFiles(githubClient, owner, name, prNumber) {
   try {
     const response = await githubClient.get(`/repos/${owner}/${name}/pulls/${prNumber}`);
-    const changedFiles = Number(response.data?.changed_files);
-    return Number.isFinite(changedFiles) ? changedFiles : null;
+    const changedFiles = response.data?.changed_files;
+    return Number.isInteger(changedFiles) && changedFiles >= 0
+      ? changedFiles
+      : null;
   } catch (err) {
     console.error(`Error fetching PR #${prNumber} file changes:`, err.message);
     return null;

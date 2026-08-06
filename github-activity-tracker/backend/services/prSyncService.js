@@ -48,9 +48,14 @@ async function backfillMissingFilesChanged(repoId, owner, name, deps = {}) {
     || ((client, o, n, num) => fetchPRChangedFiles(client, o, n, num));
   const client = deps.githubClient || githubClient;
 
+  const batchSize = 100;
   const { rows } = await db.query(
-    `SELECT event_id, html_url FROM activity_events WHERE repo_id = $1 AND event_type = 'pr' AND files_changed IS NULL`,
-    [repoId]
+    `SELECT event_id, html_url
+     FROM activity_events
+     WHERE repo_id = $1 AND event_type = 'pr' AND files_changed IS NULL
+     ORDER BY event_id
+     LIMIT $2`,
+    [repoId, batchSize]
   );
 
   for (const row of rows) {
