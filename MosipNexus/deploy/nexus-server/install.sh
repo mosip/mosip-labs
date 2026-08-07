@@ -44,6 +44,11 @@ fi
 # (@ : / # ?) that would otherwise corrupt the derived PG_CONNECTION URL.
 function urlencode() {
   local s="$1" out="" c i
+  # Force byte-wise (not locale-aware character-wise) indexing — under a
+  # UTF-8 locale, ${#s}/${s:$i:1} iterate by character, so a multi-byte char
+  # like "ä" mis-encodes as a single truncated byte instead of its real
+  # 2-byte UTF-8 sequence, corrupting PG_CONNECTION for non-ASCII passwords.
+  local LC_ALL=C
   for (( i=0; i<${#s}; i++ )); do
     c="${s:$i:1}"
     case "$c" in
