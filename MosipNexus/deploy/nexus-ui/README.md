@@ -2,10 +2,9 @@
 
 Thin automation wrapper around [`../../helm/nexus-ui`](../../helm/nexus-ui/README.md).
 Mirrors the `deploy/<component>/install.sh` / `delete.sh` / `restart.sh`
-convention used across other MOSIP repos. References the chart by local path
-— deliberate, so these scripts always deploy whatever's checked out locally
-(see [chart README → Publishing](../../helm/nexus-ui/README.md#publishing)
-for the published-chart path instead).
+convention used across other MOSIP repos. Installs from the **published**
+Helm repo (`helm repo add mosip https://mosip.github.io/mosip-helm`, chart
+`mosip/nexus-ui`), added/updated automatically on every run.
 
 **Run [`deploy/nexus-server`](../nexus-server/README.md) first** — this
 chart's nginx proxies same-origin `/api/*` to the `nexus-api` Service that

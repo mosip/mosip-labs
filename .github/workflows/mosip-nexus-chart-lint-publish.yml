@@ -51,7 +51,13 @@ jobs:
       CHARTS_URL: https://mosip.github.io/mosip-helm
       REPOSITORY: mosip-helm
       BRANCH: gh-pages
-      INCLUDE_ALL_CHARTS: "${{ inputs.INCLUDE_ALL_CHARTS || 'NO' }}"
+      # Always YES: kattu's changed-chart detection greps changed file paths for a
+      # "/charts/" path segment to build an ignore-list, but this dir is "helm/",
+      # not "charts/" — that regex never matches, so CHARTS_MODIFIED comes back
+      # empty and BOTH charts land in the ignore list ("CHARTS list is empty;
+      # SKIPPING OPERATION" — silently skips lint AND publish, every run). We
+      # only have two small charts here, so always processing both is fine.
+      INCLUDE_ALL_CHARTS: "${{ inputs.INCLUDE_ALL_CHARTS || 'YES' }}"
       IGNORE_CHARTS: "${{ inputs.IGNORE_CHARTS || '' }}"
       # pull_request runs are always lint-only — never publish credentials to a PR build.
       CHART_PUBLISH: "${{ github.event_name == 'pull_request' && 'NO' || (inputs.CHART_PUBLISH || 'YES') }}"

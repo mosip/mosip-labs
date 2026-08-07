@@ -5,6 +5,7 @@
 ## Prerequisite: deploy/nexus-server/install.sh already ran successfully in
 ## the same namespace — this chart's nginx proxies same-origin /api/* to the
 ## "nexus-api" Service created by that release.
+## Installs from the published chart (mosip/nexus-ui @ https://mosip.github.io/mosip-helm).
 ## Env: ROLLOUT_TIMEOUT  max time to wait for the rollout (default 10m).
 
 if [ $# -ge 1 ] && [ -n "$1" ] ; then
@@ -13,7 +14,9 @@ fi
 
 NS=mosip-nexus
 RELEASE=nexus-ui
-CHART_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../helm/nexus-ui" && pwd)"
+CHART_REPO=mosip
+CHART_REPO_URL=https://mosip.github.io/mosip-helm
+CHART_NAME=nexus-ui
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-10m}"
 VALUES_ARGS=()
 if [ $# -ge 2 ] && [ -n "$2" ] ; then
@@ -30,8 +33,12 @@ function installing_nexus_ui() {
   echo "Creating $NS namespace (no-op if it already exists)"
   kubectl create ns "$NS" --dry-run=client -o yaml | kubectl apply -f -
 
-  echo "Installing/upgrading $RELEASE from $CHART_DIR"
-  helm -n "$NS" upgrade --install "$RELEASE" "$CHART_DIR" "${VALUES_ARGS[@]}" --wait
+  echo "Adding/updating the '$CHART_REPO' Helm repo ($CHART_REPO_URL)"
+  helm repo add "$CHART_REPO" "$CHART_REPO_URL" >/dev/null 2>&1 || true
+  helm repo update "$CHART_REPO" >/dev/null
+
+  echo "Installing/upgrading $RELEASE from $CHART_REPO/$CHART_NAME (published chart)"
+  helm -n "$NS" upgrade --install "$RELEASE" "$CHART_REPO/$CHART_NAME" "${VALUES_ARGS[@]}" --wait
 
   kubectl -n "$NS" rollout status deployment/nexus-ui --timeout="$ROLLOUT_TIMEOUT"
   echo "Installed $RELEASE"
