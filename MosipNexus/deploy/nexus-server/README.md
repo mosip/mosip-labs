@@ -30,10 +30,10 @@ passed via `--set` (shell history, CI logs). The first time you run
 `install.sh`, if the `nexus-env` Secret doesn't already exist in the
 namespace:
 
-- interactively prompts (hidden input) for a PostgreSQL password — or set the
-  `POSTGRES_PASSWORD` env var to skip the prompt (e.g. for CI). A password is
-  **never** auto-generated; if the shell isn't interactive and the env var
-  isn't set, the script errors out rather than silently making one up
+- interactively prompts (hidden input) for a PostgreSQL password — this is
+  the **only** way to supply it. There is no env var shortcut and it's never
+  auto-generated; if the shell isn't a real TTY, the script errors out
+  rather than silently making one up or reading it from the environment
 - derives `PG_CONNECTION` from it automatically (password is percent-encoded,
   so special characters are safe)
 - creates the Secret directly with `kubectl create secret generic` —

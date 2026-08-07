@@ -12,15 +12,13 @@
 ## Env: ROLLOUT_TIMEOUT  max time to wait for the rollout (default 10m) —
 ##      `kubectl rollout status` has no timeout by default and would otherwise
 ##      block indefinitely if the Deployment can't become ready.
-##      POSTGRES_PASSWORD  skip the interactive password prompt (e.g. for CI).
-##      Only consulted the first time the "nexus-env" Secret is created.
 ##
 ## Secrets: POSTGRES_PASSWORD/PG_CONNECTION are never stored in a values file,
-## passed via `--set`, or auto-generated — always supplied by you, either
-## interactively (hidden prompt) or via the POSTGRES_PASSWORD env var for
-## non-interactive/CI use. The "nexus-env" Secret is created directly with
-## `kubectl` — NOT by Helm (`secret.create=false` + `secret.existingSecret=nexus-env`)
-## — so `helm uninstall` / `./delete.sh` never deletes it, and it's what the
+## passed via `--set`, put in an env var, or auto-generated — the only way to
+## supply them is the interactive hidden prompt below, run in a real TTY. The
+## "nexus-env" Secret is created directly with `kubectl` — NOT by Helm
+## (`secret.create=false` + `secret.existingSecret=nexus-env`) — so
+## `helm uninstall` / `./delete.sh` never deletes it, and it's what the
 ## Deployment actually reads its env from (`envFrom: secretRef`). Re-running
 ## this script checks whether the Secret already exists first; if so nothing
 ## is prompted or overwritten.
@@ -64,21 +62,18 @@ function ensure_secret() {
   fi
 
   echo "Secret '$SECRET_NAME' not found in namespace '$NS' — creating it now (one-time)."
-  local password="${POSTGRES_PASSWORD:-}"
-  if [ -z "$password" ] ; then
-    if [ -t 0 ] ; then
-      while [ -z "$password" ] ; do
-        read -rs -p "Enter a PostgreSQL password for the 'mosip' user: " password
-        echo
-      done
-    else
-      echo "ERROR: '$SECRET_NAME' doesn't exist and this shell isn't interactive." >&2
-      echo "Set the POSTGRES_PASSWORD env var before running this script (e.g. for CI)," >&2
-      echo "or run it interactively so it can prompt you for one. A password is never" >&2
-      echo "auto-generated — it must always come from you." >&2
-      return 1
-    fi
+  if [ ! -t 0 ] ; then
+    echo "ERROR: '$SECRET_NAME' doesn't exist and this shell isn't interactive." >&2
+    echo "Run this script interactively so it can prompt you for a PostgreSQL" >&2
+    echo "password — it is always supplied by you, never an env var or auto-generated." >&2
+    return 1
   fi
+
+  local password=""
+  while [ -z "$password" ] ; do
+    read -rs -p "Enter a PostgreSQL password for the 'mosip' user: " password
+    echo
+  done
 
   local pg_connection="postgresql+psycopg://mosip:$(urlencode "$password")@nexus-postgres:5432/mosipnexus"
 
