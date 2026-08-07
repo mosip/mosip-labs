@@ -31,8 +31,8 @@ it creates, in the same `mosip-nexus` namespace.
 - `install.sh` installs from the **published** Helm repo (`helm repo add
   mosip https://mosip.github.io/mosip-helm`), added/updated automatically —
   not a local chart checkout. The chart version is pinned (`CHART_VERSION`
-  env var, defaults to the current chart version) so a routine redeploy
-  can't silently pick up an incompatible newer chart — bump it deliberately.
+  env var, defaults to `1.0.0`) so a routine redeploy can't silently pick up
+  an incompatible newer chart — bump it deliberately.
 - `install.sh` uses `helm upgrade --install` (idempotent, safe to re-run)
   rather than a plain `helm install`.
 - `nexus-server`'s `install.sh` never lets Helm own the `nexus-env` Secret

@@ -85,14 +85,25 @@ function ensure_secret() {
   # here would create a Secret nexus-api/postgres disagree on, breaking DB
   # connectivity until they're reconciled by hand. Require an explicit
   # confirmation instead of guessing.
-  if kubectl -n "$NS" get pvc postgres-data >/dev/null 2>&1 ; then
+  # --ignore-not-found distinguishes "confirmed absent" (empty output, exit 0)
+  # from a real kubectl error (Forbidden, timeout, wrong kubeconfig, ...) —
+  # treating the latter as "PVC absent" would skip the confirmation below and
+  # let a mismatched Secret get created against an existing database.
+  local postgres_pvc
+  if ! postgres_pvc=$(kubectl -n "$NS" get pvc postgres-data --ignore-not-found -o name) ; then
+    echo "ERROR: Could not determine whether the 'postgres-data' PVC exists" >&2
+    echo "(kubectl error above) — refusing to guess. Fix cluster access and retry." >&2
+    return 1
+  fi
+  if [ -n "$postgres_pvc" ] ; then
     echo "WARNING: Secret '$SECRET_NAME' is missing, but the 'postgres-data' PVC" >&2
     echo "already exists in namespace '$NS'. Postgres only applies a Secret's" >&2
     echo "POSTGRES_PASSWORD on first bootstrap (empty PGDATA), so this PVC almost" >&2
     echo "certainly has a database whose actual role password is something ELSE." >&2
     echo "The password you're about to enter must ALREADY match it — e.g. you just ran:" >&2
-    echo "  kubectl -n $NS exec -it nexus-postgres-0 -- psql -U mosip -d mosipnexus \\" >&2
-    echo "    -c \"ALTER ROLE mosip PASSWORD '<the password you will type next>';\"" >&2
+    echo "  kubectl -n $NS exec -it nexus-postgres-0 -- psql -U mosip -d mosipnexus" >&2
+    echo "  (then, at the psql prompt: \\password mosip — never pass a password via" >&2
+    echo "  'psql -c', it would land in shell history and the server log)" >&2
     echo >&2
     local confirm=""
     read -r -p "Type YES if the database password already matches what you're about to enter: " confirm

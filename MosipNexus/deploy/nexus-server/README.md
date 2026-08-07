@@ -10,9 +10,9 @@ convention used across other MOSIP repos, with two deliberate differences:
 - `install.sh` installs from the **published** Helm repo
   (`helm repo add mosip https://mosip.github.io/mosip-helm`, chart
   `mosip/nexus-server`), added/updated automatically on every run, at a
-  **pinned version** (`CHART_VERSION` env var, defaults to the chart's
-  current version) — a routine redeploy always gets exactly that version,
-  not whatever's newest. Bump it deliberately: `CHART_VERSION=1.1.0 ./install.sh`.
+  **pinned version** (`CHART_VERSION` env var, defaults to `1.0.0`) — a
+  routine redeploy always gets exactly that version, not whatever's newest.
+  Bump it deliberately: `CHART_VERSION=1.1.0 ./install.sh`.
 
 ## Install / upgrade
 
@@ -56,7 +56,10 @@ holding stale connections:
 
 ```bash
 kubectl -n mosip-nexus exec -it nexus-postgres-0 -- \
-  psql -U mosip -d mosipnexus -c "ALTER ROLE mosip PASSWORD '<new password>';"
+  psql -U mosip -d mosipnexus
+# At the psql prompt (avoids the password ever landing in shell history or
+# the server log — never pass it via `psql -c "ALTER ROLE ... PASSWORD"`):
+#   \password mosip
 kubectl -n mosip-nexus delete secret nexus-env
 ./install.sh   # detects postgres-data already exists, asks you to confirm
                # you just changed it to match, then prompts for the SAME
