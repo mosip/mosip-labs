@@ -44,7 +44,7 @@ helm install nexus-server mosip/nexus-server \
 helm install nexus-server . --namespace mosip-nexus --create-namespace -f my-secrets.yaml
 ```
 
-(Chart fails to render without `secret.env.POSTGRES_PASSWORD`/`PG_CONNECTION` set — see [Secrets](#secrets).)
+(With `secret.create: true`, provide the `secret.env` values required by the selected database mode. With `secret.create: false`, set `secret.existingSecret` instead — see [Secrets](#secrets).)
 
 One install serves **both** MOSIP and Inji — the client picks the product
 per-request (`X-Nexus-Product` header / `product` field), there's no
@@ -113,11 +113,13 @@ CI lints and publishes this chart via [`.github/workflows/mosip-nexus-chart-lint
 same one other MOSIP repos and `github-activity-tracker` (this repo's other
 labs project) use. `CHARTS_DIR: ./MosipNexus/helm` discovers and
 publishes both `nexus-server` and `nexus-ui` in one job. Runs on
-`release: published`, pushes to `master`/`develop` touching `helm/**`, or
-manual `workflow_dispatch`. Publishes to `https://mosip.github.io/mosip-helm`
-(`gh-pages` branch of `mosip/mosip-helm`) alongside every other MOSIP module
-chart. `CHART_PUBLISH` defaults to `YES` on push/release and `NO` on manual
-dispatch (lint-only dry run unless you explicitly opt in).
+`release: published`, pushes to `master`/`develop` touching `helm/**`,
+`pull_request` (paths: `MosipNexus/helm/**`), or manual `workflow_dispatch`.
+Publishes to `https://mosip.github.io/mosip-helm` (`gh-pages` branch of
+`mosip/mosip-helm`) alongside every other MOSIP module chart. `CHART_PUBLISH`
+defaults to `YES` on push/release, `NO` on manual dispatch (lint-only dry run
+unless you explicitly opt in), and is always forced to `NO` on `pull_request`
+— PR runs lint-only and never receive the publishing credentials.
 
 ## Related
 

@@ -76,9 +76,10 @@ aren't obvious from a first read of the templates:
   in `nexus-server`, `routing.mode` in `nexus-ui`) defaults to `istio`, which
   renders a `VirtualService` against an existing Istio `Gateway` — not an
   `Ingress`. "Just add an ingress" instincts will silently do nothing on a
-  default install unless you also set `routing.mode: nginx`. Worse: an
-  invalid value (typo, wrong case) currently renders **neither** resource
-  with **no error** — see chart README for the fix status.
+  default install unless you also set `routing.mode: nginx`. An invalid
+  value (typo, wrong case) fails the render immediately with a clear error
+  (`validateRoutingMode` in `_helpers.tpl`, invoked from `service.yaml`) —
+  it does not silently render neither resource.
 - **Resource names are fixed, not release-templated.** `nexus-api`,
   `nexus-postgres`, `nexus-env`, etc. are hardcoded in every template, not
   derived from `{{ .Release.Name }}`. This is deliberate (matches the raw

@@ -93,6 +93,20 @@ routing:
     hosts:
       - dashboard.nexus.mosip.net
     prefix: /
+    ## TLS termination at the created Gateway (only applies when
+    ## createGateway: true). When enabled, the Gateway listens on `tlsPort`
+    ## with SIMPLE TLS using a Kubernetes Secret named `tls.credentialName`
+    ## (type kubernetes.io/tls) in the ingress gateway's namespace, instead of
+    ## plain HTTP on `istioPort`.
+    tls:
+      enabled: false
+      credentialName: ""
+    tlsPort: 443
+    ## When createGateway: false (attaching to an existing Gateway you don't
+    ## control here), this chart can't know whether that Gateway terminates
+    ## TLS — set explicitly. Only affects the x-forwarded-proto header the
+    ## VirtualService sets for nexus-api.
+    existingGatewayTls: true
 
 extraEnvVars: []
 extraEnvVarsCM: []
@@ -103,7 +117,22 @@ podLabels: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+## fsGroup makes the emptyDir volumes mounted at /var/cache/nginx and
+## /var/run group-writable by the pod's supplementary group, regardless of
+## the exact UID the nginx:1.27-alpine image's "nginx" user was assigned at
+## build time (Alpine's apk creates it with -S, no fixed UID) — this is the
+## only thing that needs the containers to actually be writable there when
+## containerSecurityContext.readOnlyRootFilesystem is true.
 podSecurityContext:
-  enabled: false
+  enabled: true
+  fsGroup: 101
+  seccompProfile:
+    type: RuntimeDefault
 containerSecurityContext:
-  enabled: false
+  enabled: true
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

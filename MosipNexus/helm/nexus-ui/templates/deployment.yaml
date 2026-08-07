@@ -65,3 +65,13 @@ spec:
           {{- if .Values.readinessProbe.enabled }}
           readinessProbe: {{- omit .Values.readinessProbe "enabled" | toYaml | nindent 12 }}
           {{- end }}
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}

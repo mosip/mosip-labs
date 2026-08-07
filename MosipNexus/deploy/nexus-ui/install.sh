@@ -5,6 +5,7 @@
 ## Prerequisite: deploy/nexus-server/install.sh already ran successfully in
 ## the same namespace — this chart's nginx proxies same-origin /api/* to the
 ## "nexus-api" Service created by that release.
+## Env: ROLLOUT_TIMEOUT  max time to wait for the rollout (default 10m).
 
 if [ $# -ge 1 ] && [ -n "$1" ] ; then
   export KUBECONFIG=$1
@@ -13,6 +14,7 @@ fi
 NS=mosip-nexus
 RELEASE=nexus-ui
 CHART_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../helm/nexus-ui" && pwd)"
+ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-10m}"
 VALUES_ARGS=()
 if [ $# -ge 2 ] && [ -n "$2" ] ; then
   VALUES_ARGS=(-f "$2")
@@ -20,8 +22,9 @@ fi
 
 function installing_nexus_ui() {
   if ! kubectl -n "$NS" get svc nexus-api >/dev/null 2>&1 ; then
-    echo "WARNING: Service 'nexus-api' not found in namespace '$NS'."
-    echo "Run deploy/nexus-server/install.sh first, or the UI will 502 on /api/*."
+    echo "ERROR: Service 'nexus-api' not found in namespace '$NS'."
+    echo "Run deploy/nexus-server/install.sh first — the UI proxies /api/* to it."
+    exit 1
   fi
 
   echo "Creating $NS namespace (no-op if it already exists)"
@@ -30,7 +33,7 @@ function installing_nexus_ui() {
   echo "Installing/upgrading $RELEASE from $CHART_DIR"
   helm -n "$NS" upgrade --install "$RELEASE" "$CHART_DIR" "${VALUES_ARGS[@]}" --wait
 
-  kubectl -n "$NS" rollout status deployment/nexus-ui
+  kubectl -n "$NS" rollout status deployment/nexus-ui --timeout="$ROLLOUT_TIMEOUT"
   echo "Installed $RELEASE"
   return 0
 }

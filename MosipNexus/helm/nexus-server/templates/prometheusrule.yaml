@@ -15,7 +15,7 @@ spec:
       rules:
         - alert: NexusUpdaterFailed
           expr: |
-            kube_job_failed{namespace="{{ .Values.namespace }}", job_name=~"nexus-updater-.*"} > 0
+            kube_job_failed{namespace="{{ .Values.namespace }}", job_name=~"nexus-updater-.*", condition=~"true|unknown"} > 0
           for: 5m
           labels:
             severity: critical
@@ -25,7 +25,7 @@ spec:
 
         - alert: NexusBackupFailed
           expr: |
-            kube_job_failed{namespace="{{ .Values.namespace }}", job_name=~"nexus-db-backup-.*"} > 0
+            kube_job_failed{namespace="{{ .Values.namespace }}", job_name=~"nexus-db-backup-.*", condition=~"true|unknown"} > 0
           for: 5m
           labels:
             severity: warning

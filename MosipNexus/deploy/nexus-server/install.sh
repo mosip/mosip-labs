@@ -4,6 +4,9 @@
 ##   kubeconfig   optional path to a kubeconfig (defaults to $KUBECONFIG / ~/.kube/config)
 ##   values-file  optional local, gitignored values override (e.g. real secrets,
 ##                a specific storageClassName, routing.mode=nginx, ...)
+## Env: ROLLOUT_TIMEOUT  max time to wait for the rollout (default 10m) —
+##      `kubectl rollout status` has no timeout by default and would otherwise
+##      block indefinitely if the Deployment can't become ready.
 
 if [ $# -ge 1 ] && [ -n "$1" ] ; then
   export KUBECONFIG=$1
@@ -12,6 +15,7 @@ fi
 NS=mosip-nexus
 RELEASE=nexus-server
 CHART_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../helm/nexus-server" && pwd)"
+ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-10m}"
 VALUES_ARGS=()
 if [ $# -ge 2 ] && [ -n "$2" ] ; then
   VALUES_ARGS=(-f "$2")
@@ -24,7 +28,7 @@ function installing_nexus_server() {
   echo "Installing/upgrading $RELEASE from $CHART_DIR"
   helm -n "$NS" upgrade --install "$RELEASE" "$CHART_DIR" "${VALUES_ARGS[@]}" --wait
 
-  kubectl -n "$NS" rollout status deployment/nexus-api
+  kubectl -n "$NS" rollout status deployment/nexus-api --timeout="$ROLLOUT_TIMEOUT"
   echo "Installed $RELEASE"
   return 0
 }

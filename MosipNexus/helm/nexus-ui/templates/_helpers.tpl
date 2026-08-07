@@ -60,3 +60,16 @@ renders regardless of mode (service.yaml).
 {{ fail (printf "routing.mode must be \"istio\" or \"nginx\" — got %q" .Values.routing.mode) }}
 {{- end -}}
 {{- end -}}
+
+{{/*
+The scheme actually terminated in front of the Istio route, used for the
+VirtualService's x-forwarded-proto header. Must reflect the real gateway TLS
+state, not be hardcoded — nexus-api trusts this header.
+*/}}
+{{- define "nexus-ui.forwardedProto" -}}
+{{- if .Values.routing.istio.createGateway -}}
+{{- if .Values.routing.istio.tls.enabled -}}https{{- else -}}http{{- end -}}
+{{- else -}}
+{{- if .Values.routing.istio.existingGatewayTls -}}https{{- else -}}http{{- end -}}
+{{- end -}}
+{{- end -}}

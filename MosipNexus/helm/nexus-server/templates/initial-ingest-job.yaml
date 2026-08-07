@@ -54,7 +54,8 @@ spec:
               done
               echo "PostgreSQL is ready."
         - name: download-vectors
-          image: amazon/aws-cli
+          image: "{{ .Values.initialIngest.awsCli.image.repository }}@{{ .Values.initialIngest.awsCli.image.digest }}"
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

@@ -1,4 +1,7 @@
 {{- if and (eq .Values.routing.mode "istio") .Values.routing.istio.createGateway }}
+{{- if and .Values.routing.istio.tls.enabled (not .Values.routing.istio.tls.credentialName) }}
+{{ fail "routing.istio.tls.credentialName must be set when routing.istio.tls.enabled: true (name of a kubernetes.io/tls Secret in the ingress gateway's namespace)." }}
+{{- end }}
 apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
@@ -9,9 +12,20 @@ metadata:
 spec:
   selector: {{- toYaml .Values.routing.istio.istioSelector | nindent 4 }}
   servers:
+    {{- if .Values.routing.istio.tls.enabled }}
+    - hosts: {{- toYaml .Values.routing.istio.hosts | nindent 8 }}
+      port:
+        name: https
+        number: {{ .Values.routing.istio.tlsPort }}
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: {{ .Values.routing.istio.tls.credentialName }}
+    {{- else }}
     - hosts: {{- toYaml .Values.routing.istio.hosts | nindent 8 }}
       port:
         name: http
         number: {{ .Values.routing.istio.istioPort }}
         protocol: HTTP
+    {{- end }}
 {{- end }}

@@ -26,5 +26,5 @@ spec:
       headers:
         request:
           set:
-            x-forwarded-proto: https
+            x-forwarded-proto: {{ include "nexus-ui.forwardedProto" . }}
 {{- end }}
