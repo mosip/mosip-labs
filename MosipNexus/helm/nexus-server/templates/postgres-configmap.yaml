@@ -1,0 +1,12 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-postgres" "ctx" $) | nindent 4 }}
+data:
+  init.sql: |
+    CREATE EXTENSION IF NOT EXISTS vector;
+    GRANT ALL ON SCHEMA public TO mosip;
+{{- end }}

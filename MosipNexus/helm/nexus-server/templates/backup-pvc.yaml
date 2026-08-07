@@ -1,0 +1,17 @@
+{{- if .Values.backup.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nexus-db-backups
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-db-backup" "ctx" $) | nindent 4 }}
+spec:
+  accessModes: {{- toYaml .Values.backup.pvc.accessModes | nindent 4 }}
+  {{- $sc := include "nexus-server.storageClass" (dict "override" .Values.backup.pvc.storageClassName "ctx" $) }}
+  {{- if $sc }}
+  storageClassName: {{ $sc | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.pvc.size }}
+{{- end }}

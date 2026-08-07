@@ -21,7 +21,10 @@ spec:
           # Update this tag whenever Server/Dockerfile is rebuilt and pushed.
           image: nexus-server:v1.0.0
           imagePullPolicy: IfNotPresent
-          command:
+          # args (not command!) — overrides the image's CMD while preserving its
+          # ENTRYPOINT (entrypoint.sh), which runs Alembic migrations before
+          # exec-ing this. Using `command:` here would skip migrations entirely.
+          args:
             - uv
             - run
             - uvicorn

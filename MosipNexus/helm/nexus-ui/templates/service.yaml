@@ -1,0 +1,14 @@
+{{- include "nexus-ui.validateRoutingMode" . -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-ui
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-ui.labels" . | nindent 4 }}
+  annotations: {{- include "nexus-ui.annotations" . | nindent 4 }}
+spec:
+  selector: {{- include "nexus-ui.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.containerPort }}

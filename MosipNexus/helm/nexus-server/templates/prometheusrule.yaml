@@ -1,0 +1,82 @@
+{{- if and .Values.metrics.enabled .Values.metrics.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nexus-alerts
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-api" "ctx" $) | nindent 4 }}
+    {{- if .Values.metrics.prometheusRule.additionalLabels }}
+    {{- toYaml .Values.metrics.prometheusRule.additionalLabels | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: nexus.cronjob
+      interval: 60s
+      rules:
+        - alert: NexusUpdaterFailed
+          expr: |
+            kube_job_failed{namespace="{{ .Values.namespace }}", job_name=~"nexus-updater-.*"} > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "nexus-updater CronJob failed"
+            description: "The nightly knowledge update job has failed. Check logs: kubectl logs -n {{ .Values.namespace }} job/{{ "{{ $labels.job_name }}" }}"
+
+        - alert: NexusBackupFailed
+          expr: |
+            kube_job_failed{namespace="{{ .Values.namespace }}", job_name=~"nexus-db-backup-.*"} > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "nexus-db-backup CronJob failed"
+            description: "The nightly PostgreSQL backup has failed. Data loss risk if not resolved."
+
+    - name: nexus.api
+      rules:
+        - alert: NexusApiHighMemory
+          expr: |
+            container_memory_working_set_bytes{namespace="{{ .Values.namespace }}", container="nexus-api"}
+            / container_spec_memory_limit_bytes{namespace="{{ .Values.namespace }}", container="nexus-api"}
+            > 0.85
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "nexus-api memory above 85%"
+            description: "nexus-api is using {{ "{{ $value | humanizePercentage }}" }} of its memory limit. HPA may scale up."
+
+        - alert: NexusApiRestarting
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="{{ .Values.namespace }}", container="nexus-api"}[1h]) > 2
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: "nexus-api pod restarting frequently"
+            description: "nexus-api has restarted {{ "{{ $value | humanize }}" }} times in the last hour."
+
+        - alert: NexusApiDown
+          expr: |
+            kube_deployment_status_replicas_available{namespace="{{ .Values.namespace }}", deployment="nexus-api"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "nexus-api has no available replicas"
+            description: "All nexus-api pods are down. The knowledge assistant is unavailable."
+
+    - name: nexus.postgres
+      rules:
+        - alert: NexusPostgresDown
+          expr: |
+            kube_deployment_status_replicas_available{namespace="{{ .Values.namespace }}", deployment="nexus-postgres"} == 0
+            or kube_statefulset_status_replicas_ready{namespace="{{ .Values.namespace }}", statefulset="nexus-postgres"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "nexus-postgres is down"
+            description: "PostgreSQL pod is unavailable. Both the API and nightly updater will fail."
+{{- end }}

@@ -1,0 +1,66 @@
+{{- if .Values.backup.enabled }}
+# Restore from backup:
+#   POD=$(kubectl get pod -n {{ .Values.namespace }} -l app=nexus-postgres -o name | head -1)
+#   kubectl exec -n {{ .Values.namespace }} $POD -- pg_restore -U mosip -d mosipnexus /backups/nexus_<DATE>.dump
+# Trigger a manual backup:
+#   kubectl create job --from=cronjob/nexus-db-backup nexus-db-backup-manual -n {{ .Values.namespace }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nexus-db-backup
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-db-backup" "ctx" $) | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: {{ .Values.backup.activeDeadlineSeconds }}
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-backup
+              image: "{{ .Values.postgres.image.registry }}/{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 999
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  DATE=$(date +%Y%m%d_%H%M%S)
+                  DUMP=/backups/nexus_${DATE}.dump
+                  echo "Starting backup → ${DUMP}"
+                  pg_dump \
+                    -h nexus-postgres \
+                    -U mosip \
+                    -d mosipnexus \
+                    -F c \
+                    -f "${DUMP}"
+                  echo "Backup complete: $(du -sh ${DUMP} | cut -f1)"
+                  ls -t /backups/nexus_*.dump | tail -n +{{ add .Values.backup.retention 1 }} | xargs -r rm -v
+                  echo "Retention: kept $(ls /backups/nexus_*.dump | wc -l) dumps"
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "nexus-server.secretName" . }}
+                      key: POSTGRES_PASSWORD
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources: {{- toYaml .Values.backup.resources | nindent 16 }}
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: nexus-db-backups
+{{- end }}

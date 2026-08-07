@@ -1,0 +1,45 @@
+{{- if .Values.updater.enabled }}
+# Trigger a manual first run after install:
+#   kubectl create job --from=cronjob/nexus-updater nexus-updater-init -n {{ .Values.namespace }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nexus-updater
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-updater" "ctx" $) | nindent 4 }}
+spec:
+  schedule: {{ .Values.updater.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: {{ .Values.updater.activeDeadlineSeconds }}
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: updater
+              image: {{ include "nexus-server.image" . }}
+              imagePullPolicy: {{ include "nexus-server.imagePullPolicy" . }}
+              command:
+                - uv
+                - run
+                - python
+                - run_update.py
+              env:
+                - name: PYTHONPATH
+                  value: /app/MosipNexus/Server
+              envFrom:
+                - secretRef:
+                    name: {{ include "nexus-server.secretName" . }}
+              volumeMounts:
+                - name: nexus-data
+                  mountPath: /app/MosipNexus/Server/data
+              resources: {{- toYaml .Values.updater.resources | nindent 16 }}
+          volumes:
+            - name: nexus-data
+              persistentVolumeClaim:
+                claimName: nexus-data
+{{- end }}

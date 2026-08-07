@@ -1,0 +1,21 @@
+{{- if .Values.updater.enabled }}
+# Mounted by the updater CronJob and the initial-ingest hook Job — see
+# accessModes note in values.yaml (updater.pvc.accessModes) for why ReadWriteMany
+# may be preferable on some storage classes. The API pod does NOT mount this
+# PVC — see deployment.yaml.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nexus-data
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-updater" "ctx" $) | nindent 4 }}
+spec:
+  accessModes: {{- toYaml .Values.updater.pvc.accessModes | nindent 4 }}
+  {{- $sc := include "nexus-server.storageClass" (dict "override" .Values.updater.pvc.storageClassName "ctx" $) }}
+  {{- if $sc }}
+  storageClassName: {{ $sc | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.updater.pvc.size }}
+{{- end }}

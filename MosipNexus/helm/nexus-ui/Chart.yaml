@@ -1,0 +1,14 @@
+apiVersion: v2
+name: nexus-ui
+description: Helm chart for the MOSIP Nexus UI (React + nginx)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://docs.mosip.io
+keywords:
+  - mosip
+  - inji
+  - nexus
+  - ui
+maintainers:
+  - name: MOSIP Nexus

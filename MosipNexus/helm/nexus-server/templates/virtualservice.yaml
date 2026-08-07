@@ -1,0 +1,26 @@
+{{- if eq .Values.api.routing.mode "istio" }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: nexus-api
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-api" "ctx" $) | nindent 4 }}
+  annotations: {{- include "nexus-server.annotations" (dict "ctx" $) | nindent 4 }}
+spec:
+  hosts: {{- toYaml .Values.api.routing.istio.hosts | nindent 4 }}
+  gateways:
+    - {{ .Values.api.routing.istio.gateway }}
+  http:
+    - match:
+        - uri:
+            prefix: {{ .Values.api.routing.istio.prefix }}
+      route:
+        - destination:
+            host: nexus-api
+            port:
+              number: 8000
+      headers:
+        request:
+          set:
+            x-forwarded-proto: https
+{{- end }}

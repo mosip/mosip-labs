@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus-api
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-api" "ctx" $) | nindent 4 }}
+  annotations: {{- include "nexus-server.annotations" (dict "ctx" $) | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{- include "nexus-server.selectorLabels" (dict "name" "nexus-api") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "nexus-server.labels" (dict "name" "nexus-api" "ctx" $) | nindent 8 }}
+        {{- if .Values.podLabels }}
+        {{- toYaml .Values.podLabels | nindent 8 }}
+        {{- end }}
+      {{- if .Values.podAnnotations }}
+      annotations: {{- toYaml .Values.podAnnotations | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "nexus-server.serviceAccountName" . }}
+      {{- include "nexus-server.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector: {{- toYaml .Values.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{- toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: nexus-api
+          image: {{ include "nexus-server.image" . }}
+          imagePullPolicy: {{ include "nexus-server.imagePullPolicy" . }}
+          {{- if .Values.containerSecurityContext.enabled }}
+          securityContext: {{- omit .Values.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          # args (not command!) — overrides the image's CMD while preserving its
+          # ENTRYPOINT (entrypoint.sh), which runs Alembic migrations before
+          # exec-ing this. Using `command:` here would skip migrations entirely.
+          args:
+            - uv
+            - run
+            - uvicorn
+            - api.main:app
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --workers
+            - {{ .Values.api.workers | quote }}
+            - --limit-concurrency
+            - {{ .Values.api.limitConcurrency | quote }}
+          ports:
+            - containerPort: {{ .Values.api.containerPort }}
+          env:
+            {{- range $key, $value := .Values.api.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.extraEnvVars }}
+            {{- toYaml .Values.extraEnvVars | nindent 12 }}
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "nexus-server.secretName" . }}
+            {{- range .Values.extraEnvVarsCM }}
+            - configMapRef:
+                name: {{ . }}
+            {{- end }}
+            {{- range .Values.extraEnvVarsSecret }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}
+          {{- if .Values.api.livenessProbe.enabled }}
+          livenessProbe: {{- omit .Values.api.livenessProbe "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.api.readinessProbe.enabled }}
+          readinessProbe: {{- omit .Values.api.readinessProbe "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+      # No data PVC — the API reads only from pgvector at runtime. Mounting the
+      # updater's nexus-data PVC here would hold its ReadWriteOnce claim on this
+      # node and block the CronJob from mounting it if scheduled elsewhere.

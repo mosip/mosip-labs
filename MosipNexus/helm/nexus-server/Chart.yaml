@@ -1,0 +1,15 @@
+apiVersion: v2
+name: nexus-server
+description: Helm chart for the MOSIP Nexus Server (RAG API, crawlers, ingestion, MCP)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://docs.mosip.io
+keywords:
+  - mosip
+  - inji
+  - nexus
+  - rag
+  - chatbot
+maintainers:
+  - name: MOSIP Nexus

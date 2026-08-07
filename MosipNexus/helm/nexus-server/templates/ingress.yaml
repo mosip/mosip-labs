@@ -1,0 +1,28 @@
+{{- if and (eq .Values.api.routing.mode "nginx") .Values.api.routing.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nexus-api
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-api" "ctx" $) | nindent 4 }}
+  annotations: {{- toYaml .Values.api.routing.ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.api.routing.ingress.className }}
+  {{- if .Values.api.routing.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.api.routing.ingress.host }}
+      secretName: {{ .Values.api.routing.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.api.routing.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nexus-api
+                port:
+                  number: 8000
+{{- end }}

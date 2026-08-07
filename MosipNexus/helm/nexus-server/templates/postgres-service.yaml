@@ -1,0 +1,14 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-postgres
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-postgres" "ctx" $) | nindent 4 }}
+spec:
+  selector: {{- include "nexus-server.selectorLabels" (dict "name" "nexus-postgres") | nindent 4 }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None
+{{- end }}

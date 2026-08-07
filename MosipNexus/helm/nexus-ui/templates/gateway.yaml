@@ -1,0 +1,17 @@
+{{- if and (eq .Values.routing.mode "istio") .Values.routing.istio.createGateway }}
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: nexus-ui
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-ui.labels" . | nindent 4 }}
+  annotations: {{- include "nexus-ui.annotations" . | nindent 4 }}
+spec:
+  selector: {{- toYaml .Values.routing.istio.istioSelector | nindent 4 }}
+  servers:
+    - hosts: {{- toYaml .Values.routing.istio.hosts | nindent 8 }}
+      port:
+        name: http
+        number: {{ .Values.routing.istio.istioPort }}
+        protocol: HTTP
+{{- end }}

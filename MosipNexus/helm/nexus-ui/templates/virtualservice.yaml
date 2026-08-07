@@ -1,0 +1,30 @@
+{{- if eq .Values.routing.mode "istio" }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: nexus-ui
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-ui.labels" . | nindent 4 }}
+  annotations: {{- include "nexus-ui.annotations" . | nindent 4 }}
+spec:
+  hosts: {{- toYaml .Values.routing.istio.hosts | nindent 4 }}
+  gateways:
+    {{- if .Values.routing.istio.createGateway }}
+    - {{ .Values.namespace }}/nexus-ui
+    {{- else }}
+    - {{ .Values.routing.istio.gateway }}
+    {{- end }}
+  http:
+    - match:
+        - uri:
+            prefix: {{ .Values.routing.istio.prefix }}
+      route:
+        - destination:
+            host: nexus-ui
+            port:
+              number: {{ .Values.service.port }}
+      headers:
+        request:
+          set:
+            x-forwarded-proto: https
+{{- end }}
