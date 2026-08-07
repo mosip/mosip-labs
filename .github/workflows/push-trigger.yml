@@ -67,6 +67,35 @@ jobs:
       RELEASE_DOCKER_HUB: ${{ secrets.RELEASE_DOCKER_HUB }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
 
+  # MosipNexus/Server and MosipNexus/UI are self-contained multi-stage
+  # Dockerfiles (no separate maven/npm artifact step), so no NPM_BUILD /
+  # BUILD_ARTIFACT / needs: here — docker-build.yml just runs
+  # `docker buildx build` directly against SERVICE_LOCATION.
+  build-dockers-nexus:
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - SERVICE_LOCATION: './MosipNexus/Server'
+            SERVICE_NAME: 'nexus-server'
+          - SERVICE_LOCATION: './MosipNexus/UI'
+            SERVICE_NAME: 'nexus-ui'
+      fail-fast: false
+    name: ${{ matrix.SERVICE_NAME }}
+    # Pinned to the master-java21 commit reviewed for this change (verified
+    # identical to the branch head at pin time) rather than the movable ref,
+    # per CodeRabbit review on PR #70.
+    uses: mosip/kattu/.github/workflows/docker-build.yml@caba29445fcefaec964b9ef7b44a4f8c667dbb0c
+    with:
+      SERVICE_LOCATION: ${{ matrix.SERVICE_LOCATION }}
+      SERVICE_NAME: ${{ matrix.SERVICE_NAME }}
+    secrets:
+      DEV_NAMESPACE_DOCKER_HUB: ${{ secrets.DEV_NAMESPACE_DOCKER_HUB }}
+      ACTOR_DOCKER_HUB: ${{ secrets.ACTOR_DOCKER_HUB }}
+      RELEASE_DOCKER_HUB: ${{ secrets.RELEASE_DOCKER_HUB }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
   build-dockers-github-activity-tracker-service:
     needs: build-github-activity-tracker-service
     strategy:
