@@ -1,5 +1,15 @@
 FROM python:3.13-slim
 
+# Required by the mosip/kattu docker-build reusable workflow's build-check step.
+ARG SOURCE
+ARG COMMIT_HASH
+ARG COMMIT_ID
+ARG BUILD_TIME
+LABEL source=${SOURCE}
+LABEL commit_hash=${COMMIT_HASH}
+LABEL commit_id=${COMMIT_ID}
+LABEL build_time=${BUILD_TIME}
+
 # libgomp1 — required by PyTorch (sentence-transformers)
 # curl     — used by K8s liveness probes
 RUN apt-get update && apt-get install -y --no-install-recommends \
