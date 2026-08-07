@@ -13,6 +13,10 @@
 #   script prompts for them interactively and stores them straight into a
 #   kubectl-managed Secret.
 # my-values.yaml: non-secret Helm values overrides (storageClassName, image.tag, ...)
+# my-secrets.yaml is obsolete (no script reads/writes it anymore) but stays
+# ignored as a safety net — anyone on an older checkout may still have a
+# real password sitting in one on disk.
+**/my-secrets.yaml
 **/my-secrets.env
 **/my-values.yaml
 
