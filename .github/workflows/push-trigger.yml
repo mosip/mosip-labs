@@ -72,6 +72,8 @@ jobs:
   # BUILD_ARTIFACT / needs: here — docker-build.yml just runs
   # `docker buildx build` directly against SERVICE_LOCATION.
   build-dockers-nexus:
+    permissions:
+      contents: read
     strategy:
       matrix:
         include:
@@ -81,7 +83,10 @@ jobs:
             SERVICE_NAME: 'nexus-ui'
       fail-fast: false
     name: ${{ matrix.SERVICE_NAME }}
-    uses: mosip/kattu/.github/workflows/docker-build.yml@master-java21
+    # Pinned to the master-java21 commit reviewed for this change (verified
+    # identical to the branch head at pin time) rather than the movable ref,
+    # per CodeRabbit review on PR #70.
+    uses: mosip/kattu/.github/workflows/docker-build.yml@caba29445fcefaec964b9ef7b44a4f8c667dbb0c
     with:
       SERVICE_LOCATION: ${{ matrix.SERVICE_LOCATION }}
       SERVICE_NAME: ${{ matrix.SERVICE_NAME }}
