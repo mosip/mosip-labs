@@ -34,7 +34,13 @@ function installing_nexus_ui() {
   kubectl create ns "$NS" --dry-run=client -o yaml | kubectl apply -f -
 
   echo "Adding/updating the '$CHART_REPO' Helm repo ($CHART_REPO_URL)"
-  helm repo add "$CHART_REPO" "$CHART_REPO_URL" >/dev/null 2>&1 || true
+  # --force-update + no `|| true`: if a "$CHART_REPO" entry already exists
+  # pointing at a DIFFERENT url, silently ignoring the add failure would
+  # leave that other, unintended repository in place for the install below.
+  if ! helm repo add "$CHART_REPO" "$CHART_REPO_URL" --force-update >/dev/null ; then
+    echo "ERROR: Could not configure Helm repository '$CHART_REPO' ($CHART_REPO_URL)." >&2
+    exit 1
+  fi
   helm repo update "$CHART_REPO" >/dev/null
 
   echo "Installing/upgrading $RELEASE from $CHART_REPO/$CHART_NAME (published chart)"
