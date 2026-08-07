@@ -144,8 +144,11 @@ secret:
   ## stringData for the "nexus-env" Secret. Same keys as Server/.env.example.
   env:
     GROQ_API_KEY: ""
-    POSTGRES_PASSWORD: "changeme"
-    PG_CONNECTION: "postgresql+psycopg://mosip:changeme@nexus-postgres:5432/mosipnexus"
+    ## Required — chart fails to render (secret.create: true) if left empty.
+    ## Set a real value via a local, gitignored values file. PG_CONNECTION must
+    ## embed the same password.
+    POSTGRES_PASSWORD: ""
+    PG_CONNECTION: ""
     PRODUCT_NAME: "MOSIP Nexus"
     PRODUCT_SHORT: "MOSIP"
     PRODUCT_SLUG: "mosip"

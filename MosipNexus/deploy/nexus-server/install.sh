@@ -24,7 +24,7 @@ function installing_nexus_server() {
   echo "Installing/upgrading $RELEASE from $CHART_DIR"
   helm -n "$NS" upgrade --install "$RELEASE" "$CHART_DIR" "${VALUES_ARGS[@]}" --wait
 
-  kubectl -n "$NS" get deploy -o name | xargs -r -n1 -t kubectl -n "$NS" rollout status
+  kubectl -n "$NS" rollout status deployment/nexus-api
   echo "Installed $RELEASE"
   return 0
 }

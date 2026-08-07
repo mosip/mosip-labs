@@ -14,7 +14,7 @@ gives white-label BYOK chat with no RAG/vector KB.
 
 ## Repo layout
 
-```
+```text
 MosipNexus/
 ├── Server/   # Python 3.13 FastAPI backend — RAG, crawlers, DB, MCP
 │             # → Server/AGENTS.md

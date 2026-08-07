@@ -50,7 +50,10 @@ spec:
               # Pin to a semver tag — never use :latest in production.
               image: nexus-server:v1.0.0
               imagePullPolicy: IfNotPresent
-              command:
+              # args (not command!) — command overrides the image's ENTRYPOINT
+              # (entrypoint.sh), skipping the Alembic migration step it runs.
+              # args only overrides CMD, so entrypoint.sh still runs first.
+              args:
                 - uv
                 - run
                 - python

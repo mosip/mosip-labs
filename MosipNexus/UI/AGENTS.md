@@ -43,15 +43,19 @@ Node **≥ 20** required. Vite proxies `/api` → `VITE_DEV_API_PROXY` (default
 
 There is no test suite for the UI. `npm run build` (`tsc --noEmit` + `vite
 build`) is the closest correctness signal — run it before handing off work.
-No CI workflow is configured in this repo.
+No CI runs the UI build/typecheck. (CI does exist for Docker builds and Helm
+chart lint/publish, at the parent `mosip-labs` repo root — see the root
+`AGENTS.md`. It doesn't cover this.)
 
 ## Conventions
 
 - JSDoc on exported symbols, e.g.:
+
   ```ts
   /** POST /chat — full RAG answer for one user question. */
   export async function chat(params: {...}): Promise<ChatResponse>
   ```
+
 - Function components + hooks; `ErrorBoundary` is the only class component
   (React requires this for error boundaries).
 - `package.json` is the dependency source of truth; `package-lock.json` locks

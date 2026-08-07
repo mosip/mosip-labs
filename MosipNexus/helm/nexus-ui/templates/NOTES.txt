@@ -7,7 +7,7 @@ Routing: Istio VirtualService, attached to gateway "{{ .Values.routing.istio.gat
 {{- else }}
 
 Routing: nginx Ingress
-  https://{{ .Values.routing.ingress.host }}
+  {{- if .Values.routing.ingress.tls.enabled }}https{{- else }}http{{- end }}://{{ .Values.routing.ingress.host }}
 {{- end }}
 
 The UI's nginx proxies same-origin /api/* to the "nexus-api" Service — make

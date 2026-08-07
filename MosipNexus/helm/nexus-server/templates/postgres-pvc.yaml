@@ -9,7 +9,9 @@ spec:
   accessModes:
     - ReadWriteOnce
   {{- $sc := include "nexus-server.storageClass" (dict "override" .Values.postgres.storage.storageClassName "ctx" $) }}
-  {{- if $sc }}
+  {{- if eq $sc "-" }}
+  storageClassName: ""
+  {{- else if $sc }}
   storageClassName: {{ $sc | quote }}
   {{- end }}
   resources:

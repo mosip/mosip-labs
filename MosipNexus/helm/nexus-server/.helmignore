@@ -5,3 +5,6 @@
 *.tmp
 *.orig
 .DS_Store
+# Local values overrides — never bundle secrets into a packaged chart
+my-secrets.yaml
+my-values.yaml

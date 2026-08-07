@@ -12,7 +12,9 @@ metadata:
 spec:
   accessModes: {{- toYaml .Values.updater.pvc.accessModes | nindent 4 }}
   {{- $sc := include "nexus-server.storageClass" (dict "override" .Values.updater.pvc.storageClassName "ctx" $) }}
-  {{- if $sc }}
+  {{- if eq $sc "-" }}
+  storageClassName: ""
+  {{- else if $sc }}
   storageClassName: {{ $sc | quote }}
   {{- end }}
   resources:

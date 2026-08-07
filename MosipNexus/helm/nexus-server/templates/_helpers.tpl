@@ -52,8 +52,9 @@ app: {{ .name }}
 app.kubernetes.io/part-of: mosip-nexus
 app.kubernetes.io/managed-by: {{ .ctx.Release.Service }}
 helm.sh/chart: {{ .ctx.Chart.Name }}-{{ .ctx.Chart.Version }}
-{{- if .ctx.Values.commonLabels }}
-{{ toYaml .ctx.Values.commonLabels }}
+{{- $extra := omit (.ctx.Values.commonLabels | default dict) "app" }}
+{{- if $extra }}
+{{ toYaml $extra }}
 {{- end }}
 {{- end -}}
 

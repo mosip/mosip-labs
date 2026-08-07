@@ -34,8 +34,9 @@ app: nexus-ui
 app.kubernetes.io/part-of: mosip-nexus
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
-{{- if .Values.commonLabels }}
-{{ toYaml .Values.commonLabels }}
+{{- $extra := omit (.Values.commonLabels | default dict) "app" }}
+{{- if $extra }}
+{{ toYaml $extra }}
 {{- end }}
 {{- end -}}
 

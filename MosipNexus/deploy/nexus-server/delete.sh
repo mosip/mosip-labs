@@ -16,8 +16,8 @@ NS=mosip-nexus
 RELEASE=nexus-server
 
 function deleting_nexus_server() {
-  read -p "Are you sure you want to delete the $RELEASE helm release in namespace $NS? (Y/n) " yn
-  if [ "$yn" = "Y" ] ; then
+  IFS= read -r -p "Are you sure you want to delete the $RELEASE helm release in namespace $NS? (y/N) " yn
+  if [[ "$yn" =~ ^[Yy]$ ]] ; then
     helm -n "$NS" delete "$RELEASE"
   else
     echo "Aborted."

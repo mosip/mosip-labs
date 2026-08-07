@@ -62,6 +62,10 @@ or a white-label `generic` profile by product selection, not by forking code.
 
 ## Running
 
+Prerequisite: copy `.env.example` to `.env`, set `PG_CONNECTION`, and make
+sure Postgres 16 with pgvector is reachable — `run.sh`/`run.bat` only handle
+the Python `.venv`, not the database.
+
 ```bash
 ./run.sh          # Linux/macOS — creates .venv, syncs deps, serves :8010
 run.bat           # Windows
@@ -85,11 +89,14 @@ uv run python -m unittest discover tests
 # or: pytest tests/  (if pytest installed)
 ```
 
-No CI workflow is configured — run this locally before handing off work.
+No CI runs the Server test suite — run this locally before handing off work.
+(CI does exist for Docker builds and Helm chart lint/publish, at the parent
+`mosip-labs` repo root — see the root `AGENTS.md`. It doesn't cover tests.)
 
 ## Conventions
 
 - Google-style docstrings on public functions, e.g.:
+
   ```python
   def retrieve(query: str, k: int = 8) -> tuple[list[Document], str]:
       """Search collections and return documents plus confidence.
@@ -102,6 +109,7 @@ No CI workflow is configured — run this locally before handing off work.
           (documents, confidence) where confidence is high|medium|low.
       """
   ```
+
 - Dependency source of truth is `pyproject.toml` (+ `uv.lock`); `requirements.txt`
   is a generated mirror for `pip install -r`. Keep them in sync if you add a dep.
 - No linter/formatter config is checked in — match existing style.

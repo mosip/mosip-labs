@@ -2,8 +2,8 @@
 
 Helm chart for the MOSIP Nexus Server — RAG API, crawlers, ingestion, pgvector,
 and the scheduled jobs around it. A values-driven equivalent of the raw
-manifests in [`../../Server/k8s/`](../../Server/k8s/README.md); that directory
-is untouched and remains a valid alternative deployment path.
+manifests in [`../../Server/k8s/`](../../Server/k8s/README.md); both
+deployment paths remain valid alternatives.
 
 ## TL;DR
 
@@ -41,8 +41,10 @@ helm install nexus-server mosip/nexus-server \
 ## Installing
 
 ```console
-helm install nexus-server . --namespace mosip-nexus --create-namespace
+helm install nexus-server . --namespace mosip-nexus --create-namespace -f my-secrets.yaml
 ```
+
+(Chart fails to render without `secret.env.POSTGRES_PASSWORD`/`PG_CONNECTION` set — see [Secrets](#secrets).)
 
 One install serves **both** MOSIP and Inji — the client picks the product
 per-request (`X-Nexus-Product` header / `product` field), there's no
@@ -65,7 +67,8 @@ Delete them manually if you really want a clean slate.
 committing them:
 
 1. **Chart-managed** (`secret.create: true`, the default): override `secret.env`
-   via a local values file (`-f my-secrets.yaml`, gitignored) or `--set`.
+   via a local, gitignored values file (`-f my-secrets.yaml`). Avoid `--set` for
+   secret values — they'd end up in shell history, process listings, and CI logs.
 2. **Externally managed** (`secret.create: false`, `secret.existingSecret: nexus-env`):
    keep using [`../../Server/k8s/seal-secrets.sh`](../../Server/k8s/seal-secrets.sh) (sealed-secrets)
    or an ExternalSecret to produce the `nexus-env` Secret independently, and the

@@ -22,9 +22,12 @@
 #   kubectl delete job nexus-initial-ingest -n mosip-nexus
 #   kubectl apply  -f Server/k8s/07-initial-ingest-job.yaml
 #
-# The pg_restore below uses --clean --if-exists, so this is safe to re-run
-# even if nexus-postgres's PVC already has data on it from a prior run of
-# this same job (this job doesn't create or delete that PVC itself).
+# The pg_restore below uses --clean --if-exists, so re-running this Job won't
+# error even if nexus-postgres's PVC already has data on it. That is NOT the
+# same as consequence-free: --clean discards any data added since the
+# snapshot, and running it while nexus-api serves traffic can cause request
+# failures mid-restore. Stop traffic and take a fresh backup first if you're
+# deliberately re-running this — don't treat it as routine.
 
 apiVersion: batch/v1
 kind: Job
@@ -141,10 +144,12 @@ spec:
               gunzip /vectors/nexus_vectors.dump.gz
 
               echo "Restoring into nexus-postgres (this takes ~5–10 minutes)..."
-              # --clean --if-exists makes this idempotent: safe whether postgres-data
-              # is a fresh empty PVC or already has a prior restore on it (e.g. after
-              # deleting and re-applying this Job — 01-postgres.yaml's PVC isn't
-              # deleted along with it).
+              # --clean --if-exists makes this idempotent (won't error) whether
+              # postgres-data is empty or already has a prior restore on it. It is
+              # NOT consequence-free: --clean discards any data added since the
+              # snapshot, and running this while nexus-api serves traffic can cause
+              # request failures mid-restore. Stop traffic and take a fresh backup
+              # first if re-running deliberately, don't rely on this for routine ops.
               PGPASSWORD=$POSTGRES_PASSWORD pg_restore \
                 -h nexus-postgres \
                 -U mosip \

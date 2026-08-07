@@ -23,7 +23,11 @@ spec:
             - name: updater
               image: {{ include "nexus-server.image" . }}
               imagePullPolicy: {{ include "nexus-server.imagePullPolicy" . }}
-              command:
+              # args (not command!) — see deployment.yaml for why: preserves the
+              # image's ENTRYPOINT (entrypoint.sh), which runs Alembic migrations
+              # first. Cheap when already at head, and keeps this CronJob
+              # consistent with the same "one entrypoint always migrates" contract.
+              args:
                 - uv
                 - run
                 - python

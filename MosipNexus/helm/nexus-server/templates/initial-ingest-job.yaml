@@ -2,6 +2,9 @@
 {{- if not .Values.updater.enabled }}
 {{ fail "initialIngest.enabled requires updater.enabled: true (initialIngest mounts the nexus-data PVC that the updater creates)." }}
 {{- end }}
+{{- if not .Values.postgres.enabled }}
+{{ fail "initialIngest.enabled requires postgres.enabled: true (initialIngest restores to nexus-postgres, which doesn't render when postgres.enabled is false)." }}
+{{- end }}
 # One-time bootstrap: restore vectors from an S3 snapshot instead of a 4-8 hour
 # re-embed. Runs as a post-install hook — fires once on `helm install` and
 # never again on `helm upgrade`. To re-run after a fresh snapshot:
@@ -121,9 +124,12 @@ spec:
               gunzip /vectors/nexus_vectors.dump.gz
 
               echo "Restoring into nexus-postgres (this takes ~5-10 minutes)..."
-              # --clean --if-exists makes this idempotent: safe whether postgres-data
-              # is a fresh empty PVC or already has a prior restore on it (e.g. after
-              # a delete+reinstall cycle — helm uninstall does not delete PVCs).
+              # --clean --if-exists makes this idempotent (won't error) whether
+              # postgres-data is empty or already has a prior restore on it. It is
+              # NOT consequence-free: --clean discards any data added since the
+              # snapshot, and running this while nexus-api serves traffic can cause
+              # request failures mid-restore. Stop traffic and take a fresh backup
+              # first if re-running deliberately, don't rely on this for routine ops.
               PGPASSWORD=$POSTGRES_PASSWORD pg_restore \
                 -h nexus-postgres \
                 -U mosip \

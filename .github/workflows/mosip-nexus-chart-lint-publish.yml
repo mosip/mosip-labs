@@ -18,7 +18,7 @@ on:
         description: 'Chart publishing to gh-pages branch'
         required: false
         default: 'NO'
-        type: string
+        type: choice
         options:
           - YES
           - NO
@@ -26,7 +26,7 @@ on:
         description: 'Include all charts for Linting/Publishing (YES/NO)'
         required: false
         default: 'NO'
-        type: string
+        type: choice
         options:
           - YES
           - NO
@@ -43,7 +43,9 @@ jobs:
   # subfolders (mirrors github-activity-tracker/helm/{gh-tracker-ui,gh-tracker-service})
   # so one CHARTS_DIR covers both.
   chart-lint-publish:
-    uses: mosip/kattu/.github/workflows/chart-lint-publish.yml@master
+    permissions:
+      contents: read
+    uses: mosip/kattu/.github/workflows/chart-lint-publish.yml@4e9370bc8edcdada050ccac663a9c751af7ec0aa
     with:
       CHARTS_DIR: ./MosipNexus/helm
       CHARTS_URL: https://mosip.github.io/mosip-helm
@@ -52,10 +54,10 @@ jobs:
       INCLUDE_ALL_CHARTS: "${{ inputs.INCLUDE_ALL_CHARTS || 'NO' }}"
       IGNORE_CHARTS: "${{ inputs.IGNORE_CHARTS || '' }}"
       CHART_PUBLISH: "${{ inputs.CHART_PUBLISH || 'YES' }}"
-      LINTING_CHART_SCHEMA_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/master/.github/helm-lint-configs/chart-schema.yaml"
-      LINTING_LINTCONF_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/master/.github/helm-lint-configs/lintconf.yaml"
-      LINTING_CHART_TESTING_CONFIG_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/master/.github/helm-lint-configs/chart-testing-config.yaml"
-      LINTING_HEALTH_CHECK_SCHEMA_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/master/.github/helm-lint-configs/health-check-schema.yaml"
+      LINTING_CHART_SCHEMA_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/4e9370bc8edcdada050ccac663a9c751af7ec0aa/.github/helm-lint-configs/chart-schema.yaml"
+      LINTING_LINTCONF_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/4e9370bc8edcdada050ccac663a9c751af7ec0aa/.github/helm-lint-configs/lintconf.yaml"
+      LINTING_CHART_TESTING_CONFIG_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/4e9370bc8edcdada050ccac663a9c751af7ec0aa/.github/helm-lint-configs/chart-testing-config.yaml"
+      LINTING_HEALTH_CHECK_SCHEMA_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/4e9370bc8edcdada050ccac663a9c751af7ec0aa/.github/helm-lint-configs/health-check-schema.yaml"
     secrets:
       TOKEN: ${{ secrets.ACTION_PAT }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
