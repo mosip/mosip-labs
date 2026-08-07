@@ -38,12 +38,12 @@ spec:
     scaleDown:
       stabilizationWindowSeconds: 300   # wait 5 min before scaling down
       policies:
-        - type: Replicas
+        - type: Pods
           value: 1
           periodSeconds: 120            # remove at most 1 replica per 2 min
     scaleUp:
       stabilizationWindowSeconds: 180   # wait 3 min before scaling up
       policies:
-        - type: Replicas
+        - type: Pods
           value: 2
           periodSeconds: 60             # add at most 2 replicas per minute

@@ -2,6 +2,10 @@
 
 **Prerequisite:** apply [Server/k8s](../../Server/k8s/README.md) first (namespace, secret, API service).
 
+> Prefer Helm? [`../../helm/nexus-ui`](../../helm/nexus-ui/README.md) is a
+> values-driven equivalent (Istio or nginx-ingress routing). These raw
+> manifests remain a valid alternative and are not going away.
+
 The React UI (nginx) proxies browser `/api/*` to `http://nexus-api:8000` inside the cluster.
 
 ## Apply order

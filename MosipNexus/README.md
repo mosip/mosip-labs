@@ -155,6 +155,8 @@ Ask Claude to search with `product="mosip"` or `product="inji"`.
 MosipNexus/
 ├── Server/          # Backend — README + docs/ + k8s/ + Dockerfile
 ├── UI/              # React front-end — README + k8s/ + Dockerfile
+├── helm/            # Helm charts for both components (nexus-server, nexus-ui)
+├── deploy/          # install.sh/delete.sh/restart.sh wrapping the helm/ charts
 ├── docs/            # Shared product docs + Rancher guide
 └── docker-compose.yml
 ```
@@ -165,4 +167,7 @@ MosipNexus/
 - Server guides: [Server/docs](Server/docs/README.md) (database, env, MCP, architecture)
 - UI guides: [UI/docs](UI/docs/ARCHITECTURE.md)
 - Rancher: [docs/MOSIP_Nexus_Rancher_Deployment_Guide.md](docs/MOSIP_Nexus_Rancher_Deployment_Guide.md)
-- K8s: [Server/k8s](Server/k8s/README.md) → then [UI/k8s](UI/k8s/README.md)
+- K8s (raw manifests): [Server/k8s](Server/k8s/README.md) → then [UI/k8s](UI/k8s/README.md)
+- K8s (Helm charts): [helm/nexus-server](helm/nexus-server/README.md) → then [helm/nexus-ui](helm/nexus-ui/README.md)
+- K8s (deploy scripts, wraps the Helm charts above): [deploy/](deploy/README.md)
+- Helm chart publishing (CI → `https://mosip.github.io/mosip-helm`): [helm/nexus-server → Publishing](helm/nexus-server/README.md#publishing) · workflow at repo root `.github/workflows/mosip-nexus-chart-lint-publish.yml` (outside `MosipNexus/`)

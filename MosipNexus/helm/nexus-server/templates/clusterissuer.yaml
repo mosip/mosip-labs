@@ -1,0 +1,19 @@
+{{- if .Values.clusterIssuer.create }}
+# Cluster-scoped — deleting this release does not delete the ClusterIssuer's
+# effect on other Ingresses. Normally managed once per cluster, outside any
+# single app release; kept here only for convenience.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.clusterIssuer.name }}
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ .Values.clusterIssuer.email }}
+    privateKeySecretRef:
+      name: {{ .Values.clusterIssuer.name }}-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+{{- end }}

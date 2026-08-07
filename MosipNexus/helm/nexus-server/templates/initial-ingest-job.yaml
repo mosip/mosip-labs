@@ -1,59 +1,45 @@
-# ── One-time bootstrap: restore vectors from S3 ───────────────────────────────
-# Replaces the old re-embed approach (4–8 hours) with an S3 pg_restore (~10 min).
+{{- if .Values.initialIngest.enabled }}
+{{- if not .Values.updater.enabled }}
+{{ fail "initialIngest.enabled requires updater.enabled: true (initialIngest mounts the nexus-data PVC that the updater creates)." }}
+{{- end }}
+{{- if not .Values.postgres.enabled }}
+{{ fail "initialIngest.enabled requires postgres.enabled: true (initialIngest restores to nexus-postgres, which doesn't render when postgres.enabled is false)." }}
+{{- end }}
+# One-time bootstrap: restore vectors from an S3 snapshot instead of a 4-8 hour
+# re-embed. Runs as a post-install hook — fires once on `helm install` and
+# never again on `helm upgrade`. To re-run after a fresh snapshot:
+#   helm upgrade nexus-server . --install
+# (hook-delete-policy removes the completed Job first, so this recreates it.)
 #
-# Prerequisites:
-#   1. A snapshot must already exist in S3 (run dump-vectors-to-s3.sh first).
-#   2. The nexus-env secret must contain AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
-#      AWS_DEFAULT_REGION, S3_VECTORS_BUCKET, and S3_VECTORS_KEY.
-#   3. nexus-postgres must be running (init container waits for it).
-#
-# What this job does:
-#   Init 1 — wait-for-postgres : polls pg_isready until the DB is accepting connections
-#   Init 2 — download-vectors  : aws s3 cp the dump.gz + crawl_state.json to an EmptyDir
-#   Main   — restore-vectors   : pg_restore into nexus-postgres; copy crawl_state to PVC
-#
-# After this job completes:
-#   - All vectors are in pgvector, ready to serve queries immediately.
-#   - crawl_state.json reflects what was indexed at snapshot time.
-#   - The nightly nexus-updater CronJob picks up only content new since the snapshot.
-#
-# Jobs are immutable — re-applying after completion is a no-op.
-# To re-run (e.g. after a fresh snapshot): delete then re-apply:
-#   kubectl delete job nexus-initial-ingest -n mosip-nexus
-#   kubectl apply  -f Server/k8s/07-initial-ingest-job.yaml
-#
-# The pg_restore below uses --clean --if-exists, so re-running this Job won't
-# error even if nexus-postgres's PVC already has data on it. That is NOT the
-# same as consequence-free: --clean discards any data added since the
-# snapshot, and running it while nexus-api serves traffic can cause request
-# failures mid-restore. Stop traffic and take a fresh backup first if you're
-# deliberately re-running this — don't treat it as routine.
-
+# Prerequisites: a snapshot already in S3 (Server/k8s/dump-vectors-to-s3.sh),
+# and secret.env / existingSecret containing AWS_ACCESS_KEY_ID,
+# AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, S3_VECTORS_BUCKET, S3_VECTORS_KEY.
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: nexus-initial-ingest
-  namespace: mosip-nexus
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-initial-ingest" "ctx" $) | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 2
-  activeDeadlineSeconds: 3600   # 1 hour hard limit — pg_restore should finish in ~10 min
+  activeDeadlineSeconds: {{ .Values.initialIngest.activeDeadlineSeconds }}
   template:
     spec:
       restartPolicy: OnFailure
-
       securityContext:
         seccompProfile:
           type: RuntimeDefault
-        fsGroup: 999      # ensures shared emptyDir volumes are group-writable by GID 999
-
+        fsGroup: 999
       initContainers:
-
-        # ── Stage 1: wait for PostgreSQL ───────────────────────────────────────
         - name: wait-for-postgres
-          image: pgvector/pgvector:pg16
+          image: "{{ .Values.postgres.image.registry }}/{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
           securityContext:
             runAsNonRoot: true
-            runAsUser: 999        # postgres uid in pgvector image
+            runAsUser: 999
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -67,10 +53,9 @@ spec:
                 sleep 5
               done
               echo "PostgreSQL is ready."
-
-        # ── Stage 2: download vectors snapshot from S3 ─────────────────────────
         - name: download-vectors
-          image: amazon/aws-cli
+          image: "{{ .Values.initialIngest.awsCli.image.repository }}@{{ .Values.initialIngest.awsCli.image.digest }}"
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -84,8 +69,6 @@ spec:
               echo "Downloading vectors snapshot from s3://$S3_VECTORS_BUCKET/$S3_VECTORS_KEY ..."
               aws s3 cp "s3://$S3_VECTORS_BUCKET/$S3_VECTORS_KEY" /vectors/nexus_vectors.dump.gz
               echo "Download complete: $(du -sh /vectors/nexus_vectors.dump.gz | cut -f1)"
-
-              # Also pull crawl_state.json if it exists alongside the dump
               STATE_KEY="${S3_VECTORS_KEY%.*.*}_crawl_state.json"
               if aws s3 ls "s3://$S3_VECTORS_BUCKET/$STATE_KEY" > /dev/null 2>&1; then
                 aws s3 cp "s3://$S3_VECTORS_BUCKET/$STATE_KEY" /vectors/crawl_state.json
@@ -97,39 +80,37 @@ spec:
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
-                  name: nexus-env
+                  name: {{ include "nexus-server.secretName" . }}
                   key: AWS_ACCESS_KEY_ID
             - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: nexus-env
+                  name: {{ include "nexus-server.secretName" . }}
                   key: AWS_SECRET_ACCESS_KEY
             - name: AWS_DEFAULT_REGION
               valueFrom:
                 secretKeyRef:
-                  name: nexus-env
+                  name: {{ include "nexus-server.secretName" . }}
                   key: AWS_DEFAULT_REGION
             - name: S3_VECTORS_BUCKET
               valueFrom:
                 secretKeyRef:
-                  name: nexus-env
+                  name: {{ include "nexus-server.secretName" . }}
                   key: S3_VECTORS_BUCKET
             - name: S3_VECTORS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: nexus-env
+                  name: {{ include "nexus-server.secretName" . }}
                   key: S3_VECTORS_KEY
           volumeMounts:
             - name: vectors-transfer
               mountPath: /vectors
-
-      # ── Stage 3: restore into PostgreSQL ──────────────────────────────────────
       containers:
         - name: restore-vectors
-          image: pgvector/pgvector:pg16
+          image: "{{ .Values.postgres.image.registry }}/{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
           securityContext:
             runAsNonRoot: true
-            runAsUser: 999        # postgres uid in pgvector image
+            runAsUser: 999
             runAsGroup: 999
             allowPrivilegeEscalation: false
             capabilities:
@@ -143,7 +124,7 @@ spec:
               echo "Decompressing dump..."
               gunzip /vectors/nexus_vectors.dump.gz
 
-              echo "Restoring into nexus-postgres (this takes ~5–10 minutes)..."
+              echo "Restoring into nexus-postgres (this takes ~5-10 minutes)..."
               # --clean --if-exists makes this idempotent (won't error) whether
               # postgres-data is empty or already has a prior restore on it. It is
               # NOT consequence-free: --clean discards any data added since the
@@ -163,8 +144,6 @@ spec:
                 /vectors/nexus_vectors.dump
               echo "pg_restore complete."
 
-              # Copy crawl_state.json to the nexus-data PVC so run_update
-              # knows what was already indexed and only processes new content.
               if [ -f /vectors/crawl_state.json ]; then
                 cp /vectors/crawl_state.json /data/crawl_state.json
                 echo "crawl_state.json written to nexus-data PVC."
@@ -173,23 +152,17 @@ spec:
               echo "Bootstrap complete. The nightly updater will sync any new content."
           envFrom:
             - secretRef:
-                name: nexus-env
+                name: {{ include "nexus-server.secretName" . }}
           volumeMounts:
             - name: vectors-transfer
               mountPath: /vectors
             - name: nexus-data
               mountPath: /data
-          resources:
-            requests:
-              cpu: 500m
-              memory: 1Gi
-            limits:
-              cpu: "2"
-              memory: 2Gi
-
+          resources: {{- toYaml .Values.initialIngest.resources | nindent 12 }}
       volumes:
         - name: vectors-transfer
           emptyDir: {}
         - name: nexus-data
           persistentVolumeClaim:
             claimName: nexus-data
+{{- end }}

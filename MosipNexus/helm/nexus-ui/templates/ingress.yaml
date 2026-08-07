@@ -1,0 +1,28 @@
+{{- if and (eq .Values.routing.mode "nginx") .Values.routing.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nexus-ui
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-ui.labels" . | nindent 4 }}
+  annotations: {{- toYaml .Values.routing.ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.routing.ingress.className }}
+  {{- if .Values.routing.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.routing.ingress.host }}
+      secretName: {{ .Values.routing.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.routing.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nexus-ui
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

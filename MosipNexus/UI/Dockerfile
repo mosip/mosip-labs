@@ -22,6 +22,14 @@ LABEL commit_id=${COMMIT_ID}
 LABEL build_time=${BUILD_TIME}
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build --chown=nginx:nginx /app/dist /usr/share/nginx/html
+
+# Run as the image's unprivileged nginx user so the Helm chart can enable
+# runAsNonRoot / readOnlyRootFilesystem by default. /var/cache/nginx and
+# /var/run are mounted as writable emptyDirs by the chart at runtime (their
+# baked-in ownership below only matters for `docker run` without a chart).
+RUN chown -R nginx:nginx /var/cache/nginx
+USER nginx
+
 EXPOSE 8501
 CMD ["nginx", "-g", "daemon off;"]

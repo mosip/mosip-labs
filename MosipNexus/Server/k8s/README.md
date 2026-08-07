@@ -3,6 +3,11 @@
 Apply from the **repo root**. Use `seal-secrets.sh` to generate the sealed secret —
 never fill real values into `02-secret.yaml` directly.
 
+> Prefer Helm? [`../../helm/nexus-server`](../../helm/nexus-server/README.md) is a
+> values-driven equivalent of everything below (Istio or nginx-ingress routing,
+> toggleable monitoring/backup/autoscaling). These raw manifests remain a valid
+> alternative and are not going away.
+
 ## One-time cluster setup (before first deploy)
 
 ```bash

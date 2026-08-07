@@ -1,0 +1,20 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-postgres" "ctx" $) | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- $sc := include "nexus-server.storageClass" (dict "override" .Values.postgres.storage.storageClassName "ctx" $) }}
+  {{- if eq $sc "-" }}
+  storageClassName: ""
+  {{- else if $sc }}
+  storageClassName: {{ $sc | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.postgres.storage.size }}
+{{- end }}

@@ -1,0 +1,19 @@
+MOSIP Nexus UI ({{ .Chart.Name }} {{ .Chart.Version }}) has been installed into namespace "{{ .Values.namespace }}".
+
+{{- if eq .Values.routing.mode "istio" }}
+
+Routing: Istio VirtualService, attached to gateway "{{ .Values.routing.istio.gateway }}"
+  Host(s): {{ join ", " .Values.routing.istio.hosts }}
+{{- else }}
+
+Routing: nginx Ingress
+  {{- if .Values.routing.ingress.tls.enabled }}https{{- else }}http{{- end }}://{{ .Values.routing.ingress.host }}
+{{- end }}
+
+The UI's nginx proxies same-origin /api/* to the "nexus-api" Service — make
+sure helm/nexus-server is installed in the same namespace
+("{{ .Values.namespace }}") first.
+
+Check it's up:
+  kubectl port-forward -n {{ .Values.namespace }} svc/nexus-ui 8501:{{ .Values.service.port }}
+  curl http://localhost:8501/healthz

@@ -1,0 +1,14 @@
+{{- include "nexus-server.validateRoutingMode" . -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-api
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "nexus-server.labels" (dict "name" "nexus-api" "ctx" $) | nindent 4 }}
+  annotations: {{- include "nexus-server.annotations" (dict "ctx" $) | nindent 4 }}
+spec:
+  selector: {{- include "nexus-server.selectorLabels" (dict "name" "nexus-api") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: {{ .Values.api.containerPort }}
