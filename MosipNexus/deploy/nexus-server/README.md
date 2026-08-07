@@ -9,7 +9,10 @@ convention used across other MOSIP repos, with two deliberate differences:
   chart's own `secret.env`.
 - `install.sh` installs from the **published** Helm repo
   (`helm repo add mosip https://mosip.github.io/mosip-helm`, chart
-  `mosip/nexus-server`), added/updated automatically on every run.
+  `mosip/nexus-server`), added/updated automatically on every run, at a
+  **pinned version** (`CHART_VERSION` env var, defaults to the chart's
+  current version) — a routine redeploy always gets exactly that version,
+  not whatever's newest. Bump it deliberately: `CHART_VERSION=1.1.0 ./install.sh`.
 
 ## Install / upgrade
 

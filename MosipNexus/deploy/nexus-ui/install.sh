@@ -7,6 +7,10 @@
 ## "nexus-api" Service created by that release.
 ## Installs from the published chart (mosip/nexus-ui @ https://mosip.github.io/mosip-helm).
 ## Env: ROLLOUT_TIMEOUT  max time to wait for the rollout (default 10m).
+##      CHART_VERSION   published nexus-ui chart version to install (default
+##      1.0.0). A routine redeploy always gets exactly this version, not
+##      whatever happens to be newest — bump it deliberately when you
+##      actually want to upgrade, after checking the new chart's changelog.
 
 if [ $# -ge 1 ] && [ -n "$1" ] ; then
   export KUBECONFIG=$1
@@ -17,6 +21,7 @@ RELEASE=nexus-ui
 CHART_REPO=mosip
 CHART_REPO_URL=https://mosip.github.io/mosip-helm
 CHART_NAME=nexus-ui
+CHART_VERSION="${CHART_VERSION:-1.0.0}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-10m}"
 VALUES_ARGS=()
 if [ $# -ge 2 ] && [ -n "$2" ] ; then
@@ -43,8 +48,9 @@ function installing_nexus_ui() {
   fi
   helm repo update "$CHART_REPO" >/dev/null
 
-  echo "Installing/upgrading $RELEASE from $CHART_REPO/$CHART_NAME (published chart)"
-  helm -n "$NS" upgrade --install "$RELEASE" "$CHART_REPO/$CHART_NAME" "${VALUES_ARGS[@]}" --wait
+  echo "Installing/upgrading $RELEASE from $CHART_REPO/$CHART_NAME @ $CHART_VERSION (published chart)"
+  helm -n "$NS" upgrade --install "$RELEASE" "$CHART_REPO/$CHART_NAME" \
+    --version "$CHART_VERSION" "${VALUES_ARGS[@]}" --wait
 
   kubectl -n "$NS" rollout status deployment/nexus-ui --timeout="$ROLLOUT_TIMEOUT"
   echo "Installed $RELEASE"

@@ -12,6 +12,10 @@
 ## Env: ROLLOUT_TIMEOUT  max time to wait for the rollout (default 10m) —
 ##      `kubectl rollout status` has no timeout by default and would otherwise
 ##      block indefinitely if the Deployment can't become ready.
+##      CHART_VERSION   published nexus-server chart version to install
+##      (default 1.0.0). A routine redeploy always gets exactly this version,
+##      not whatever happens to be newest — bump it deliberately when you
+##      actually want to upgrade, after checking the new chart's changelog.
 ##
 ## Secrets: POSTGRES_PASSWORD/PG_CONNECTION are never stored in a values file,
 ## passed via `--set`, put in an env var, or auto-generated — the only way to
@@ -32,6 +36,7 @@ RELEASE=nexus-server
 CHART_REPO=mosip
 CHART_REPO_URL=https://mosip.github.io/mosip-helm
 CHART_NAME=nexus-server
+CHART_VERSION="${CHART_VERSION:-1.0.0}"
 SECRET_NAME=nexus-env
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-10m}"
 EXTRA_SECRETS_FILE="${2:-}"
@@ -119,8 +124,9 @@ function installing_nexus_server() {
 
   ensure_secret
 
-  echo "Installing/upgrading $RELEASE from $CHART_REPO/$CHART_NAME (published chart)"
+  echo "Installing/upgrading $RELEASE from $CHART_REPO/$CHART_NAME @ $CHART_VERSION (published chart)"
   helm -n "$NS" upgrade --install "$RELEASE" "$CHART_REPO/$CHART_NAME" \
+    --version "$CHART_VERSION" \
     "${VALUES_ARGS[@]}" \
     --set secret.create=false \
     --set secret.existingSecret="$SECRET_NAME" \
