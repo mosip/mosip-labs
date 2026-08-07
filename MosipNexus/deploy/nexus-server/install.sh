@@ -15,12 +15,15 @@
 ##      POSTGRES_PASSWORD  skip the interactive password prompt (e.g. for CI).
 ##      Only consulted the first time the "nexus-env" Secret is created.
 ##
-## Secrets: POSTGRES_PASSWORD/PG_CONNECTION are never stored in a values file or
-## passed via `--set` (shell history / CI logs). The "nexus-env" Secret is
-## created directly with `kubectl` — NOT by Helm (`secret.create=false` +
-## `secret.existingSecret=nexus-env`) — so `helm uninstall` / `./delete.sh`
-## never deletes it. Re-running this script checks whether the Secret already
-## exists first; if so nothing is prompted, generated, or overwritten.
+## Secrets: POSTGRES_PASSWORD/PG_CONNECTION are never stored in a values file,
+## passed via `--set`, or auto-generated — always supplied by you, either
+## interactively (hidden prompt) or via the POSTGRES_PASSWORD env var for
+## non-interactive/CI use. The "nexus-env" Secret is created directly with
+## `kubectl` — NOT by Helm (`secret.create=false` + `secret.existingSecret=nexus-env`)
+## — so `helm uninstall` / `./delete.sh` never deletes it, and it's what the
+## Deployment actually reads its env from (`envFrom: secretRef`). Re-running
+## this script checks whether the Secret already exists first; if so nothing
+## is prompted or overwritten.
 
 if [ $# -ge 1 ] && [ -n "$1" ] ; then
   export KUBECONFIG=$1
@@ -69,10 +72,11 @@ function ensure_secret() {
         echo
       done
     else
-      # `|| true`: `head -c32` closing the pipe early SIGPIPEs `tr`, which
-      # pipefail would otherwise treat as a failure and abort the script.
-      password=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32) || true
-      echo "Non-interactive shell and \$POSTGRES_PASSWORD unset — generated a random password (not printed)."
+      echo "ERROR: '$SECRET_NAME' doesn't exist and this shell isn't interactive." >&2
+      echo "Set the POSTGRES_PASSWORD env var before running this script (e.g. for CI)," >&2
+      echo "or run it interactively so it can prompt you for one. A password is never" >&2
+      echo "auto-generated — it must always come from you." >&2
+      return 1
     fi
   fi
 
