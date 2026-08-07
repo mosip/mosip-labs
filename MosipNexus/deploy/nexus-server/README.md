@@ -45,9 +45,25 @@ namespace:
   this is what the Deployment's `envFrom: secretRef` actually reads at runtime
 
 Re-running `install.sh` (redeploy, upgrade) checks whether `nexus-env`
-already exists first — if so, nothing is prompted or overwritten. To rotate
-the password, `kubectl -n mosip-nexus delete secret nexus-env` first, then
-re-run `install.sh`.
+already exists first — if so, nothing is prompted or overwritten.
+
+**Rotating the password:** a missing Secret does *not* mean an empty
+database — Postgres only applies `POSTGRES_PASSWORD` on first bootstrap
+(empty PGDATA), so an existing `postgres-data` PVC already has a role
+password baked in that won't change just because the Secret does. Change
+the *database's* password first, then the Secret, then restart the pod
+holding stale connections:
+
+```bash
+kubectl -n mosip-nexus exec -it nexus-postgres-0 -- \
+  psql -U mosip -d mosipnexus -c "ALTER ROLE mosip PASSWORD '<new password>';"
+kubectl -n mosip-nexus delete secret nexus-env
+./install.sh   # detects postgres-data already exists, asks you to confirm
+               # you just changed it to match, then prompts for the SAME
+               # password again — it derives/encodes PG_CONNECTION itself,
+               # so you never hand-construct the connection string
+./restart.sh
+```
 
 Optional, non-required `secret.env` keys (`GITHUB_TOKEN`, `GROQ_API_KEY`,
 `SMTP_*`, `AWS_*`, …) can be supplied via a local, gitignored dotenv file

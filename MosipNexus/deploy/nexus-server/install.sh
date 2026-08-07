@@ -71,7 +71,6 @@ function ensure_secret() {
     return 0
   fi
 
-  echo "Secret '$SECRET_NAME' not found in namespace '$NS' — creating it now (one-time)."
   if [ ! -t 0 ] ; then
     echo "ERROR: '$SECRET_NAME' doesn't exist and this shell isn't interactive." >&2
     echo "Run this script interactively so it can prompt you for a PostgreSQL" >&2
@@ -79,6 +78,31 @@ function ensure_secret() {
     return 1
   fi
 
+  # A missing Secret does NOT mean an empty database: Postgres only applies
+  # POSTGRES_PASSWORD from the Secret on first bootstrap (empty PGDATA) — an
+  # existing postgres-data PVC already has a role password baked in from
+  # whenever it was created. Silently prompting for a brand-new password
+  # here would create a Secret nexus-api/postgres disagree on, breaking DB
+  # connectivity until they're reconciled by hand. Require an explicit
+  # confirmation instead of guessing.
+  if kubectl -n "$NS" get pvc postgres-data >/dev/null 2>&1 ; then
+    echo "WARNING: Secret '$SECRET_NAME' is missing, but the 'postgres-data' PVC" >&2
+    echo "already exists in namespace '$NS'. Postgres only applies a Secret's" >&2
+    echo "POSTGRES_PASSWORD on first bootstrap (empty PGDATA), so this PVC almost" >&2
+    echo "certainly has a database whose actual role password is something ELSE." >&2
+    echo "The password you're about to enter must ALREADY match it — e.g. you just ran:" >&2
+    echo "  kubectl -n $NS exec -it nexus-postgres-0 -- psql -U mosip -d mosipnexus \\" >&2
+    echo "    -c \"ALTER ROLE mosip PASSWORD '<the password you will type next>';\"" >&2
+    echo >&2
+    local confirm=""
+    read -r -p "Type YES if the database password already matches what you're about to enter: " confirm
+    if [ "$confirm" != "YES" ] ; then
+      echo "Aborted. Change the database password first, then re-run this script." >&2
+      return 1
+    fi
+  fi
+
+  echo "Secret '$SECRET_NAME' not found in namespace '$NS' — creating it now (one-time)."
   local password=""
   while [ -z "$password" ] ; do
     read -rs -p "Enter a PostgreSQL password for the 'mosip' user: " password
