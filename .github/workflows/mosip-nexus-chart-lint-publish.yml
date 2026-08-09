@@ -24,19 +24,13 @@ on:
       CHART_PUBLISH:
         description: 'Chart publishing to gh-pages branch'
         required: false
-        default: 'NO'
-        type: choice
-        options:
-          - YES
-          - NO
+        default: true
+        type: boolean
       INCLUDE_ALL_CHARTS:
-        description: 'Include all charts for Linting/Publishing (YES/NO)'
+        description: 'Include all charts for Linting/Publishing'
         required: false
-        default: 'NO'
-        type: choice
-        options:
-          - YES
-          - NO
+        default: true
+        type: boolean
   push:
     branches:
       - '!release-branch'
@@ -58,16 +52,18 @@ jobs:
       CHARTS_URL: https://mosip.github.io/mosip-helm
       REPOSITORY: mosip-helm
       BRANCH: gh-pages
-      # Always YES: kattu's changed-chart detection greps changed file paths for a
-      # "/charts/" path segment to build an ignore-list, but this dir is "helm/",
-      # not "charts/" — that regex never matches, so CHARTS_MODIFIED comes back
-      # empty and BOTH charts land in the ignore list ("CHARTS list is empty;
-      # SKIPPING OPERATION" — silently skips lint AND publish, every run). We
-      # only have two small charts here, so always processing both is fine.
-      INCLUDE_ALL_CHARTS: "${{ inputs.INCLUDE_ALL_CHARTS || 'YES' }}"
+      # Always YES on push/release: kattu's changed-chart detection greps changed file
+      # paths for a "/charts/" path segment to build an ignore-list, but this dir is
+      # "helm/", not "charts/" — that regex never matches, so CHARTS_MODIFIED comes
+      # back empty and BOTH charts land in the ignore list ("CHARTS list is empty;
+      # SKIPPING OPERATION" — silently skips lint AND publish, every run). We only
+      # have two small charts here, so always processing both is fine. kattu itself
+      # takes this as a plain string compared only against the literal "NO", so the
+      # boolean input here is translated to "YES"/"NO" below.
+      INCLUDE_ALL_CHARTS: "${{ (github.event_name != 'workflow_dispatch' || inputs.INCLUDE_ALL_CHARTS) && 'YES' || 'NO' }}"
       IGNORE_CHARTS: "${{ inputs.IGNORE_CHARTS || '' }}"
       # pull_request runs are always lint-only — never publish credentials to a PR build.
-      CHART_PUBLISH: "${{ github.event_name == 'pull_request' && 'NO' || (inputs.CHART_PUBLISH || 'YES') }}"
+      CHART_PUBLISH: "${{ github.event_name == 'pull_request' && 'NO' || ((github.event_name != 'workflow_dispatch' || inputs.CHART_PUBLISH) && 'YES' || 'NO') }}"
       LINTING_CHART_SCHEMA_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/4e9370bc8edcdada050ccac663a9c751af7ec0aa/.github/helm-lint-configs/chart-schema.yaml"
       LINTING_LINTCONF_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/4e9370bc8edcdada050ccac663a9c751af7ec0aa/.github/helm-lint-configs/lintconf.yaml"
       LINTING_CHART_TESTING_CONFIG_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/4e9370bc8edcdada050ccac663a9c751af7ec0aa/.github/helm-lint-configs/chart-testing-config.yaml"
