@@ -32,6 +32,15 @@ resources:
     cpu: "500m"
     memory: 256Mi
 
+startupProbe:
+  enabled: true
+  httpGet:
+    path: /healthz
+    port: 8501
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 10
+
 livenessProbe:
   enabled: true
   httpGet:
@@ -40,6 +49,7 @@ livenessProbe:
   initialDelaySeconds: 5
   periodSeconds: 20
   timeoutSeconds: 5
+  failureThreshold: 3
 
 readinessProbe:
   enabled: true
@@ -49,6 +59,7 @@ readinessProbe:
   initialDelaySeconds: 3
   periodSeconds: 10
   timeoutSeconds: 5
+  failureThreshold: 3
 
 service:
   port: 8501

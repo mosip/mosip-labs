@@ -59,6 +59,17 @@ api:
       cpu: "2"
       memory: 4Gi
 
+  ## Covers slow first-time startup (model downloads, migrations) without weakening
+  ## how fast liveness/readiness react once the container is actually up.
+  startupProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8000
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+
   livenessProbe:
     enabled: true
     httpGet:
@@ -67,6 +78,7 @@ api:
     initialDelaySeconds: 60
     periodSeconds: 30
     timeoutSeconds: 10
+    failureThreshold: 3
 
   readinessProbe:
     enabled: true
@@ -76,6 +88,7 @@ api:
     initialDelaySeconds: 30
     periodSeconds: 15
     timeoutSeconds: 10
+    failureThreshold: 3
 
   ## Non-secret env vars merged onto the container (secrets come from `secret` below).
   env:
