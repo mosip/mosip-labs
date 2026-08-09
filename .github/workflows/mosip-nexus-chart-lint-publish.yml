@@ -12,18 +12,18 @@ on:
       IGNORE_CHARTS:
         description: 'Provide list of charts to be ignored separated by pipe(|)'
         required: false
-        default: ''
+        default: '""'
         type: string
       CHART_PUBLISH:
-        description: 'Chart publishing to gh-pages branch'
+        description: 'Chart publishing to gh-pages branch (YES/NO)'
         required: false
-        default: true
-        type: boolean
+        default: 'NO'
+        type: string
       INCLUDE_ALL_CHARTS:
-        description: 'Include all charts for Linting/Publishing'
+        description: 'Include all charts for Linting/Publishing (YES/NO)'
         required: false
-        default: true
-        type: boolean
+        default: 'NO'
+        type: string
   push:
     branches:
       - '!release-branch'
@@ -50,19 +50,19 @@ jobs:
       # "helm/", not "charts/" — that regex never matches, so CHARTS_MODIFIED comes
       # back empty and BOTH charts land in the ignore list ("CHARTS list is empty;
       # SKIPPING OPERATION" — silently skips lint AND publish, every run). We only
-      # have two small charts here, so always processing both is fine. kattu itself
-      # takes this as a plain string compared only against the literal "NO", so the
-      # boolean input here is translated to "YES"/"NO" below.
-      INCLUDE_ALL_CHARTS: "${{ (github.event_name != 'workflow_dispatch' || inputs.INCLUDE_ALL_CHARTS) && 'YES' || 'NO' }}"
+      # have two small charts here, so always processing both is fine.
+      INCLUDE_ALL_CHARTS: "${{ inputs.INCLUDE_ALL_CHARTS || 'YES' }}"
       # NEVER pass an empty string here: mosip/helm-gh-pages's entrypoint.sh runs
       # `grep -Evwc ${IGNORE_CHARTS}` unquoted — an empty value drops the pattern
       # argument entirely, grep fails, and its `|| true` swallows that failure in a
       # way that makes every chart register as "found in ignore chart list" (i.e.
-      # ALL charts silently skipped, unconditionally). A placeholder that can never
-      # match a real chart directory name keeps the "ignore nothing" behavior intact.
-      IGNORE_CHARTS: "${{ inputs.IGNORE_CHARTS || 'zzz-never-matches-any-real-chart-zzz' }}"
+      # ALL charts silently skipped, unconditionally). '""' is the convention used
+      # elsewhere in MOSIP's own repos for this same reusable workflow: a non-empty,
+      # 2-character literal that can never match a real chart directory name, so
+      # `grep -Evw` still resolves "not in the ignore list" for every real chart.
+      IGNORE_CHARTS: "${{ inputs.IGNORE_CHARTS || '\"\"' }}"
       # pull_request runs are always lint-only — never publish credentials to a PR build.
-      CHART_PUBLISH: "${{ github.event_name == 'pull_request' && 'NO' || ((github.event_name != 'workflow_dispatch' || inputs.CHART_PUBLISH) && 'YES' || 'NO') }}"
+      CHART_PUBLISH: "${{ github.event_name == 'pull_request' && 'NO' || (inputs.CHART_PUBLISH || 'YES') }}"
       LINTING_CHART_SCHEMA_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/4e9370bc8edcdada050ccac663a9c751af7ec0aa/.github/helm-lint-configs/chart-schema.yaml"
       LINTING_LINTCONF_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/4e9370bc8edcdada050ccac663a9c751af7ec0aa/.github/helm-lint-configs/lintconf.yaml"
       LINTING_CHART_TESTING_CONFIG_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/4e9370bc8edcdada050ccac663a9c751af7ec0aa/.github/helm-lint-configs/chart-testing-config.yaml"
