@@ -11,4 +11,5 @@ keywords:
   - nexus
   - ui
 maintainers:
-  - name: MOSIP Nexus
+  - email: info@mosip.io
+    name: MOSIP
