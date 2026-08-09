@@ -12,7 +12,7 @@
 # (hook-delete-policy removes the completed Job first, so this recreates it.)
 #
 # Prerequisites: a snapshot already in S3 (Server/k8s/dump-vectors-to-s3.sh),
-# and secret.env / existingSecret containing AWS_ACCESS_KEY_ID,
+# and the existingSecret Secret containing AWS_ACCESS_KEY_ID,
 # AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, S3_VECTORS_BUCKET, S3_VECTORS_KEY.
 apiVersion: batch/v1
 kind: Job

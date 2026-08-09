@@ -6,7 +6,9 @@
 ## postgres-data / nexus-data / nexus-db-backups PVCs, or the "nexus-env"
 ## Secret — they outlive the release so a re-install doesn't lose data or
 ## prompt for a new password. install.sh creates "nexus-env" directly with
-## kubectl (secret.create=false), so Helm never owns or deletes it here.
+## kubectl — the chart has no mechanism to create it at all, only to
+## reference one via secret.existingSecret — so Helm never owns or deletes
+## it here.
 ## Delete manually if you really want a clean slate:
 ##   kubectl -n mosip-nexus delete pvc postgres-data nexus-data nexus-db-backups
 ##   kubectl -n mosip-nexus delete secret nexus-env

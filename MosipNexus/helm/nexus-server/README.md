@@ -7,26 +7,28 @@ deployment paths remain valid alternatives.
 
 ## TL;DR
 
-From a local checkout (chart source):
+Use [`../../deploy/nexus-server`](../../deploy/nexus-server/README.md)'s
+`install.sh` — it wraps this chart, installs from the published repo, and
+handles the `nexus-env` Secret for you (interactive prompt, never a values
+file or `--set`). That's the documented path; see [Secrets](#secrets) below
+for why this chart has no built-in way to create that Secret itself.
 
 ```console
-helm install nexus-server . \
-  --namespace mosip-nexus --create-namespace \
-  -f my-secrets.yaml
+cd ../../deploy/nexus-server && ./install.sh
 ```
 
-Or from the published chart, once CI has run (see [Publishing](#publishing)):
+To render/install this chart directly (e.g. for local `helm template`
+testing), you need a Secret named `nexus-env` (or whatever
+`secret.existingSecret` you set) to already exist in the target namespace —
+this chart never creates one:
 
 ```console
 helm repo add mosip https://mosip.github.io/mosip-helm
 helm repo update
 helm install nexus-server mosip/nexus-server \
   --namespace mosip-nexus --create-namespace \
-  -f my-secrets.yaml
+  --set secret.existingSecret=nexus-env
 ```
-
-`my-secrets.yaml` is a **local, gitignored** file overriding `secret.env` (see
-[Secrets](#secrets) below) — never commit real API keys or passwords.
 
 ## Prerequisites
 
@@ -41,10 +43,11 @@ helm install nexus-server mosip/nexus-server \
 ## Installing
 
 ```console
-helm install nexus-server . --namespace mosip-nexus --create-namespace -f my-secrets.yaml
+cd ../../deploy/nexus-server && ./install.sh
 ```
 
-(With `secret.create: true`, provide the `secret.env` values required by the selected database mode. With `secret.create: false`, set `secret.existingSecret` instead — see [Secrets](#secrets).)
+See [Secrets](#secrets) for why `install.sh`, not a bare `helm install`, is
+the supported path.
 
 One install serves **both** MOSIP and Inji — the client picks the product
 per-request (`X-Nexus-Product` header / `product` field), there's no
@@ -62,17 +65,24 @@ Delete them manually if you really want a clean slate.
 
 ## Secrets
 
-`secret.env` (in `values.yaml`) mirrors [`../../Server/k8s/02-secret.yaml`](../../Server/k8s/02-secret.yaml)
-— same keys as `Server/.env.example`. Two ways to provide real values without
-committing them:
+This chart has **no built-in way to create the `nexus-env` Secret** — it only
+ever references one that already exists (`secret.existingSecret`, default
+`nexus-env`), via `envFrom: secretRef` on the `nexus-api` container. There is
+deliberately no chart-managed alternative (no `secret.create` toggle, no
+`secret.env` values): a values file or `--set` are both bad places for a real
+password — they end up in shell history, process listings, local disk, or CI
+logs.
 
-1. **Chart-managed** (`secret.create: true`, the default): override `secret.env`
-   via a local, gitignored values file (`-f my-secrets.yaml`). Avoid `--set` for
-   secret values — they'd end up in shell history, process listings, and CI logs.
-2. **Externally managed** (`secret.create: false`, `secret.existingSecret: nexus-env`):
-   keep using [`../../Server/k8s/seal-secrets.sh`](../../Server/k8s/seal-secrets.sh) (sealed-secrets)
-   or an ExternalSecret to produce the `nexus-env` Secret independently, and the
-   chart will reference it without ever seeing the values.
+The expected keys mirror [`Server/.env.example`](../../Server/.env.example)
+and [`../../Server/k8s/02-secret.yaml`](../../Server/k8s/02-secret.yaml).
+Produce the Secret one of these ways:
+
+1. **[`../../deploy/nexus-server/install.sh`](../../deploy/nexus-server/README.md#secrets---always-dynamic-never-helm-owned)**
+   (the supported path) — creates it directly with `kubectl`, prompting
+   interactively for `POSTGRES_PASSWORD` the first time only.
+2. [`../../Server/k8s/seal-secrets.sh`](../../Server/k8s/seal-secrets.sh)
+   (sealed-secrets) or an ExternalSecret, if you're managing it outside this
+   chart entirely.
 
 ## Routing: Istio vs nginx-ingress
 
@@ -94,7 +104,7 @@ mutually exclusive templates:
 | `image.repository` / `image.tag` | `nexus-server` / `v1.0.0` | API + jobs image |
 | `api.workers` / `api.limitConcurrency` | `1` / `64` | uvicorn flags |
 | `api.autoscaling.enabled` | `true` | HPA 1–4 replicas, CPU 70% / memory 80% |
-| `postgres.enabled` | `true` | Set `false` to use an external pgvector instance (set `secret.env.PG_CONNECTION` accordingly) |
+| `postgres.enabled` | `true` | Set `false` to use an external pgvector instance (set the existingSecret's `PG_CONNECTION` accordingly) |
 | `updater.enabled` / `updater.schedule` | `true` / `0 2 * * *` | Nightly `run_update.py` CronJob |
 | `updater.pvc.accessModes` | `[ReadWriteOnce]` | Set to `[ReadWriteMany]` on nfs-csi/nfs-client/Longhorn-RWX to avoid the CronJob pod getting stuck if scheduled on a different node between runs |
 | `backup.enabled` / `backup.schedule` | `true` / `30 3 * * *` | Nightly `pg_dump` CronJob, 7-day retention |

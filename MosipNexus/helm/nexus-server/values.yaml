@@ -90,7 +90,8 @@ api:
     timeoutSeconds: 10
     failureThreshold: 3
 
-  ## Non-secret env vars merged onto the container (secrets come from `secret` below).
+  ## Non-secret env vars merged onto the container (secrets come from the
+  ## existingSecret Secret — see `secret` below).
   env:
     PYTHONPATH: /app/MosipNexus/Server
     PG_POOL_SIZE: "10"
@@ -148,52 +149,17 @@ extraEnvVarsCM: []
 extraEnvVarsSecret: []
 
 ## ── Secrets ───────────────────────────────────────────────────────────────────
-## Mirrors Server/k8s/02-secret.yaml. Do NOT commit real values in this file —
-## override with a local, gitignored values file or --set-file, or disable
-## chart-managed secrets entirely and point at one created by
-## Server/k8s/seal-secrets.sh (sealed-secrets) / an ExternalSecret.
+## This chart never creates or manages the "nexus-env" Secret itself — only
+## ever references one that already exists (envFrom: secretRef, via
+## nexus-server.secretName below). Real deployments always go through
+## deploy/nexus-server/install.sh, which creates it directly with `kubectl`
+## (interactive password prompt — never `--set`, an env var, or
+## auto-generated) and passes --set secret.existingSecret=nexus-env. The
+## full list of keys the app reads mirrors Server/.env.example.
 secret:
-  create: true
-  ## Existing Secret name to use instead of creating one (skips `secret.env` below).
+  ## Name of the pre-existing Secret to read env vars from. Defaults to
+  ## "nexus-env" (see nexus-server.secretName in _helpers.tpl) if left empty.
   existingSecret: ""
-  ## stringData for the "nexus-env" Secret. Same keys as Server/.env.example.
-  env:
-    GROQ_API_KEY: ""
-    ## Required — chart fails to render (secret.create: true) if left empty.
-    ## Set a real value via a local, gitignored values file. PG_CONNECTION must
-    ## embed the same password.
-    POSTGRES_PASSWORD: ""
-    PG_CONNECTION: ""
-    PRODUCT_NAME: "MOSIP Nexus"
-    PRODUCT_SHORT: "MOSIP"
-    PRODUCT_SLUG: "mosip"
-    DOCS_BASE_URL: "https://docs.mosip.io/1.2.0"
-    COMMUNITY_BASE_URL: "https://community.mosip.io"
-    COMMUNITY_NEW_TOPIC_PATH: "/new-topic"
-    GITHUB_ORG: "mosip"
-    GITHUB_TOKEN: ""
-    CONFLUENCE_URL: ""
-    CONFLUENCE_USER: ""
-    CONFLUENCE_TOKEN: ""
-    CONFLUENCE_SPACE_KEYS: ""
-    JIRA_URL: ""
-    JIRA_USER: ""
-    JIRA_TOKEN: ""
-    JIRA_PROJECT_KEYS: ""
-    LANGCHAIN_TRACING_V2: "false"
-    LANGCHAIN_API_KEY: ""
-    LANGCHAIN_PROJECT: "mosip-nexus"
-    AWS_ACCESS_KEY_ID: ""
-    AWS_SECRET_ACCESS_KEY: ""
-    AWS_DEFAULT_REGION: "ap-south-1"
-    S3_VECTORS_BUCKET: ""
-    S3_VECTORS_KEY: "nexus/nexus_vectors_latest.dump.gz"
-    HF_TOKEN: ""
-    SMTP_HOST: ""
-    SMTP_PORT: "587"
-    SMTP_USER: ""
-    SMTP_PASSWORD: ""
-    NOTIFY_EMAIL: ""
 
 ## ── Postgres (pgvector) ───────────────────────────────────────────────────────
 ## Mirrors Server/k8s/01-postgres.yaml. Set to false to point PG_CONNECTION at
@@ -271,7 +237,7 @@ backup:
 ## ── One-time S3 vector snapshot restore ───────────────────────────────────────
 ## Mirrors Server/k8s/07-initial-ingest-job.yaml. Runs as a post-install Helm
 ## hook — fires once on `helm install` when enabled, never on `helm upgrade`.
-## Requires AWS_* / S3_VECTORS_* keys in `secret.env` (or existingSecret).
+## Requires AWS_* / S3_VECTORS_* keys in the existingSecret Secret.
 ## Requires updater.enabled: true (uses the same "nexus-data" PVC).
 initialIngest:
   enabled: false
