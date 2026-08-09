@@ -12,4 +12,5 @@ keywords:
   - rag
   - chatbot
 maintainers:
-  - name: MOSIP Nexus
+  - email: info@mosip.io
+    name: MOSIP
