@@ -27,7 +27,7 @@ it creates, in the same `mosip-nexus` namespace.
 
 - No `copy_cm.sh` — Nexus doesn't consume MOSIP's shared platform ConfigMaps
   (`global`, `config-server-share`, …); it's a standalone app with its own
-  `secret.env`.
+  Secret (`nexus-env`).
 - `install.sh` installs from the **published** Helm repo (`helm repo add
   mosip https://mosip.github.io/mosip-helm`), added/updated automatically —
   not a local chart checkout. The chart version is pinned (`CHART_VERSION`
@@ -35,11 +35,12 @@ it creates, in the same `mosip-nexus` namespace.
   an incompatible newer chart — bump it deliberately.
 - `install.sh` uses `helm upgrade --install` (idempotent, safe to re-run)
   rather than a plain `helm install`.
-- `nexus-server`'s `install.sh` never lets Helm own the `nexus-env` Secret
-  (`secret.create=false` + `secret.existingSecret`). It's created directly
-  with `kubectl`, prompting for `POSTGRES_PASSWORD` interactively the first
-  time and skipping creation on every later run — so `helm uninstall` /
-  `./delete.sh` can never delete it. See [nexus-server/README.md](nexus-server/README.md#secrets---always-dynamic-never-helm-owned).
+- `nexus-server`'s chart has no way to create the `nexus-env` Secret itself —
+  only to reference one (`secret.existingSecret`, always passed by
+  `install.sh`). It's created directly with `kubectl`, prompting for
+  `POSTGRES_PASSWORD` interactively the first time and skipping creation on
+  every later run — so `helm uninstall` / `./delete.sh` can never delete it.
+  See [nexus-server/README.md](nexus-server/README.md#secrets---always-dynamic-never-helm-owned).
 
 ## Related
 

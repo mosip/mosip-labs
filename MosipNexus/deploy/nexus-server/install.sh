@@ -4,7 +4,7 @@
 ##   kubeconfig              optional path to a kubeconfig (defaults to $KUBECONFIG /
 ##                           ~/.kube/config)
 ##   extra-secrets-env-file  optional local, gitignored dotenv file (KEY=value lines,
-##                           same keys as Server/.env.example) for OPTIONAL secret.env
+##                           same keys as Server/.env.example) for OPTIONAL Secret
 ##                           keys — GITHUB_TOKEN, GROQ_API_KEY, SMTP_*, AWS_*, ... Only
 ##                           read the first time the "nexus-env" Secret is created.
 ##   values-file              optional local values override for NON-secret settings
@@ -20,8 +20,9 @@
 ## Secrets: POSTGRES_PASSWORD/PG_CONNECTION are never stored in a values file,
 ## passed via `--set`, put in an env var, or auto-generated — the only way to
 ## supply them is the interactive hidden prompt below, run in a real TTY. The
-## "nexus-env" Secret is created directly with `kubectl` — NOT by Helm
-## (`secret.create=false` + `secret.existingSecret=nexus-env`) — so
+## "nexus-env" Secret is created directly with `kubectl` — the chart has no
+## mechanism to create it itself, only to reference one via
+## `secret.existingSecret=nexus-env` (always passed below) — so
 ## `helm uninstall` / `./delete.sh` never deletes it, and it's what the
 ## Deployment actually reads its env from (`envFrom: secretRef`). Re-running
 ## this script checks whether the Secret already exists first; if so nothing
@@ -163,7 +164,6 @@ function installing_nexus_server() {
   helm -n "$NS" upgrade --install "$RELEASE" "$CHART_REPO/$CHART_NAME" \
     --version "$CHART_VERSION" \
     "${VALUES_ARGS[@]}" \
-    --set secret.create=false \
     --set secret.existingSecret="$SECRET_NAME" \
     --wait
 

@@ -5,8 +5,9 @@ Mirrors the `deploy/<component>/install.sh` / `delete.sh` / `restart.sh`
 convention used across other MOSIP repos, with two deliberate differences:
 
 - No `copy_cm.sh` step — Nexus doesn't consume MOSIP's shared platform
-  ConfigMaps (`global`, `config-server-share`, …); all config lives in the
-  chart's own `secret.env`.
+  ConfigMaps (`global`, `config-server-share`, …); all config lives in its
+  own Secret (`nexus-env`, created below — the chart has no built-in way to
+  create it, only to reference one that already exists).
 - `install.sh` installs from the **published** Helm repo
   (`helm repo add mosip https://mosip.github.io/mosip-helm`, chart
   `mosip/nexus-server`), added/updated automatically on every run, at a
@@ -40,9 +41,10 @@ namespace:
 - derives `PG_CONNECTION` from it automatically (password is percent-encoded,
   so special characters are safe)
 - creates the Secret directly with `kubectl create secret generic` —
-  **not** via Helm (`secret.create=false` + `secret.existingSecret=nexus-env`
-  are always passed), so `helm uninstall` / `./delete.sh` never deletes it —
-  this is what the Deployment's `envFrom: secretRef` actually reads at runtime
+  **not** via Helm (the chart has no mechanism to create it at all, only to
+  reference one via `secret.existingSecret=nexus-env`, always passed), so
+  `helm uninstall` / `./delete.sh` never deletes it — this is what the
+  Deployment's `envFrom: secretRef` actually reads at runtime
 
 Re-running `install.sh` (redeploy, upgrade) checks whether `nexus-env`
 already exists first — if so, nothing is prompted or overwritten.
@@ -68,7 +70,7 @@ kubectl -n mosip-nexus delete secret nexus-env
 ./restart.sh
 ```
 
-Optional, non-required `secret.env` keys (`GITHUB_TOKEN`, `GROQ_API_KEY`,
+Optional, non-required Secret keys (`GITHUB_TOKEN`, `GROQ_API_KEY`,
 `SMTP_*`, `AWS_*`, …) can be supplied via a local, gitignored dotenv file
 (`KEY=value` lines, same keys as [`../../Server/.env.example`](../../Server/.env.example))
 passed as the second argument — only read the first time the Secret is
