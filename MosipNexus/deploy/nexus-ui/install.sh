@@ -55,7 +55,10 @@ function prompt_hostname() {
 
   local hostname=""
   while [ -z "$hostname" ] ; do
-    read -r -p "Enter the hostname for accessing the UI (routing.istio.hosts[0]): " hostname
+    if ! read -r -p "Enter the hostname for accessing the UI (routing.istio.hosts[0]): " hostname ; then
+      echo "ERROR: failed to read hostname input (EOF or interrupted)." >&2
+      return 1
+    fi
   done
 
   if [ -n "$current_host" ] && [ "$hostname" != "$current_host" ] ; then
