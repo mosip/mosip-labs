@@ -1,14 +1,15 @@
 #!/bin/bash
 # Installs / upgrades the MOSIP Nexus Server (RAG API, postgres, crawlers/jobs, MCP)
-## Usage: ./install.sh [kubeconfig] [extra-secrets-env-file] [values-file]
+## Usage: ./install.sh [kubeconfig] [extra-secrets-env-file]
 ##   kubeconfig              optional path to a kubeconfig (defaults to $KUBECONFIG /
 ##                           ~/.kube/config)
 ##   extra-secrets-env-file  optional local, gitignored dotenv file (KEY=value lines,
 ##                           same keys as Server/.env.example) for OPTIONAL Secret
 ##                           keys — GITHUB_TOKEN, GROQ_API_KEY, SMTP_*, AWS_*, ... Only
 ##                           read the first time the "nexus-env" Secret is created.
-##   values-file              optional local values override for NON-secret settings
-##                           (storageClassName, image.tag, routing.mode=nginx, ...)
+## Requires my-values.yaml (local, gitignored, non-secret overrides — storageClassName,
+## image.tag, routing.mode=nginx, ...) to exist in this directory — run from
+## deploy/nexus-server/, not elsewhere.
 ## Env: ROLLOUT_TIMEOUT  max time to wait for the rollout (default 10m) —
 ##      `kubectl rollout status` has no timeout by default and would otherwise
 ##      block indefinitely if the Deployment can't become ready.
@@ -32,7 +33,7 @@ if [ $# -ge 1 ] && [ -n "$1" ] ; then
   export KUBECONFIG=$1
 fi
 
-NS=mosip-nexus
+NS=nexus
 RELEASE=nexus-server
 CHART_REPO=mosip
 CHART_REPO_URL=https://mosip.github.io/mosip-helm
@@ -41,10 +42,6 @@ CHART_VERSION="${CHART_VERSION:-1.0.0}"
 SECRET_NAME=nexus-env
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-10m}"
 EXTRA_SECRETS_FILE="${2:-}"
-VALUES_ARGS=()
-if [ $# -ge 3 ] && [ -n "$3" ] ; then
-  VALUES_ARGS=(-f "$3")
-fi
 
 # Pure-bash percent-encoding — POSTGRES_PASSWORD can contain characters
 # (@ : / # ?) that would otherwise corrupt the derived PG_CONNECTION URL.
@@ -163,7 +160,7 @@ function installing_nexus_server() {
   echo "Installing/upgrading $RELEASE from $CHART_REPO/$CHART_NAME @ $CHART_VERSION (published chart)"
   helm -n "$NS" upgrade --install "$RELEASE" "$CHART_REPO/$CHART_NAME" \
     --version "$CHART_VERSION" \
-    "${VALUES_ARGS[@]}" \
+    -f my-values.yaml \
     --set secret.existingSecret="$SECRET_NAME" \
     --wait
 
