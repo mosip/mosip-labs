@@ -1,12 +1,11 @@
 ## MOSIP Nexus Server — Helm values
 ## Faithful, values-driven equivalent of the raw manifests in ../../k8s/.
 ## See README.md for the full parameter reference.
-
-## Namespace this release's resources are created in. Helm does not manage
-## the Namespace object itself (best practice) — create it with:
-##   helm install nexus-server . --namespace mosip-nexus --create-namespace
 ##
-namespace: mosip-nexus
+## Deployed into whatever namespace `helm install`/`upgrade -n <ns>` targets —
+## every template uses .Release.Namespace, not a separate values-driven
+## namespace field, so there's exactly one place that decides where resources
+## land (matching the pattern used by other MOSIP module charts, e.g. kernel).
 
 ## Default StorageClass for every PVC this chart creates (postgres, updater,
 ## backup). Leave "" to use the cluster's default StorageClass. Each PVC's own

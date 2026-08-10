@@ -18,7 +18,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: nexus-initial-ingest
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels: {{- include "nexus-server.labels" (dict "name" "nexus-initial-ingest" "ctx" $) | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install

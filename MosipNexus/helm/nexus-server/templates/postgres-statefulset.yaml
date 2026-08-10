@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: nexus-postgres
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels: {{- include "nexus-server.labels" (dict "name" "nexus-postgres" "ctx" $) | nindent 4 }}
 spec:
   serviceName: nexus-postgres

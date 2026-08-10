@@ -97,9 +97,10 @@ mutually exclusive templates:
 
 ## Key parameters
 
+Namespace isn't a chart parameter — every resource uses `.Release.Namespace`, so it's whatever namespace you pass to `helm install`/`upgrade -n <ns>` (see [Installing](#installing)).
+
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `namespace` | `mosip-nexus` | Namespace for all resources (create with `--create-namespace`) |
 | `storageClassName` | `""` (cluster default) | Default StorageClass for all three PVCs (postgres/updater/backup). Each PVC's own `*.storageClassName` overrides this individually |
 | `image.repository` / `image.tag` | `nexus-server` / `v1.0.0` | API + jobs image |
 | `api.workers` / `api.limitConcurrency` | `1` / `64` | uvicorn flags |

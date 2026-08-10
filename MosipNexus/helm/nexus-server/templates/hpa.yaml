@@ -3,7 +3,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: nexus-api
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels: {{- include "nexus-server.labels" (dict "name" "nexus-api" "ctx" $) | nindent 4 }}
 spec:
   scaleTargetRef:

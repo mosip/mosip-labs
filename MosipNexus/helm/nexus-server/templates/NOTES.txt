@@ -1,4 +1,4 @@
-MOSIP Nexus Server ({{ .Chart.Name }} {{ .Chart.Version }}) has been installed into namespace "{{ .Values.namespace }}".
+MOSIP Nexus Server ({{ .Chart.Name }} {{ .Chart.Version }}) has been installed into namespace "{{ .Release.Namespace }}".
 
 {{- if eq .Values.api.routing.mode "istio" }}
 
@@ -13,18 +13,18 @@ Routing: nginx Ingress
 {{- if .Values.updater.enabled }}
 
 Trigger the first knowledge-base crawl now (don't wait for the nightly schedule):
-  kubectl create job --from=cronjob/nexus-updater nexus-updater-init -n {{ .Values.namespace }}
+  kubectl create job --from=cronjob/nexus-updater nexus-updater-init -n {{ .Release.Namespace }}
 {{- end }}
 
 {{- if .Values.initialIngest.enabled }}
 
 A one-time S3 vector-snapshot restore Job ("nexus-initial-ingest") ran as a
 post-install hook. Check its status:
-  kubectl get job nexus-initial-ingest -n {{ .Values.namespace }}
+  kubectl get job nexus-initial-ingest -n {{ .Release.Namespace }}
 {{- end }}
 
 Check health:
-  kubectl port-forward -n {{ .Values.namespace }} svc/nexus-api 8010:8000
+  kubectl port-forward -n {{ .Release.Namespace }} svc/nexus-api 8010:8000
   curl http://localhost:8010/health
 
 Next: install the helm/nexus-ui chart.

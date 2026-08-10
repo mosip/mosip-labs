@@ -3,7 +3,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: nexus-alerts
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels: {{- include "nexus-server.labels" (dict "name" "nexus-api" "ctx" $) | nindent 4 }}
     {{- if .Values.metrics.prometheusRule.additionalLabels }}
     {{- toYaml .Values.metrics.prometheusRule.additionalLabels | nindent 4 }}
@@ -15,17 +15,17 @@ spec:
       rules:
         - alert: NexusUpdaterFailed
           expr: |
-            kube_job_failed{namespace="{{ .Values.namespace }}", job_name=~"nexus-updater-.*", condition=~"true|unknown"} > 0
+            kube_job_failed{namespace="{{ .Release.Namespace }}", job_name=~"nexus-updater-.*", condition=~"true|unknown"} > 0
           for: 5m
           labels:
             severity: critical
           annotations:
             summary: "nexus-updater CronJob failed"
-            description: "The nightly knowledge update job has failed. Check logs: kubectl logs -n {{ .Values.namespace }} job/{{ "{{ $labels.job_name }}" }}"
+            description: "The nightly knowledge update job has failed. Check logs: kubectl logs -n {{ .Release.Namespace }} job/{{ "{{ $labels.job_name }}" }}"
 
         - alert: NexusBackupFailed
           expr: |
-            kube_job_failed{namespace="{{ .Values.namespace }}", job_name=~"nexus-db-backup-.*", condition=~"true|unknown"} > 0
+            kube_job_failed{namespace="{{ .Release.Namespace }}", job_name=~"nexus-db-backup-.*", condition=~"true|unknown"} > 0
           for: 5m
           labels:
             severity: warning
@@ -37,8 +37,8 @@ spec:
       rules:
         - alert: NexusApiHighMemory
           expr: |
-            container_memory_working_set_bytes{namespace="{{ .Values.namespace }}", container="nexus-api"}
-            / container_spec_memory_limit_bytes{namespace="{{ .Values.namespace }}", container="nexus-api"}
+            container_memory_working_set_bytes{namespace="{{ .Release.Namespace }}", container="nexus-api"}
+            / container_spec_memory_limit_bytes{namespace="{{ .Release.Namespace }}", container="nexus-api"}
             > 0.85
           for: 10m
           labels:
@@ -49,7 +49,7 @@ spec:
 
         - alert: NexusApiRestarting
           expr: |
-            increase(kube_pod_container_status_restarts_total{namespace="{{ .Values.namespace }}", container="nexus-api"}[1h]) > 2
+            increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", container="nexus-api"}[1h]) > 2
           for: 0m
           labels:
             severity: warning
@@ -59,7 +59,7 @@ spec:
 
         - alert: NexusApiDown
           expr: |
-            kube_deployment_status_replicas_available{namespace="{{ .Values.namespace }}", deployment="nexus-api"} == 0
+            kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}", deployment="nexus-api"} == 0
           for: 2m
           labels:
             severity: critical
@@ -71,8 +71,8 @@ spec:
       rules:
         - alert: NexusPostgresDown
           expr: |
-            kube_deployment_status_replicas_available{namespace="{{ .Values.namespace }}", deployment="nexus-postgres"} == 0
-            or kube_statefulset_status_replicas_ready{namespace="{{ .Values.namespace }}", statefulset="nexus-postgres"} == 0
+            kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}", deployment="nexus-postgres"} == 0
+            or kube_statefulset_status_replicas_ready{namespace="{{ .Release.Namespace }}", statefulset="nexus-postgres"} == 0
           for: 2m
           labels:
             severity: critical
