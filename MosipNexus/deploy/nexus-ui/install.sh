@@ -1,11 +1,13 @@
 #!/bin/bash
 # Installs / upgrades the MOSIP Nexus UI (React + nginx)
-## Usage: ./install.sh [kubeconfig] [values-file]
+## Usage: ./install.sh [kubeconfig]
 ##
 ## Prerequisite: deploy/nexus-server/install.sh already ran successfully in
 ## the same namespace — this chart's nginx proxies same-origin /api/* to the
 ## "nexus-api" Service created by that release.
 ## Installs from the published chart (mosip/nexus-ui @ https://mosip.github.io/mosip-helm).
+## Requires my-values.yaml (local, gitignored, non-secret overrides — image.tag, ...)
+## to exist in this directory — run from deploy/nexus-ui/, not elsewhere.
 ## Env: ROLLOUT_TIMEOUT  max time to wait for the rollout (default 10m).
 ##      CHART_VERSION   published nexus-ui chart version to install (default
 ##      1.0.0). A routine redeploy always gets exactly this version, not
@@ -23,10 +25,6 @@ CHART_REPO_URL=https://mosip.github.io/mosip-helm
 CHART_NAME=nexus-ui
 CHART_VERSION="${CHART_VERSION:-1.0.0}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-10m}"
-VALUES_ARGS=()
-if [ $# -ge 2 ] && [ -n "$2" ] ; then
-  VALUES_ARGS=(-f "$2")
-fi
 
 function installing_nexus_ui() {
   if ! kubectl -n "$NS" get svc nexus-api >/dev/null 2>&1 ; then
@@ -50,7 +48,7 @@ function installing_nexus_ui() {
 
   echo "Installing/upgrading $RELEASE from $CHART_REPO/$CHART_NAME @ $CHART_VERSION (published chart)"
   helm -n "$NS" upgrade --install "$RELEASE" "$CHART_REPO/$CHART_NAME" \
-    --version "$CHART_VERSION" "${VALUES_ARGS[@]}" --wait
+    --version "$CHART_VERSION" -f my-values.yaml --wait
 
   kubectl -n "$NS" rollout status deployment/nexus-ui --timeout="$ROLLOUT_TIMEOUT"
   echo "Installed $RELEASE"

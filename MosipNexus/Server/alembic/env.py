@@ -21,7 +21,13 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-config.set_main_option("sqlalchemy.url", PG_CONNECTION)
+# set_main_option() writes through a ConfigParser, which treats "%" as the
+# start of interpolation syntax (%(name)s) — a password containing a
+# percent-encoded character (e.g. "@" -> "%40") raises
+# "invalid interpolation syntax" unless every literal "%" is escaped as "%%"
+# first. ConfigParser un-escapes "%%" -> "%" again on read, so this round-trips
+# back to the exact original PG_CONNECTION value.
+config.set_main_option("sqlalchemy.url", PG_CONNECTION.replace("%", "%%"))
 
 # Never touch LangChain-owned tables
 _SKIP_TABLES = {
