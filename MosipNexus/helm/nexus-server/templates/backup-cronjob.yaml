@@ -1,14 +1,14 @@
 {{- if .Values.backup.enabled }}
 # Restore from backup:
-#   POD=$(kubectl get pod -n {{ .Values.namespace }} -l app=nexus-postgres -o name | head -1)
-#   kubectl exec -n {{ .Values.namespace }} $POD -- pg_restore -U mosip -d mosipnexus /backups/nexus_<DATE>.dump
+#   POD=$(kubectl get pod -n {{ .Release.Namespace }} -l app=nexus-postgres -o name | head -1)
+#   kubectl exec -n {{ .Release.Namespace }} $POD -- pg_restore -U mosip -d mosipnexus /backups/nexus_<DATE>.dump
 # Trigger a manual backup:
-#   kubectl create job --from=cronjob/nexus-db-backup nexus-db-backup-manual -n {{ .Values.namespace }}
+#   kubectl create job --from=cronjob/nexus-db-backup nexus-db-backup-manual -n {{ .Release.Namespace }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: nexus-db-backup
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels: {{- include "nexus-server.labels" (dict "name" "nexus-db-backup" "ctx" $) | nindent 4 }}
 spec:
   schedule: {{ .Values.backup.schedule | quote }}

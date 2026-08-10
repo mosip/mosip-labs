@@ -1,11 +1,11 @@
 {{- if .Values.updater.enabled }}
 # Trigger a manual first run after install:
-#   kubectl create job --from=cronjob/nexus-updater nexus-updater-init -n {{ .Values.namespace }}
+#   kubectl create job --from=cronjob/nexus-updater nexus-updater-init -n {{ .Release.Namespace }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: nexus-updater
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels: {{- include "nexus-server.labels" (dict "name" "nexus-updater" "ctx" $) | nindent 4 }}
 spec:
   schedule: {{ .Values.updater.schedule | quote }}

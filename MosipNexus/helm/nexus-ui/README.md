@@ -52,9 +52,10 @@ independently per chart if you need to:
 
 ## Key parameters
 
+Namespace isn't a chart parameter — every resource uses `.Release.Namespace`, so install this into the same namespace as nexus-server (`-n <ns>`, same as it was installed with).
+
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `namespace` | `mosip-nexus` | Must match the nexus-server release's namespace |
 | `image.repository` / `image.tag` | `nexus-ui` / `v1.0.0` | UI image |
 | `routing.mode` | `istio` | `istio` or `nginx` |
 | `routing.ingress.host` | `nexus.mosip.net` | Used when `routing.mode: nginx` |

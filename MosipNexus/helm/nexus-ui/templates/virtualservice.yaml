@@ -3,14 +3,14 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: nexus-ui
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels: {{- include "nexus-ui.labels" . | nindent 4 }}
   annotations: {{- include "nexus-ui.annotations" . | nindent 4 }}
 spec:
   hosts: {{- toYaml .Values.routing.istio.hosts | nindent 4 }}
   gateways:
     {{- if .Values.routing.istio.createGateway }}
-    - {{ .Values.namespace }}/nexus-ui
+    - {{ .Release.Namespace }}/nexus-ui
     {{- else }}
     - {{ .Values.routing.istio.gateway }}
     {{- end }}

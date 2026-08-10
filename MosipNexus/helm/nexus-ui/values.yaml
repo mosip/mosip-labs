@@ -1,9 +1,10 @@
 ## MOSIP Nexus UI — Helm values
 ## Faithful, values-driven equivalent of the raw manifests in ../../k8s/.
 ## Prerequisite: install helm/nexus-server first (same namespace) — the
-## UI's nginx proxies same-origin /api/* to the "nexus-api" Service.
-
-namespace: mosip-nexus
+## UI's nginx proxies same-origin /api/* to the "nexus-api" Service. Deployed
+## into whatever namespace `helm install`/`upgrade -n <ns>` targets — see
+## nexus-server/README.md for why this chart uses .Release.Namespace instead
+## of a separate values-driven namespace field.
 
 commonLabels: {}
 commonAnnotations: {}
