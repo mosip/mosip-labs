@@ -143,6 +143,13 @@ podSecurityContext:
 containerSecurityContext:
   enabled: true
   runAsNonRoot: true
+  # nginx:1.27-alpine's Dockerfile USER directive is "nginx" (a name, not a
+  # numeric UID) — kubelet can't statically verify that satisfies
+  # runAsNonRoot without an explicit runAsUser, and refuses to start the
+  # container ("cannot verify user is non-root") without this. Confirmed via
+  # `id nginx` inside the actual image: uid=101(nginx) gid=101(nginx) —
+  # matches podSecurityContext.fsGroup below.
+  runAsUser: 101
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
   capabilities:
