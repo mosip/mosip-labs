@@ -407,6 +407,8 @@ def chat(req: ChatRequest, background_tasks: BackgroundTasks) -> ChatResponse:
             similar_questions=result.get("similar_questions", []),
             session_id=result["session_id"],
             token_usage=_token_usage(result.get("token_usage")),
+            turn=result.get("turn"),
+            cached=result.get("cached", False),
         )
 
 
@@ -700,6 +702,8 @@ def batch(req: BatchRequest) -> BatchResponse:
                 similar_questions=r.get("similar_questions", []),
                 session_id=session_id,
                 token_usage=_token_usage(r.get("token_usage")),
+                turn=r.get("turn"),
+                cached=r.get("cached", False),
             )
             for r in payloads
         ]

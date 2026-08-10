@@ -385,6 +385,14 @@ class ChatResponse(BaseModel):
         description="1-based turn number for this Q&A — pass to `POST /feedback` to rate it.",
         examples=[1],
     )
+    cached: bool = Field(
+        default=False,
+        description=(
+            "True when this answer was served from the system-level answer cache "
+            "(a near-duplicate question was already answered with high confidence) "
+            "instead of a fresh LLM call — `token_usage` will be all zeros."
+        ),
+    )
 
 
 class BatchRequest(BaseModel):

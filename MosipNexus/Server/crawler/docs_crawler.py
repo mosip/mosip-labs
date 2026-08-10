@@ -100,6 +100,18 @@ def fetch_page_as_markdown(url: str) -> str:
         or soup
     )
 
+    # GitBook's "Ask AI" chat sidebar renders inline in the DOM (not in nav/footer,
+    # so the strip=[...] list below doesn't catch it) and repeats per content
+    # section — left in, its "GitBook Assistant" label pollutes nearly every
+    # paragraph. data-testid="ai-chat" is GitBook's own attribute for this
+    # widget, not a generic utility class, so this is safe to always remove.
+    for widget in content.find_all(attrs={"data-testid": "ai-chat"}):
+        widget.decompose()
+    # Icon SVGs carry no semantic content and their <title> tags were also
+    # picked up as stray widget-label text — always safe to drop.
+    for svg in content.find_all("svg"):
+        svg.decompose()
+
     # Convert tables to prose before markdownify so specs/configs embed correctly.
     # markdownify produces pipe-tables whose cells lack context without headers;
     # prose like "vCPU: 12, RAM: 32 GB, Disk: 128 GB" retrieves far better.

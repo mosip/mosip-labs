@@ -172,6 +172,38 @@ DEDUP_THRESHOLD = float(os.getenv("DEDUP_THRESHOLD", "0.88"))
 CONFIDENCE_HIGH   = float(os.getenv("CONFIDENCE_HIGH", "0.75"))
 CONFIDENCE_MEDIUM = float(os.getenv("CONFIDENCE_MEDIUM", "0.55"))
 
+# ── Answer cache (system-level, not per-user) ───────────────────────────────────
+# Serves a previously-generated answer for a near-duplicate question instead of
+# calling the LLM again — the actual token-saving layer (chunk_scores confidence
+# only decided *how much to trust* an answer, it didn't skip generation before this).
+ANSWER_CACHE_ENABLED = os.getenv("ANSWER_CACHE_ENABLED", "true").lower() in ("1", "true", "yes")
+# Cosine similarity floor to treat a new question as "the same" as a cached one.
+# Deliberately stricter than DEDUP_THRESHOLD (community-thread suggestion, not a
+# skip-the-LLM decision) — a wrong cache hit means a wrong answer shown confidently.
+#
+# Calibrated empirically (2026-08-05): paraphrases of a cached "What is mosip?"
+# ("tell me about mosip", "explain mosip to me", etc.) scored 0.9072-0.9657;
+# genuinely different questions on related topics scored 0.7705-0.8782. 0.90
+# sits in the real gap between those two clusters — catches paraphrase variety
+# without matching different-but-related questions. Small sample (5 vs 3
+# examples, English only) — revisit if real usage shows mismatches or misses.
+ANSWER_CACHE_SIMILARITY = float(os.getenv("ANSWER_CACHE_SIMILARITY", "0.90"))
+# Re-validated at serve time against live chunk_scores (not just checked once at
+# write time) — a cached answer whose chunks later took negative feedback stops
+# being served, with no separate invalidation step needed.
+#
+# NOTE: this is deliberately a *different, lower* bar than CONFIDENCE_HIGH.
+# CONFIDENCE_HIGH is calibrated for the blended ANSWER-level score (60% live
+# query relevance + 40% chunk history) — easy to reach because relevance
+# dominates. mean_final_score here is pure chunk history with NO relevance
+# boost, and a freshly-retrieved chunk (retrieval_count=1, everything else
+# neutral) structurally lands around ~0.50-0.60 depending on source type —
+# it would take ~100 retrievals before CONFIDENCE_HIGH became reachable.
+# This threshold instead reads as "hasn't accumulated meaningful negative
+# signal" rather than "has a long proven track record."
+ANSWER_CACHE_MIN_TRUST = float(os.getenv("ANSWER_CACHE_MIN_TRUST", "0.50"))
+ANSWER_CACHE_MAX_AGE_DAYS = int(os.getenv("ANSWER_CACHE_MAX_AGE_DAYS", "30"))
+
 # ── BYOK token budget (chat LLM prompts) ───────────────────────────────────────
 # How many prior messages to send to the answer LLM / condenser (pairs of Q/A)
 LLM_MAX_HISTORY_MESSAGES = int(os.getenv("LLM_MAX_HISTORY_MESSAGES", "6"))

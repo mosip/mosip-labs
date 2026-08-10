@@ -16,6 +16,7 @@ explicit_score, resolution_score) plus a recency decay computed from
 from __future__ import annotations
 
 import logging
+import math
 import uuid
 from datetime import datetime, timezone
 
@@ -116,12 +117,22 @@ def record_retrieval(docs: list[Document], *, product_slug: str) -> list[str]:
             source_type = doc.metadata.get("source_type", "") or ""
             row = db.get(ChunkScore, chunk_id)
             if row is None:
+                # Explicit values, not relying on the mapped_column(default=...) —
+                # that default only applies once SQLAlchemy flushes the INSERT;
+                # read/mutated on the in-memory object before a flush, it's still
+                # None (caused a silent TypeError here — see chunk_scores staying
+                # empty despite live traffic).
                 row = ChunkScore(
                     chunk_id=chunk_id,
                     product_slug=product_slug,
                     collection_name=doc.metadata.get("collection", "") or source_type,
                     source_type=source_type,
                     retrieval_count=0,
+                    agreement_score=0.5,
+                    follow_up_score=0.5,
+                    explicit_score=0.5,
+                    resolution_score=0.5,
+                    feedback_vote_count=0,
                     first_seen_at=now,
                 )
                 db.add(row)
@@ -168,8 +179,25 @@ def score_answer(docs: list[Document], *, mmr_relevance: float) -> str:
     return "low"
 
 
+def _diminishing_step(vote_count: int) -> float:
+    """Shrinks the feedback nudge as votes accumulate on a chunk.
+
+    A handful of bad-faith or mistaken votes barely move a chunk that's
+    already earned many good ones; the first few votes still matter most.
+    No per-user identity exists to rate-limit against directly, so this is
+    the practical substitute for now (a fuller Autonomous Feedback pass —
+    per-user dedup, admin review queue for sharply-dropping chunks — is
+    tracked as future work, not built here).
+    """
+    return EXPLICIT_FEEDBACK_STEP / math.sqrt(1 + max(0, vote_count))
+
+
 def apply_explicit_feedback(chunk_ids: list[str], rating: str) -> None:
     """Nudge ``explicit_score`` for every chunk used in a rated turn.
+
+    Call only for a *new* vote (no prior feedback on this turn) — idempotency
+    (one vote per session+turn) is enforced by ``controllers.feedback``, not
+    here, so this always applies a fresh nudge and increments the vote count.
 
     Args:
         chunk_ids: Chunk id strings persisted on the turn (``ChatTurn.chunk_ids``).
@@ -177,7 +205,7 @@ def apply_explicit_feedback(chunk_ids: list[str], rating: str) -> None:
     """
     if not chunk_ids:
         return
-    step = EXPLICIT_FEEDBACK_STEP if rating == "positive" else -EXPLICIT_FEEDBACK_STEP
+    sign = 1.0 if rating == "positive" else -1.0
     with session_scope() as db:
         for cid_str in chunk_ids:
             try:
@@ -185,9 +213,62 @@ def apply_explicit_feedback(chunk_ids: list[str], rating: str) -> None:
             except (ValueError, TypeError):
                 continue
             row = db.get(ChunkScore, cid)
-            if row is not None:
-                row.explicit_score = _clamp(row.explicit_score + step)
+            if row is None:
+                continue
+            step = _diminishing_step(row.feedback_vote_count)
+            row.explicit_score = _clamp(row.explicit_score + sign * step)
+            row.feedback_vote_count += 1
     logger.info("Applied explicit feedback rating=%s chunks=%d", rating, len(chunk_ids))
+
+
+def change_explicit_feedback(chunk_ids: list[str], *, old_rating: str, new_rating: str) -> None:
+    """Correct chunk scores when a user changes their vote on an already-rated turn.
+
+    Approximates reversal by applying a double-step nudge in the new
+    direction at the chunk's *current* diminishing-step size — exact
+    reversal isn't recoverable since only a running score is kept, not a
+    per-vote ledger. Does not increment ``feedback_vote_count`` (a flip is
+    still one vote, just redirected).
+    """
+    if not chunk_ids or old_rating == new_rating:
+        return
+    new_sign = 1.0 if new_rating == "positive" else -1.0
+    with session_scope() as db:
+        for cid_str in chunk_ids:
+            try:
+                cid = uuid.UUID(cid_str)
+            except (ValueError, TypeError):
+                continue
+            row = db.get(ChunkScore, cid)
+            if row is None:
+                continue
+            step = _diminishing_step(row.feedback_vote_count)
+            row.explicit_score = _clamp(row.explicit_score + 2 * new_sign * step)
+    logger.info(
+        "Changed explicit feedback old=%s new=%s chunks=%d", old_rating, new_rating, len(chunk_ids)
+    )
+
+
+def mean_final_score(chunk_ids: list[str]) -> float | None:
+    """Live-recomputed mean confidence across chunks, or ``None`` if none are scored yet.
+
+    Used by ``chain.answer_cache`` to re-validate a cached answer's chunks are
+    still trustworthy *right now* — not just when the answer was first cached —
+    so negative feedback recorded anywhere later naturally stops a stale/bad
+    cached answer from being served, with no separate invalidation step needed.
+    """
+    uuids: list[uuid.UUID] = []
+    for cid_str in chunk_ids:
+        try:
+            uuids.append(uuid.UUID(cid_str))
+        except (ValueError, TypeError):
+            continue
+    if not uuids:
+        return None
+    with session_scope() as db:
+        rows = [db.get(ChunkScore, cid) for cid in uuids]
+        scores = [_final_score(r) for r in rows if r is not None]
+    return sum(scores) / len(scores) if scores else None
 
 
 def apply_follow_up_penalty(chunk_ids: list[str]) -> None:

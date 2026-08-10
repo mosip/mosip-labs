@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from db.engine import session_scope
 from db.repositories.feedback import FeedbackRepository
+from db.repositories.session_chunk_feedback import SessionChunkFeedbackRepository
 from db.repositories.sessions import SessionRepository
 from db.repositories.stats import StatsRepository
 
@@ -29,6 +30,7 @@ class UnitOfWork:
         self.db = db
         self.sessions = SessionRepository(db)
         self.feedback = FeedbackRepository(db)
+        self.session_chunk_feedback = SessionChunkFeedbackRepository(db)
         self.stats = StatsRepository(db)
 
 
