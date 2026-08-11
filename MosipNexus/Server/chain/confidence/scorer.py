@@ -115,7 +115,10 @@ def record_retrieval(docs: list[Document], *, product_slug: str) -> list[str]:
                 continue
             chunk_id_strs.append(str(chunk_id))
             source_type = doc.metadata.get("source_type", "") or ""
-            row = db.get(ChunkScore, chunk_id)
+            # with_for_update: concurrent requests touching the same popular chunk
+            # (plausible — MAX_CONCURRENT_CHATS allows many parallel /chat calls)
+            # must not read-modify-write past each other and silently drop an update.
+            row = db.get(ChunkScore, chunk_id, with_for_update=True)
             if row is None:
                 # Explicit values, not relying on the mapped_column(default=...) —
                 # that default only applies once SQLAlchemy flushes the INSERT;
@@ -192,7 +195,7 @@ def _diminishing_step(vote_count: int) -> float:
     return EXPLICIT_FEEDBACK_STEP / math.sqrt(1 + max(0, vote_count))
 
 
-def apply_explicit_feedback(chunk_ids: list[str], rating: str) -> None:
+def apply_explicit_feedback(chunk_ids: list[str], rating: str) -> dict[str, float]:
     """Nudge ``explicit_score`` for every chunk used in a rated turn.
 
     Call only for a *new* vote (no prior feedback on this turn) — idempotency
@@ -202,51 +205,76 @@ def apply_explicit_feedback(chunk_ids: list[str], rating: str) -> None:
     Args:
         chunk_ids: Chunk id strings persisted on the turn (``ChatTurn.chunk_ids``).
         rating: ``"positive"`` or ``"negative"``.
+
+    Returns:
+        ``{chunk_id_str: contribution}`` — the exact signed delta applied to
+        each chunk, for the caller to persist on ``session_chunk_feedback``
+        (needed so a later changed vote can undo precisely — see
+        ``change_explicit_feedback``).
     """
     if not chunk_ids:
-        return
+        return {}
     sign = 1.0 if rating == "positive" else -1.0
+    contributions: dict[str, float] = {}
     with session_scope() as db:
         for cid_str in chunk_ids:
             try:
                 cid = uuid.UUID(cid_str)
             except (ValueError, TypeError):
                 continue
-            row = db.get(ChunkScore, cid)
+            row = db.get(ChunkScore, cid, with_for_update=True)
             if row is None:
                 continue
             step = _diminishing_step(row.feedback_vote_count)
-            row.explicit_score = _clamp(row.explicit_score + sign * step)
+            contribution = sign * step
+            row.explicit_score = _clamp(row.explicit_score + contribution)
             row.feedback_vote_count += 1
+            contributions[cid_str] = contribution
     logger.info("Applied explicit feedback rating=%s chunks=%d", rating, len(chunk_ids))
+    return contributions
 
 
-def change_explicit_feedback(chunk_ids: list[str], *, old_rating: str, new_rating: str) -> None:
+def change_explicit_feedback(
+    chunk_contributions: dict[str, float], *, new_rating: str
+) -> dict[str, float]:
     """Correct chunk scores when a user changes their vote on an already-rated turn.
 
-    Approximates reversal by applying a double-step nudge in the new
-    direction at the chunk's *current* diminishing-step size — exact
-    reversal isn't recoverable since only a running score is kept, not a
-    per-vote ledger. Does not increment ``feedback_vote_count`` (a flip is
-    still one vote, just redirected).
+    Subtracts each chunk's exact previously-stored contribution (not a guess
+    based on the chunk's *current* diminishing-step size — that undercounts
+    or overcounts whenever other votes landed on the chunk in between) and
+    applies a fresh contribution for the new rating. Does not increment
+    ``feedback_vote_count`` (a flip is still one vote, just redirected).
+
+    Args:
+        chunk_contributions: ``{chunk_id_str: previous_contribution}`` — the
+            exact delta this session's prior vote applied, as persisted on
+            ``session_chunk_feedback.contribution``.
+        new_rating: ``"positive"`` or ``"negative"``.
+
+    Returns:
+        ``{chunk_id_str: new_contribution}`` for the caller to persist.
     """
-    if not chunk_ids or old_rating == new_rating:
-        return
+    if not chunk_contributions:
+        return {}
     new_sign = 1.0 if new_rating == "positive" else -1.0
+    new_contributions: dict[str, float] = {}
     with session_scope() as db:
-        for cid_str in chunk_ids:
+        for cid_str, old_contribution in chunk_contributions.items():
             try:
                 cid = uuid.UUID(cid_str)
             except (ValueError, TypeError):
                 continue
-            row = db.get(ChunkScore, cid)
+            row = db.get(ChunkScore, cid, with_for_update=True)
             if row is None:
                 continue
             step = _diminishing_step(row.feedback_vote_count)
-            row.explicit_score = _clamp(row.explicit_score + 2 * new_sign * step)
+            new_contribution = new_sign * step
+            row.explicit_score = _clamp(row.explicit_score - old_contribution + new_contribution)
+            new_contributions[cid_str] = new_contribution
     logger.info(
-        "Changed explicit feedback old=%s new=%s chunks=%d", old_rating, new_rating, len(chunk_ids)
+        "Changed explicit feedback new=%s chunks=%d", new_rating, len(chunk_contributions)
     )
+    return new_contributions
 
 
 def mean_final_score(chunk_ids: list[str]) -> float | None:
@@ -287,6 +315,6 @@ def apply_follow_up_penalty(chunk_ids: list[str]) -> None:
                 cid = uuid.UUID(cid_str)
             except (ValueError, TypeError):
                 continue
-            row = db.get(ChunkScore, cid)
+            row = db.get(ChunkScore, cid, with_for_update=True)
             if row is not None:
                 row.follow_up_score = _clamp(row.follow_up_score - FOLLOWUP_NEGATIVE_STEP)

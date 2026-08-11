@@ -11,6 +11,14 @@ Trust is re-checked at serve time via ``chain.confidence.scorer.mean_final_score
 against the cached answer's own ``chunk_ids`` — so negative feedback recorded
 by ANY later question naturally stops a stale/bad cached answer from being
 served again, with no separate cache-invalidation step required.
+
+PRIVACY: sharing across every user/session is exactly what makes this global,
+cross-user store risky — there's no user/tenant scoping anywhere in this
+codebase, so a question containing personal or deployment-specific detail
+could be served back to an unrelated user later. See the
+``ANSWER_CACHE_ENABLED`` comment in ``config/settings.py`` (defaults off) and
+the ``was_condensed`` gating in ``chain/query_engine.py`` before changing
+either — this file alone does not decide whether caching is safe to run.
 """
 
 from __future__ import annotations
@@ -23,6 +31,7 @@ from langchain_core.documents import Document
 from langchain_postgres import PGVector
 
 from config.settings import (
+    ANSWER_CACHE_CANDIDATES,
     ANSWER_CACHE_MAX_AGE_DAYS,
     ANSWER_CACHE_MIN_TRUST,
     ANSWER_CACHE_SIMILARITY,
@@ -59,27 +68,24 @@ def _get_store(product_slug: str) -> PGVector:
         return store
 
 
-def lookup(query: str, *, product_slug: str) -> dict | None:
-    """Return a cached answer dict for a near-duplicate question, or ``None``.
+def _delete_entry(product_slug: str, doc_id: str | None) -> None:
+    """Best-effort removal of a confirmed-invalid cache row.
 
-    Args:
-        query: Standalone (already condensed) question text.
-        product_slug: Active product slug — cache is scoped per product.
-
-    Returns:
-        Same shape as ``chain.query_engine.ask()``'s RAG result dict (plus
-        ``cached: True``), or ``None`` on a miss, stale entry, or failed
-        trust re-check — callers fall through to the normal pipeline.
+    Only called for entries we've positively identified as expired or fallen
+    below the trust floor — not for "never scored yet", which isn't evidence
+    of a bad entry. Keeps the collection from accumulating dead rows that
+    would otherwise sit there indefinitely (no separate cleanup job exists).
     """
-    store = _get_store(product_slug)
+    if not doc_id:
+        return
     try:
-        hits = store.similarity_search_with_relevance_scores(query, k=1)
+        _get_store(product_slug).delete(ids=[doc_id])
     except Exception:
-        logger.exception("Answer cache lookup failed — falling back to live pipeline")
-        return None
-    if not hits:
-        return None
-    doc, similarity = hits[0]
+        logger.exception("Failed to delete stale answer cache entry")
+
+
+def _validate_candidate(doc: Document, similarity: float, product_slug: str) -> dict | None:
+    """Check one candidate; return a serve-ready result, or None if it's not usable."""
     if similarity < ANSWER_CACHE_SIMILARITY:
         return None
 
@@ -88,15 +94,21 @@ def lookup(query: str, *, product_slug: str) -> dict | None:
         cached_at = datetime.fromisoformat(meta.get("cached_at", ""))
         age_days = (datetime.now(timezone.utc) - cached_at).total_seconds() / 86400
         if age_days > ANSWER_CACHE_MAX_AGE_DAYS:
+            _delete_entry(product_slug, doc.id)
             return None
     except ValueError:
         return None
 
     chunk_ids = meta.get("chunk_ids") or []
     live_score = mean_final_score(chunk_ids)
-    if live_score is None or live_score < ANSWER_CACHE_MIN_TRUST:
-        # Never scored, or downvoted enough since caching to fall below the trust
-        # floor — don't risk serving a stale/wrong answer with high confidence.
+    if live_score is not None and live_score < ANSWER_CACHE_MIN_TRUST:
+        # Confirmed downvoted below the trust floor since caching — remove it,
+        # don't just skip it, so it stops shadowing a valid lower-ranked candidate.
+        _delete_entry(product_slug, doc.id)
+        return None
+    if live_score is None:
+        # Not evidence the entry is bad — just not (yet) scored — don't delete,
+        # but don't risk serving it either.
         return None
 
     # Skips retrieve(), so record the bookkeeping here to keep the underlying
@@ -122,6 +134,36 @@ def lookup(query: str, *, product_slug: str) -> dict | None:
         "chunk_ids": chunk_ids,
         "cached": True,
     }
+
+
+def lookup(query: str, *, product_slug: str) -> dict | None:
+    """Return a cached answer dict for a near-duplicate question, or ``None``.
+
+    Checks up to ``ANSWER_CACHE_CANDIDATES`` nearest entries, not just the
+    single closest one — a stale/low-trust top match no longer hides a valid
+    lower-ranked candidate; it gets deleted and the next one is tried.
+
+    Args:
+        query: Standalone (already condensed) question text.
+        product_slug: Active product slug — cache is scoped per product.
+
+    Returns:
+        Same shape as ``chain.query_engine.ask()``'s RAG result dict (plus
+        ``cached: True``), or ``None`` if no candidate is usable — callers
+        fall through to the normal pipeline.
+    """
+    store = _get_store(product_slug)
+    try:
+        hits = store.similarity_search_with_relevance_scores(query, k=ANSWER_CACHE_CANDIDATES)
+    except Exception:
+        logger.exception("Answer cache lookup failed — falling back to live pipeline")
+        return None
+
+    for doc, similarity in hits:
+        result = _validate_candidate(doc, similarity, product_slug)
+        if result is not None:
+            return result
+    return None
 
 
 def store(query: str, result: dict, *, product_slug: str) -> None:

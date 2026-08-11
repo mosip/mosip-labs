@@ -176,7 +176,21 @@ CONFIDENCE_MEDIUM = float(os.getenv("CONFIDENCE_MEDIUM", "0.55"))
 # Serves a previously-generated answer for a near-duplicate question instead of
 # calling the LLM again — the actual token-saving layer (chunk_scores confidence
 # only decided *how much to trust* an answer, it didn't skip generation before this).
-ANSWER_CACHE_ENABLED = os.getenv("ANSWER_CACHE_ENABLED", "true").lower() in ("1", "true", "yes")
+#
+# PRIVACY: this cache is global — shared across every user/session for a product,
+# not scoped per user or tenant. There's no user/tenant-identity concept anywhere
+# in this codebase to scope it by even if we wanted to. A question containing
+# personal or deployment-specific detail that happens to score "high" confidence
+# could be served back to a different, unrelated user asking something similarly
+# worded. was_condensed-gating (chain/query_engine.py) already excludes follow-up
+# questions, which cuts the exposure window, but does not eliminate it — a
+# first-in-session standalone question can still contain sensitive detail.
+# Defaults OFF: deployers must opt in after judging this acceptable for their
+# environment, rather than the token-saving benefit being silently on by default
+# with this tradeoff undisclosed. Do not flip this to a default of "true" without
+# also building real scoping/sanitization — a proportionate mitigation, not a
+# substitute for one, if that becomes a requirement.
+ANSWER_CACHE_ENABLED = os.getenv("ANSWER_CACHE_ENABLED", "false").lower() in ("1", "true", "yes")
 # Cosine similarity floor to treat a new question as "the same" as a cached one.
 # Deliberately stricter than DEDUP_THRESHOLD (community-thread suggestion, not a
 # skip-the-LLM decision) — a wrong cache hit means a wrong answer shown confidently.
@@ -188,6 +202,10 @@ ANSWER_CACHE_ENABLED = os.getenv("ANSWER_CACHE_ENABLED", "true").lower() in ("1"
 # without matching different-but-related questions. Small sample (5 vs 3
 # examples, English only) — revisit if real usage shows mismatches or misses.
 ANSWER_CACHE_SIMILARITY = float(os.getenv("ANSWER_CACHE_SIMILARITY", "0.90"))
+# How many nearest entries to check, not just the single closest — a stale/low-
+# trust top match no longer hides a valid lower-ranked one (it gets deleted and
+# the next candidate is tried).
+ANSWER_CACHE_CANDIDATES = int(os.getenv("ANSWER_CACHE_CANDIDATES", "3"))
 # Re-validated at serve time against live chunk_scores (not just checked once at
 # write time) — a cached answer whose chunks later took negative feedback stops
 # being served, with no separate invalidation step needed.

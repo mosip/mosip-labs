@@ -27,13 +27,24 @@ def upgrade() -> None:
     # Collapse any pre-existing duplicate (session_id, turn_number) feedback rows to the
     # most recent one before adding the unique constraint — safe on a fresh 003 install
     # (no feedback rows yet), but guards against re-running this against seeded data.
+    # ROW_NUMBER (not created_at < created_at) so rows sharing an identical timestamp
+    # still collapse to exactly one survivor instead of both surviving and breaking
+    # the unique constraint below.
     op.execute(
         """
-        DELETE FROM feedback f
-        USING feedback f2
-        WHERE f.session_id = f2.session_id
-          AND f.turn_number = f2.turn_number
-          AND f.created_at < f2.created_at
+        WITH ranked AS (
+            SELECT
+                id,
+                ROW_NUMBER() OVER (
+                    PARTITION BY session_id, turn_number
+                    ORDER BY created_at DESC, id DESC
+                ) AS row_number
+            FROM feedback
+        )
+        DELETE FROM feedback AS f
+        USING ranked AS r
+        WHERE f.id = r.id
+          AND r.row_number > 1
         """
     )
     op.create_unique_constraint(

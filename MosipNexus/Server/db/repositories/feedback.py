@@ -7,8 +7,9 @@ the ``/stats`` endpoint via ``FeedbackRepository.counts``.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from db.models import Feedback
@@ -77,28 +78,57 @@ class FeedbackRepository:
     ) -> tuple[Feedback, str | None]:
         """Insert feedback for a turn, or update it if already rated.
 
+        A single atomic ``INSERT ... ON CONFLICT DO UPDATE`` — not a plain
+        get-then-insert/update — so two concurrent requests for the same
+        (session_id, turn_number) can't both see "no existing row", both
+        attempt an insert, and have the second one crash on the unique
+        constraint (or, worse, both read the same stale previous_rating and
+        double-apply a chunk-score correction). The ``previous`` CTE reads
+        the pre-upsert row within the same statement, so there's no window
+        between reading and writing for another transaction to land in.
+
         Returns:
             ``(row, previous_rating)`` — ``previous_rating`` is ``None`` for a
             fresh vote, the prior rating string if this is a changed vote, or
             equal to ``rating`` if this is a duplicate resubmit (e.g. page
             refresh + re-click) of the same vote.
         """
-        existing = self.get_for_turn(session_id, turn_number)
-        if existing is not None:
-            previous_rating = existing.rating
-            existing.rating = rating
-            if comment:
-                existing.comment = comment
-            self.db.flush()
-            return existing, previous_rating
-        row = self.create(
-            session_id=session_id,
-            turn_number=turn_number,
-            question=question,
-            rating=rating,
-            comment=comment,
-        )
-        return row, None
+        new_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+        result = self.db.execute(
+            text(
+                """
+                WITH previous AS (
+                    SELECT rating FROM feedback
+                    WHERE session_id = :session_id AND turn_number = :turn_number
+                ),
+                upserted AS (
+                    INSERT INTO feedback (id, session_id, turn_number, question, rating, comment, created_at)
+                    VALUES (:id, :session_id, :turn_number, :question, :rating, :comment, :created_at)
+                    ON CONFLICT (session_id, turn_number) DO UPDATE
+                    SET rating = EXCLUDED.rating,
+                        comment = CASE WHEN EXCLUDED.comment = '' THEN feedback.comment ELSE EXCLUDED.comment END
+                    RETURNING id
+                )
+                SELECT u.id, p.rating AS previous_rating
+                FROM upserted u LEFT JOIN previous p ON true
+                """
+            ),
+            {
+                "id": new_id,
+                "session_id": session_id,
+                "turn_number": turn_number,
+                "question": question,
+                "rating": rating,
+                "comment": comment or "",
+                "created_at": now,
+            },
+        ).one()
+        self.db.flush()
+        self.db.expire_all()  # the raw INSERT bypassed the ORM identity map
+        row = self.db.get(Feedback, result.id)
+        assert row is not None
+        return row, result.previous_rating
 
     def list_for_session(
         self,

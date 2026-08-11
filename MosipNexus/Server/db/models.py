@@ -192,6 +192,11 @@ class SessionChunkFeedback(Base):
     )
     chunk_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     rating: Mapped[str] = mapped_column(String(16), nullable=False)  # positive | negative
+    # Exact signed delta last applied to chunk_scores.explicit_score for this
+    # (session, chunk) pair — lets a changed vote subtract precisely what this
+    # session actually contributed instead of guessing based on the chunk's
+    # *current* diminishing-step size (see chain.confidence.scorer).
+    contribution: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
     )

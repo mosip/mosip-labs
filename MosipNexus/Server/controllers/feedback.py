@@ -83,14 +83,18 @@ def record_feedback(
         # Per-chunk session history — decides, chunk by chunk, whether this vote
         # is fresh, a duplicate (already rated this way in this session, maybe
         # via a different turn that hit the same chunks), or a genuine change.
-        chunk_decisions: list[tuple[str, str | None]] = []
+        # previous_contribution is the exact delta this session's prior vote (if
+        # any) applied — needed to undo it precisely rather than guess.
+        chunk_decisions: list[tuple[str, str | None, float]] = []
         for chunk_id_str in turn_row.chunk_ids or []:
             try:
                 chunk_uuid = uuid.UUID(chunk_id_str)
             except (ValueError, TypeError):
                 continue
-            _, prev_chunk_rating = chunk_feedback_crud.upsert(sid, chunk_uuid, rating, uow=uow)
-            chunk_decisions.append((chunk_id_str, prev_chunk_rating))
+            _, prev_chunk_rating, prev_contribution = chunk_feedback_crud.upsert(
+                sid, chunk_uuid, rating, uow=uow
+            )
+            chunk_decisions.append((chunk_id_str, prev_chunk_rating, prev_contribution))
 
         logger.info(
             "Recorded feedback id=%s session=%s turn=%s rating=%s previous_turn_rating=%s chunks=%d",
@@ -106,18 +110,29 @@ def record_feedback(
     # Separate transaction (different table, no need to be atomic with it) —
     # never let a scoring failure turn a successful feedback submission into an error.
     try:
-        new_chunks = [cid for cid, prev in chunk_decisions if prev is None]
-        changed_by_old_rating: dict[str, list[str]] = {}
-        for cid, prev in chunk_decisions:
-            if prev is not None and prev != rating:
-                changed_by_old_rating.setdefault(prev, []).append(cid)
-            # prev == rating: this session already voted this way on this
-            # chunk (this turn or another) — no-op, no double-counting.
+        new_chunks = [cid for cid, prev, _ in chunk_decisions if prev is None]
+        changed_contributions = {
+            cid: prev_contribution
+            for cid, prev, prev_contribution in chunk_decisions
+            if prev is not None and prev != rating
+        }
+        # prev == rating: this session already voted this way on this chunk
+        # (this turn or another) — no-op, no double-counting.
 
+        new_contributions: dict[str, float] = {}
         if new_chunks:
-            apply_explicit_feedback(new_chunks, rating)
-        for old_rating, cids in changed_by_old_rating.items():
-            change_explicit_feedback(cids, old_rating=old_rating, new_rating=rating)
+            new_contributions.update(apply_explicit_feedback(new_chunks, rating))
+        if changed_contributions:
+            new_contributions.update(
+                change_explicit_feedback(changed_contributions, new_rating=rating)
+            )
+
+        # Persist what was actually applied so a future flip can undo it exactly.
+        for cid_str, contribution in new_contributions.items():
+            try:
+                chunk_feedback_crud.set_contribution(sid, uuid.UUID(cid_str), contribution)
+            except (ValueError, TypeError):
+                continue
     except Exception:
         logger.exception("Failed to apply explicit feedback to chunk_scores session=%s turn=%s", sid, turn)
 

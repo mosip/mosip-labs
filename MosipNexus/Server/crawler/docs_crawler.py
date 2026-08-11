@@ -107,10 +107,15 @@ def fetch_page_as_markdown(url: str) -> str:
     # widget, not a generic utility class, so this is safe to always remove.
     for widget in content.find_all(attrs={"data-testid": "ai-chat"}):
         widget.decompose()
-    # Icon SVGs carry no semantic content and their <title> tags were also
-    # picked up as stray widget-label text — always safe to drop.
+    # Icon SVGs (aria-hidden="true" / role="presentation" — the standard
+    # accessibility markers for decorative-only graphics) carry no semantic
+    # content and their <title> tags were also picked up as stray widget-label
+    # text. Only strip SVGs marked this way — a meaningful diagram SVG (e.g.
+    # role="img" with an aria-label, or one with real <text> content) is left
+    # intact so its content still reaches the embedding.
     for svg in content.find_all("svg"):
-        svg.decompose()
+        if svg.get("aria-hidden") == "true" or svg.get("role") == "presentation":
+            svg.decompose()
 
     # Convert tables to prose before markdownify so specs/configs embed correctly.
     # markdownify produces pipe-tables whose cells lack context without headers;

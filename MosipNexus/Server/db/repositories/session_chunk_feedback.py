@@ -8,8 +8,9 @@ re-apply a full nudge — only a genuine change of rating does.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from db.models import SessionChunkFeedback
@@ -36,20 +37,59 @@ class SessionChunkFeedbackRepository:
         session_id: uuid.UUID,
         chunk_id: uuid.UUID,
         rating: str,
-    ) -> tuple[SessionChunkFeedback, str | None]:
+    ) -> tuple[SessionChunkFeedback, str | None, float]:
         """Record this session's rating for a chunk.
 
+        Atomic ``INSERT ... ON CONFLICT DO UPDATE`` (not get-then-insert/update)
+        for the same reason as ``FeedbackRepository.upsert_for_turn`` — avoids
+        a race window where two concurrent votes on the same (session, chunk)
+        could both see "no existing row" and either crash on the unique
+        constraint or double-apply a chunk-score correction.
+
         Returns:
-            ``(row, previous_rating)`` — ``previous_rating`` is ``None`` if
-            this session has never rated this chunk before.
+            ``(row, previous_rating, previous_contribution)`` — ``previous_rating``
+            is ``None`` if this session has never rated this chunk before;
+            ``previous_contribution`` is the exact signed delta this session's
+            prior vote (if any) applied to ``chunk_scores.explicit_score`` —
+            needed to undo it precisely on a changed vote.
         """
-        existing = self.get(session_id, chunk_id)
-        if existing is not None:
-            previous_rating = existing.rating
-            existing.rating = rating
-            self.db.flush()
-            return existing, previous_rating
-        row = SessionChunkFeedback(session_id=session_id, chunk_id=chunk_id, rating=rating)
-        self.db.add(row)
+        new_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+        result = self.db.execute(
+            text(
+                """
+                WITH previous AS (
+                    SELECT rating, contribution FROM session_chunk_feedback
+                    WHERE session_id = :session_id AND chunk_id = :chunk_id
+                ),
+                upserted AS (
+                    INSERT INTO session_chunk_feedback (id, session_id, chunk_id, rating, contribution, updated_at)
+                    VALUES (:id, :session_id, :chunk_id, :rating, 0.0, :updated_at)
+                    ON CONFLICT (session_id, chunk_id) DO UPDATE
+                    SET rating = EXCLUDED.rating, updated_at = EXCLUDED.updated_at
+                    RETURNING id
+                )
+                SELECT u.id, p.rating AS previous_rating, p.contribution AS previous_contribution
+                FROM upserted u LEFT JOIN previous p ON true
+                """
+            ),
+            {
+                "id": new_id,
+                "session_id": session_id,
+                "chunk_id": chunk_id,
+                "rating": rating,
+                "updated_at": now,
+            },
+        ).one()
         self.db.flush()
-        return row, None
+        self.db.expire_all()  # the raw INSERT bypassed the ORM identity map
+        row = self.db.get(SessionChunkFeedback, result.id)
+        assert row is not None
+        return row, result.previous_rating, result.previous_contribution or 0.0
+
+    def set_contribution(self, session_id: uuid.UUID, chunk_id: uuid.UUID, contribution: float) -> None:
+        """Persist the contribution actually applied for a (session, chunk) vote."""
+        row = self.get(session_id, chunk_id)
+        if row is not None:
+            row.contribution = contribution
+            self.db.flush()
