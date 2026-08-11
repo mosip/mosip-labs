@@ -85,17 +85,17 @@ configuration: server port (`server.port=80`), Emnify callback/API
 settings, the MOSIP `mosip.appId` / `mosip.clientId` / `mosip.clientSecret`
 / `mosip.baseUrl` used to call MOSIP APIs, and the H2 datasource.
 
-**This file, as checked into the repo, already contains non-placeholder-
-looking values** — a live-looking `emnify.apikey` JWT and a
-`mosip.clientSecret` — not just example/blank placeholders. Treat both as
-compromised, since this is a public repo: they should be revoked/rotated
-by whoever owns them, and removed from the tracked file (and ideally from
-git history) rather than left in place. This is a known issue in this
-project, not a pattern to follow: do not add further real credentials to
-`application.properties`, and if you're setting up your own environment,
-override these via Spring's usual mechanisms (environment variables,
-`-D` system properties before `-jar`, or a profile-specific properties
-file) rather than editing the committed values in place.
+`emnify.apikey` and `mosip.clientSecret` were previously committed here as
+literal, live-looking values. They are now `${EMNIFY_APIKEY:}` /
+`${MOSIP_CLIENT_SECRET:}` — set the actual value via the matching
+environment variable (or a `-D` system property before `-jar`, or a
+profile-specific properties file). **The old literal values remain in
+this repo's git history and must still be treated as compromised** —
+whoever owns them needs to revoke/rotate both, and ideally purge them
+from history (e.g. via `git filter-repo`) since removing them from the
+current file does not remove them from prior commits. Do not add further
+real credentials to `application.properties` — commented-out example
+lines use a `<set via ENV_VAR>` placeholder for the same reason.
 
 There is no separate `.env.example` or secrets-management convention in
 this project — it's all in the one properties file.

@@ -155,7 +155,10 @@ CI workflows are keyed by path, and the paths matter:
 
 1. Read the project-specific `AGENTS.md` (or `MosipNexus/Server` /
    `MosipNexus/UI` guide) before editing inside that project.
-2. Keep changes scoped to a single project per PR.
+2. Keep code, build, and deployment changes scoped to a single project
+   per PR. Repository-wide documentation changes, such as coordinated
+   root and project-specific `AGENTS.md` updates, are exempt from this
+   rule.
 3. Target `develop` when branching and opening PRs.
 4. Use the placeholder/example env and values files (`*.env.example`,
    `*-values.yaml`) as the template for new configuration — never commit
