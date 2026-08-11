@@ -570,12 +570,14 @@ def _ask_impl(
         )
 
     # ── Condense follow-up questions (skip when question looks standalone) ─────
+    was_condensed = False
     try:
         if needs_condense(question, history_for_llm):
             condenser = _CONDENSE_PROMPT | llm | StrOutputParser()
             standalone = condenser.invoke(
                 {"input": question, "chat_history": history_for_llm}
             )
+            was_condensed = True
             logger.debug("ask condensed q_len=%d → %d", len(question), len(standalone or ""))
         else:
             standalone = question
@@ -587,8 +589,14 @@ def _ask_impl(
         raise
 
     # ── Answer cache — skip the LLM call entirely for a near-duplicate question ──
+    # Condensed queries are excluded: the answer cache is global/shared across every
+    # user and session, but a condensed follow-up's correct meaning depends on THAT
+    # session's specific prior turns (the condenser can inherit the previous turn's
+    # subject even when the user has broadened/changed topic — see the "components
+    # of inji" vs "components of inji verify" false-positive this guards against).
+    # Caching/matching on session-context-dependent text isn't safe to share globally.
     product_slug = current_product().slug
-    if ANSWER_CACHE_ENABLED:
+    if ANSWER_CACHE_ENABLED and not was_condensed:
         try:
             cached = answer_cache.lookup(standalone, product_slug=product_slug)
         except Exception:
@@ -775,9 +783,11 @@ def _ask_impl(
         (time.perf_counter() - started) * 1000,
     )
 
-    # Only ever cache high-confidence answers — a cache hit always claims "high"
-    # trust, so nothing weaker than that should ever be written.
-    if ANSWER_CACHE_ENABLED and confidence == "high":
+    # Only ever cache high-confidence, standalone (non-condensed) answers — a cache
+    # hit always claims "high" trust, so nothing weaker should be written, and a
+    # condensed query's standalone text is session-context-dependent (see the
+    # lookup-side comment above) so it isn't safe to publish into a shared cache.
+    if ANSWER_CACHE_ENABLED and not was_condensed and confidence == "high":
         try:
             answer_cache.store(standalone, result, product_slug=product_slug)
         except Exception:
