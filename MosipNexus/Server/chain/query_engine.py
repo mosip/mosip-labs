@@ -30,6 +30,7 @@ from langchain_groq import ChatGroq
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.products import current_product, normalize_answer_mode
 from config.settings import (
+    ANSWER_CACHE_ENABLED,
     GROQ_API_KEY,
     GROQ_MODEL,
     LLM_MAX_HISTORY_CHARS,
@@ -40,6 +41,7 @@ from config.settings import (
     MAX_WEB_CONTEXT_CHARS,
     WEB_SEARCH_MAX_RESULTS,
 )
+from chain import answer_cache
 from chain.context_budget import needs_condense, pack_context, trim_history
 from retrieval.retriever import (
     is_code_query as query_looks_like_code,
@@ -568,12 +570,14 @@ def _ask_impl(
         )
 
     # ── Condense follow-up questions (skip when question looks standalone) ─────
+    was_condensed = False
     try:
         if needs_condense(question, history_for_llm):
             condenser = _CONDENSE_PROMPT | llm | StrOutputParser()
             standalone = condenser.invoke(
                 {"input": question, "chat_history": history_for_llm}
             )
+            was_condensed = True
             logger.debug("ask condensed q_len=%d → %d", len(question), len(standalone or ""))
         else:
             standalone = question
@@ -584,12 +588,38 @@ def _ask_impl(
             return _rate_limit_response()
         raise
 
+    # ── Answer cache — skip the LLM call entirely for a near-duplicate question ──
+    # Condensed queries are excluded: the answer cache is global/shared across every
+    # user and session, but a condensed follow-up's correct meaning depends on THAT
+    # session's specific prior turns (the condenser can inherit the previous turn's
+    # subject even when the user has broadened/changed topic — see the "components
+    # of inji" vs "components of inji verify" false-positive this guards against).
+    # Caching/matching on session-context-dependent text isn't safe to share globally.
+    product_slug = current_product().slug
+    if ANSWER_CACHE_ENABLED and not was_condensed:
+        try:
+            cached = answer_cache.lookup(standalone, product_slug=product_slug)
+        except Exception:
+            logger.exception("Answer cache lookup errored — continuing with live pipeline")
+            cached = None
+        if cached is not None:
+            cached["cached"] = True
+            logger.info(
+                "ask done kind=cache_hit source_type=%s elapsed_ms=%.0f",
+                cached.get("source_type"),
+                (time.perf_counter() - started) * 1000,
+            )
+            return cached
+
     # ── Retrieve from product collections ──────────────────────────────────────
     docs, confidence = retrieve(standalone)
     # Chunk ids (pgvector row UUIDs) survive on Document.id through retrieval/dedup/
     # annotation — persisted on the turn so feedback/follow-up signals can target
-    # the exact chunks used (see chain/confidence).
+    # the exact chunks used (see chain/confidence). chunk_source_types stays
+    # parallel to chunk_ids so the answer cache can rebuild retrieval bookkeeping
+    # on a future cache hit without re-running retrieve().
     chunk_ids = [d.id for d in docs if d.id]
+    chunk_source_types = [d.metadata.get("source_type", "") for d in docs if d.id]
     context = pack_context(
         docs,
         max_chars=MAX_CONTEXT_CHARS,
@@ -742,6 +772,8 @@ def _ask_impl(
         "confidence": confidence,
         "similar_questions": similar_questions,
         "chunk_ids": [str(cid) for cid in chunk_ids],
+        "chunk_source_types": chunk_source_types,
+        "cached": False,
     }
     logger.info(
         "ask done kind=rag source_type=%s confidence=%s sources=%d elapsed_ms=%.0f",
@@ -750,4 +782,15 @@ def _ask_impl(
         len(sources),
         (time.perf_counter() - started) * 1000,
     )
+
+    # Only ever cache high-confidence, standalone (non-condensed) answers — a cache
+    # hit always claims "high" trust, so nothing weaker should be written, and a
+    # condensed query's standalone text is session-context-dependent (see the
+    # lookup-side comment above) so it isn't safe to publish into a shared cache.
+    if ANSWER_CACHE_ENABLED and not was_condensed and confidence == "high":
+        try:
+            answer_cache.store(standalone, result, product_slug=product_slug)
+        except Exception:
+            logger.exception("Failed to write answer cache entry — non-fatal")
+
     return result

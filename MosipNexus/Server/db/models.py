@@ -78,10 +78,18 @@ class ChatTurn(Base):
 
 
 class Feedback(Base):
-    """User rating (positive/negative) for a specific session turn."""
+    """User rating (positive/negative) for a specific session turn.
+
+    One row per (session_id, turn_number) — re-rating updates the existing row
+    (see ``controllers.feedback``) instead of inserting a duplicate, so a page
+    refresh + re-click can't silently re-apply the same chunk_scores nudge.
+    """
 
     __tablename__ = "feedback"
-    __table_args__ = (Index("ix_feedback_session_id", "session_id"),)
+    __table_args__ = (
+        Index("ix_feedback_session_id", "session_id"),
+        UniqueConstraint("session_id", "turn_number", name="uq_feedback_session_turn"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(
@@ -148,8 +156,47 @@ class ChunkScore(Base):
     follow_up_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
     explicit_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
     resolution_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    # Number of explicit-feedback nudges applied — sizes a diminishing-returns step so
+    # a handful of bad-faith/repeat votes can't dominate a chunk that's earned many
+    # good votes (see chain.confidence.scorer.apply_explicit_feedback).
+    feedback_vote_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
     last_retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_updated: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+
+class SessionChunkFeedback(Base):
+    """What THIS session most recently told us about ONE chunk.
+
+    Generalises turn-level feedback idempotency (``feedback`` table's unique
+    session+turn constraint) to content-level idempotency: re-asking the same
+    question in a new turn re-uses the same chunks, so a repeat vote on the
+    exact same rating is a no-op here too — only a *changed* rating (a genuine
+    opinion change) triggers a chunk_scores correction. See
+    ``controllers.feedback.record_feedback``.
+    """
+
+    __tablename__ = "session_chunk_feedback"
+    __table_args__ = (
+        UniqueConstraint("session_id", "chunk_id", name="uq_session_chunk_feedback"),
+        Index("ix_session_chunk_feedback_session_id", "session_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    chunk_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    rating: Mapped[str] = mapped_column(String(16), nullable=False)  # positive | negative
+    # Exact signed delta last applied to chunk_scores.explicit_score for this
+    # (session, chunk) pair — lets a changed vote subtract precisely what this
+    # session actually contributed instead of guessing based on the chunk's
+    # *current* diminishing-step size (see chain.confidence.scorer).
+    contribution: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
     )

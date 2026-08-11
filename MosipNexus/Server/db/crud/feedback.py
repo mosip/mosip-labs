@@ -46,6 +46,32 @@ def get(feedback_id: uuid.UUID, *, uow: UnitOfWork | None = None) -> Feedback | 
         return _run(w)
 
 
+def upsert_for_turn(
+    *,
+    session_id: uuid.UUID,
+    turn_number: int,
+    question: str,
+    rating: str,
+    comment: str = "",
+    uow: UnitOfWork | None = None,
+) -> tuple[Feedback, str | None]:
+    """Insert or update the feedback row for a turn. See ``FeedbackRepository.upsert_for_turn``."""
+
+    def _run(w: UnitOfWork) -> tuple[Feedback, str | None]:
+        return w.feedback.upsert_for_turn(
+            session_id=session_id,
+            turn_number=turn_number,
+            question=question,
+            rating=rating,
+            comment=comment,
+        )
+
+    if uow is not None:
+        return _run(uow)
+    with unit_of_work() as w:
+        return _run(w)
+
+
 def list_for_session(
     session_id: uuid.UUID,
     *,
