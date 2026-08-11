@@ -70,10 +70,12 @@ startup script — it's a pair of `curl` calls against an already-running
 instance that register the USSD setup and a test partner:
 
 ```bash
+# Local-only smoke test — do not run against a shared/production endpoint.
 curl -X POST "http://localhost/AT/ussd/setup" -H "accept: */*"
+PARTNER_KEY="${PARTNER_KEY:?Set PARTNER_KEY for this test}"
 curl -X POST "http://localhost/ussd/partner/" -H "accept: */*" \
   -H "Content-Type: application/json" \
-  -d '{"partnerId":"1000","partnerUrl":"http://localhost:8080/credentials/","partnerKey":"abc123"}'
+  -d "{\"partnerId\":\"1000\",\"partnerUrl\":\"http://localhost:8080/credentials/\",\"partnerKey\":\"${PARTNER_KEY}\"}"
 ```
 
 ## Configuration
@@ -84,8 +86,11 @@ settings, the MOSIP `mosip.appId` / `mosip.clientId` / `mosip.clientSecret`
 / `mosip.baseUrl` used to call MOSIP APIs, and the H2 datasource.
 
 **This file, as checked into the repo, already contains non-placeholder-
-looking values** — an `emnify.apikey` JWT and a `mosip.clientSecret` — not
-just example/blank placeholders. Treat that as a known issue in this
+looking values** — a live-looking `emnify.apikey` JWT and a
+`mosip.clientSecret` — not just example/blank placeholders. Treat both as
+compromised, since this is a public repo: they should be revoked/rotated
+by whoever owns them, and removed from the tracked file (and ideally from
+git history) rather than left in place. This is a known issue in this
 project, not a pattern to follow: do not add further real credentials to
 `application.properties`, and if you're setting up your own environment,
 override these via Spring's usual mechanisms (environment variables,
@@ -138,8 +143,10 @@ and, if a new state needs custom logic, add a handler class under
    `application.properties`, which point at specific dev/sandbox instances
    and a real-looking secret.
 2. `mvn clean install` to build; `mvn spring-boot:run` (or run the built
-   jar) to start the service on port 80 (H2 file DB is created alongside
-   the jar as `./USSDDataBase`).
+   jar) to start the service on port 80. `spring.datasource.url=jdbc:h2:file:./USSDDataBase`
+   is relative to the JVM's **current working directory**, not the jar's
+   location — running `java -jar target/*.jar` from the repo root creates
+   `./USSDDataBase` there, not inside `target/`.
 3. Use the `curl` calls in `run.sh` to register the USSD setup and a test
    partner before exercising the USSD flow end to end.
 4. There's no automated test suite — validate state-machine or handler

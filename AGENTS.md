@@ -124,9 +124,11 @@ CI workflows are keyed by path, and the paths matter:
 ## Pull Request Guidelines
 
 - Target the `develop` branch.
-- Keep PRs scoped to one project — a PR that touches both
-  `github-activity-tracker` and `ussd-proxy-service`, for example, is harder
-  to review and to roll back independently.
+- Keep code, build, and deployment changes scoped to one project — a PR
+  that touches both `github-activity-tracker` and `ussd-proxy-service`,
+  for example, is harder to review and to roll back independently.
+  Repository-wide documentation changes (e.g. updating the root and
+  per-project `AGENTS.md` files together) are exempt from this rule.
 - Reference the tracking issue in the PR description.
 - If your change affects a Helm chart's public interface (new required
   value, changed default), call that out explicitly in the PR body — chart

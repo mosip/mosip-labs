@@ -84,9 +84,12 @@ that matches how you're running the project, not both blindly:
   the backend directly with `npm start` outside Docker. Copy to
   `github-activity-tracker/backend/.env`.
 
-`GITHUB_TOKEN` needs `repo` scope (create at
-`https://github.com/settings/tokens`) — required for the sync endpoints to
-call the GitHub API. Backend services read only `RDS_*` variables (not
+`GITHUB_TOKEN` needs only the permissions required by the GitHub API calls
+in `backend/` — these are all read queries (GraphQL requests sent over
+HTTP `POST`, not write operations). Prefer a fine-grained token or GitHub
+App with repository-scoped, read-only permissions instead of the broad
+classic `repo` scope (create at `https://github.com/settings/tokens`).
+Backend services read only `RDS_*` variables (not
 `POSTGRES_*`); the `POSTGRES_*` variables in the root `.env.example` are for
 the Docker Postgres container's own bootstrap, so both sets need to point at
 the same database when running locally via Compose.
