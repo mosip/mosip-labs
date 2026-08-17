@@ -1068,7 +1068,7 @@ def build_developer_guide():
         ("CONFIDENCE_MEDIUM = 0.45", "Cosine distance threshold for Medium confidence badge."),
         ("DEDUP_THRESHOLD = 0.88", "Cosine similarity above which a question is a duplicate."),
         ("EMBED_MODEL", "HuggingFace model ID. Changing this requires a full re-embed."),
-        ("GROQ_MODEL", "Groq LLM model ID. Currently llama-3.3-70b-versatile."),
+        ("GROQ_MODEL", "Groq LLM model ID. Currently openai/gpt-oss-120b."),
         ("CODE_RETRIEVAL_K = 6", "Chunks from code collection. Boosted 3x for error code or class queries."),
     ], header=("Setting", "Description"))
     doc.add_page_break()

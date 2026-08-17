@@ -181,7 +181,7 @@ Chat endpoints require **caller BYOK** (`llm_api_key`). Server keys are for inge
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `GROQ_API_KEY` | _(empty)_ | Backend Groq (summarizer / internal), **not** chat BYOK |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Default Groq model id |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Default Groq model id |
 
 ---
 

@@ -183,7 +183,7 @@ class ChatRequest(BaseModel):
                     "language": "English",
                     "llm_provider": "groq",
                     "llm_api_key": "gsk_your_groq_api_key_here",
-                    "llm_model": "llama-3.3-70b-versatile",
+                    "llm_model": "openai/gpt-oss-120b",
                     "notify_on_low_confidence": True,
                 },
                 {
@@ -234,7 +234,7 @@ class ChatRequest(BaseModel):
     llm_model: str | None = Field(
         None,
         description="Optional model override for the chosen provider.",
-        examples=["llama-3.3-70b-versatile"],
+        examples=["openai/gpt-oss-120b"],
     )
     notify_on_low_confidence: bool = Field(
         True,

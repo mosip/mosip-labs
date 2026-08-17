@@ -53,7 +53,7 @@ Shared `request()` helper: JSON body, `Accept: application/json`, AbortControlle
 |------|--------|
 | Storage key | `nexus-ui-settings` |
 | Shape | `SettingsState`: `llmProvider`, `llmApiKey`, `llmModel`, `maxHistoryTurns` |
-| Defaults | Groq, empty key, `llama-3.3-70b-versatile`, 10 turns |
+| Defaults | Groq, empty key, `openai/gpt-oss-120b`, 10 turns |
 | Lifecycle | `App` loads on mount via `loadSettings()`; persists on every change via `saveSettings()` |
 
 Keys never leave the browser except as request headers/body to the Nexus API for the user’s chosen provider. They are not stored server-side by the UI.
