@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-mcp
+  namespace: nexus
+spec:
+  selector:
+    app: nexus-mcp
+  ports:
+    - name: sse
+      port: 8002
+      targetPort: 8002
