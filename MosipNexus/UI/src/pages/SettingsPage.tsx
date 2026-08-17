@@ -16,11 +16,24 @@ interface Props {
 /**
  * Form for bring-your-own-key LLM configuration.
  */
+/** MCP's stdio transport spawns a local process against a local database — it only
+ * ever works from the machine Nexus itself is running on. Detected from the URL
+ * this page was loaded from, not a build-time flag, so the same deployed bundle
+ * shows correct instructions whether it's opened from a dev machine or not. */
+function isLocalhostOrigin(): boolean {
+  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+}
+
+/** Per-deployment MCP SSE endpoint (Server/k8s/05b-ingress-mcp.yaml), if this
+ * environment has one deployed. Unset for deployments that haven't set it up. */
+const MCP_SSE_URL = import.meta.env.VITE_MCP_SSE_URL?.trim() || ''
+
 export function SettingsPage({ config, settings, onChange }: Props) {
   const meta = PROVIDER_META[settings.llmProvider]
   const models = PROVIDER_MODELS[settings.llmProvider]
   const hasKey = Boolean(settings.llmApiKey.trim())
   const productMode = asProductMode(settings.productMode)
+  const isLocal = isLocalhostOrigin()
 
   function setProvider(provider: LlmProvider) {
     const first = PROVIDER_MODELS[provider][0]?.value ?? ''
@@ -171,19 +184,20 @@ export function SettingsPage({ config, settings, onChange }: Props) {
             <code>product</code> on tools).
           </p>
         </div>
-        <details>
-          <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Setup guide (dual product)</summary>
-          <pre
-            style={{
-              overflow: 'auto',
-              background: '#1c1917',
-              color: '#fafaf9',
-              padding: '0.85rem',
-              borderRadius: '8px',
-              fontSize: '0.8rem',
-              marginTop: '0.75rem',
-            }}
-          >{`{
+        {isLocal && (
+          <details>
+            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Setup guide (dual product)</summary>
+            <pre
+              style={{
+                overflow: 'auto',
+                background: '#1c1917',
+                color: '#fafaf9',
+                padding: '0.85rem',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                marginTop: '0.75rem',
+              }}
+            >{`{
   "mcpServers": {
     "mosip-nexus": {
       "command": "uv",
@@ -215,7 +229,50 @@ export function SettingsPage({ config, settings, onChange }: Props) {
   }
 }
 */`}</pre>
-        </details>
+          </details>
+        )}
+
+        {!isLocal && MCP_SSE_URL && (
+          <details open>
+            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+              Setup guide — connect to this deployment
+            </summary>
+            <p className="desc" style={{ marginTop: '0.45rem', marginBottom: 0 }}>
+              Pass <code>product="mosip"</code> or <code>product="inji"</code> on each tool call
+              — this single endpoint serves both.
+            </p>
+            <pre
+              style={{
+                overflow: 'auto',
+                background: '#1c1917',
+                color: '#fafaf9',
+                padding: '0.85rem',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                marginTop: '0.75rem',
+              }}
+            >{`{
+  "mcpServers": {
+    "nexus": { "url": "${MCP_SSE_URL}" }
+  }
+}`}</pre>
+          </details>
+        )}
+
+        {!isLocal && !MCP_SSE_URL && (
+          <div className="banner banner-warn" style={{ marginTop: '0.75rem' }}>
+            Not available on this deployment yet — no MCP endpoint is configured
+            (<code>VITE_MCP_SSE_URL</code> is unset).{' '}
+            <a
+              href="https://github.com/mosip/mosip-labs/blob/develop/MosipNexus/Server/docs/MCP_SERVER.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              See the MCP setup guide
+            </a>{' '}
+            to deploy one, or run a local copy of Nexus instead.
+          </div>
+        )}
       </section>
 
       <section className="card">

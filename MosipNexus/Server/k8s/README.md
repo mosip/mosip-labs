@@ -34,6 +34,15 @@ kubectl apply -f Server/k8s/02-sealed-secret.yaml
 kubectl apply -f Server/k8s/03-deployment-api.yaml
 kubectl apply -f Server/k8s/04-service-api.yaml
 kubectl apply -f Server/k8s/05-ingress-api.yaml
+
+# Optional — exposes MCP (Claude Desktop) publicly; skip if you don't want
+# MCP reachable outside your own machine (see docs/MCP_SERVER.md)
+kubectl apply -f Server/k8s/03b-deployment-mcp.yaml
+kubectl apply -f Server/k8s/04b-service-mcp.yaml
+kubectl apply -f Server/k8s/05b-ingress-mcp.yaml
+# Then set UI/.env's VITE_MCP_SSE_URL to https://<your-mcp-host>/sse and rebuild the UI —
+# Settings page shows it only once this is set (falls back to a "not available" message otherwise).
+
 kubectl apply -f Server/k8s/06-cronjob.yaml
 kubectl apply -f Server/k8s/08-postgres-backup.yaml
 kubectl apply -f Server/k8s/09-hpa.yaml
@@ -57,6 +66,9 @@ Then deploy the UI: [UI/k8s/README.md](../../UI/k8s/README.md).
 | `03-deployment-api.yaml` | FastAPI (`nexus-server:v1.0.0`, port 8000) |
 | `04-service-api.yaml` | ClusterIP `:8000` |
 | `05-ingress-api.yaml` | nginx Ingress + TLS (cert-manager) + `/metrics` block |
+| `03b-deployment-mcp.yaml` | FastMCP SSE (`nexus-server:v1.0.0`, same image, port 8002) — optional |
+| `04b-service-mcp.yaml` | ClusterIP `:8002` — optional |
+| `05b-ingress-mcp.yaml` | nginx Ingress + TLS, SSE-tuned (no buffering, long timeouts) — optional |
 | `06-cronjob.yaml` | Nightly `run_update.py`, 6 h deadline, nexus-data PVC (10 GB) |
 | `07-initial-ingest-job.yaml` | One-time S3 restore Job (pg_restore from snapshot) |
 | `08-postgres-backup.yaml` | Daily pg_dump CronJob, backup PVC (20 GB), 7-day retention |

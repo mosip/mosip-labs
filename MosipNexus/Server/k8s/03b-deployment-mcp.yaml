@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus-mcp
+  namespace: nexus
+  labels:
+    app: nexus-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus-mcp
+  template:
+    metadata:
+      labels:
+        app: nexus-mcp
+    spec:
+      containers:
+        - name: nexus-mcp
+          # Same image as nexus-api — mcp_server/server.py is just a different
+          # entrypoint into the same codebase, no separate build needed.
+          image: nexus-server:v1.0.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - uv
+            - run
+            - python
+            - mcp_server/server.py
+          ports:
+            - containerPort: 8002
+          env:
+            - name: PYTHONPATH
+              value: /app/MosipNexus/Server
+            - name: MCP_TRANSPORT
+              value: sse
+            - name: MCP_PORT
+              value: "8002"
+            # Unset — falls back to DEFAULT_PRODUCT (mosip). Claude Desktop
+            # passes product="mosip"|"inji" per tool call regardless.
+          envFrom:
+            - secretRef:
+                name: nexus-env
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1200Mi
+            limits:
+              cpu: "1"
+              memory: 3Gi
+          # No httpGet probes — FastMCP's SSE transport doesn't serve a plain
+          # HTTP health path, only the /sse stream itself. TCP check is enough.
+          livenessProbe:
+            tcpSocket:
+              port: 8002
+            initialDelaySeconds: 60   # model load takes ~30-45s on first request
+            periodSeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 8002
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 10

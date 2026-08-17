@@ -1,0 +1,48 @@
+# ── MCP Ingress ───────────────────────────────────────────────────────────────
+# Replace nexus-mcp.mosip.net with your actual domain.
+# Requires:
+#   - nginx ingress controller (default on Rancher / RKE2)
+#   - cert-manager installed + a letsencrypt-prod ClusterIssuer (see 05-ingress-api.yaml)
+#
+# Access after deploy — point Claude Desktop's single-SSE config at:
+#   https://nexus-mcp.mosip.net/sse
+#
+# SSE connections are long-lived (a Claude Desktop session can stay open for
+# hours), so this needs different nginx tuning than the plain-HTTP API ingress:
+#   - proxy-buffering off — nginx must stream each event immediately, not
+#     accumulate a buffer before forwarding (breaks SSE if left on).
+#   - much longer read/send timeouts than the API's 300s.
+#
+# No auth on this endpoint by design — MCP tools are read-only knowledge
+# retrieval (no server-side LLM key involved, Claude Desktop uses the caller's
+# own subscription), matching the "No API key needed" framing already shown
+# in the UI's Settings page.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nexus-mcp
+  namespace: nexus
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - nexus-mcp.mosip.net            # replace with your domain
+      secretName: nexus-mcp-tls          # cert-manager stores the cert here
+  rules:
+    - host: nexus-mcp.mosip.net          # replace with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nexus-mcp
+                port:
+                  number: 8002
