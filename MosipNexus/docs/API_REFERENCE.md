@@ -90,7 +90,7 @@ Main RAG turn. **Requires** `llm_api_key` (BYOK).
   "language": "English",
   "llm_provider": "groq",
   "llm_api_key": "gsk_your_groq_api_key_here",
-  "llm_model": "llama-3.3-70b-versatile",
+  "llm_model": "openai/gpt-oss-120b",
   "notify_on_low_confidence": true
 }
 ```

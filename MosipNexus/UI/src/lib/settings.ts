@@ -9,20 +9,23 @@ const KEY = 'nexus-ui-settings'
 const DEFAULTS: SettingsState = {
   llmProvider: 'groq',
   llmApiKey: '',
-  llmModel: 'llama-3.3-70b-versatile',
+  llmModel: 'openai/gpt-oss-120b',
   maxHistoryTurns: 10,
   productMode: 'mosip',
 }
 
-/** Model dropdown options keyed by LLM provider. */
+/** Model dropdown options keyed by LLM provider.
+ * Groq retired llama-3.3-70b-versatile, llama-3.1-8b-instant, and
+ * mixtral-8x7b-32768 (confirmed via live 502s on this deployment, 2026-08-17 —
+ * see https://console.groq.com/docs/deprecations for the current list before
+ * re-adding any Llama/Mixtral entry here). */
 export const PROVIDER_MODELS: Record<
   LlmProvider,
   { label: string; value: string }[]
 > = {
   groq: [
-    { label: 'llama-3.3-70b-versatile (recommended)', value: 'llama-3.3-70b-versatile' },
-    { label: 'llama-3.1-8b-instant (faster)', value: 'llama-3.1-8b-instant' },
-    { label: 'mixtral-8x7b-32768', value: 'mixtral-8x7b-32768' },
+    { label: 'openai/gpt-oss-120b (recommended)', value: 'openai/gpt-oss-120b' },
+    { label: 'openai/gpt-oss-20b (faster)', value: 'openai/gpt-oss-20b' },
   ],
   anthropic: [
     { label: 'claude-haiku-4-5 (recommended)', value: 'claude-haiku-4-5-20251001' },
