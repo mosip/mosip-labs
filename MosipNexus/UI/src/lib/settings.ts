@@ -87,6 +87,16 @@ export function loadSettings(): SettingsState {
     if (parsed.productMode !== 'mosip' && parsed.productMode !== 'inji' && parsed.productMode !== 'generic') {
       parsed.productMode = 'mosip'
     }
+    // A previously-saved model can go stale when a provider retires it (e.g.
+    // Groq decommissioning llama-3.3-70b-versatile) — the <select> then shows
+    // whatever option happens to be first, visually masking that the real
+    // bound value no longer matches any option and would still be sent as-is.
+    // Fall back to the current recommended model for the saved provider so a
+    // dead model can never silently keep being sent after a deploy.
+    const validModels = PROVIDER_MODELS[parsed.llmProvider]?.map((m) => m.value) ?? []
+    if (!validModels.includes(parsed.llmModel)) {
+      parsed.llmModel = validModels[0] ?? DEFAULTS.llmModel
+    }
     return parsed
   } catch {
     return { ...DEFAULTS }
