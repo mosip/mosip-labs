@@ -87,6 +87,11 @@ export function loadSettings(): SettingsState {
     if (parsed.productMode !== 'mosip' && parsed.productMode !== 'inji' && parsed.productMode !== 'generic') {
       parsed.productMode = 'mosip'
     }
+    // Fall back to the recommended model if the saved one is no longer valid (e.g. retired by the provider).
+    const validModels = PROVIDER_MODELS[parsed.llmProvider]?.map((m) => m.value) ?? []
+    if (!validModels.includes(parsed.llmModel)) {
+      parsed.llmModel = validModels[0] ?? DEFAULTS.llmModel
+    }
     return parsed
   } catch {
     return { ...DEFAULTS }
