@@ -127,6 +127,24 @@ export function SettingsPage({ config, settings, onChange }: Props) {
           ))}
         </div>
 
+        <details className="key-guide" style={{ marginBottom: '0.75rem' }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+            How do I get a {meta.label} API key?
+          </summary>
+          <ol style={{ margin: '0.6rem 0 0', paddingLeft: '1.25rem' }}>
+            {meta.keySteps.map((step, i) => (
+              <li key={i} style={{ marginBottom: '0.3rem' }}>
+                {step}
+              </li>
+            ))}
+          </ol>
+          {meta.keyNote && (
+            <p className="desc" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+              {meta.keyNote}
+            </p>
+          )}
+        </details>
+
         <div className="field">
           <label htmlFor="api-key">
             API key —{' '}
