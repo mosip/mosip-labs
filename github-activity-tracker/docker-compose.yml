@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-github_data}
+      POSTGRES_USER: ${POSTGRES_USER:-github_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-github_password}
+    volumes:
+      - github_activity_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      PORT: 3000
+      # Use RDS_* from .env for external DB (e.g. AWS RDS); fallback to Docker db for local
+      RDS_HOST: ${RDS_HOST:-db}
+      RDS_PORT: ${RDS_PORT:-5432}
+      RDS_DATABASE: ${RDS_DATABASE:-github_data}
+      RDS_USER: ${RDS_USER:-github_user}
+      RDS_PASSWORD: ${RDS_PASSWORD:-github_password}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  # Run once per environment:
+  # docker compose run --rm migrate
+  migrate:
+    build:
+      context: ./backend
+    environment:
+      RDS_HOST: ${RDS_HOST:-db}
+      RDS_PORT: ${RDS_PORT:-5432}
+      RDS_DATABASE: ${RDS_DATABASE:-github_data}
+      RDS_USER: ${RDS_USER:-github_user}
+      RDS_PASSWORD: ${RDS_PASSWORD:-github_password}
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["npm", "run", "migrate"]
+    restart: "no"
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:8080"
+    restart: unless-stopped
+
+volumes:
+  github_activity_pgdata:
