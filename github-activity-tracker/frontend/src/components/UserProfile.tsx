@@ -25,6 +25,7 @@ interface UserProfileProps {
 interface DailyActivityRow {
   date: string;
   prs: number;
+  pr_files_changed: number;
   reviews: number;
   issues: number;
 }
@@ -193,6 +194,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
               <tr className="text-left text-gray-600 border-b">
                 <th className="pb-3">Date</th>
                 <th className="pb-3">Pull Requests</th>
+                <th className="pb-3">File Changes</th>
                 <th className="pb-3">Reviews</th>
                 <th className="pb-3">Issues</th>
                 <th className="pb-3">Total</th>
@@ -206,6 +208,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
                   <td className="font-medium" style={{ color: "#00A63E" }}>
                     {row.prs}
+                  </td>
+
+                  <td className="font-medium text-gray-900">
+                    {row.pr_files_changed ?? 0}
                   </td>
 
                   <td className="font-medium" style={{ color: "#F54900" }}>
