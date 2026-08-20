@@ -1,8 +1,13 @@
 /**
  * GitHub logins to exclude from sync processing (case-insensitive).
  * Keep this list centralized so services don't hard-code values.
+ * Bot accounts on GitHub use the `[bot]` suffix (e.g. coderabbitai[bot]).
  */
-const EXCLUDED_GITHUB_LOGINS = ['dependabot[bot]', 'coderabbitai'];
+const EXCLUDED_GITHUB_LOGINS = [
+  'dependabot[bot]',
+  'coderabbitai[bot]',
+  'coderabbitai',
+];
 
 function isExcludedGitHubLogin(login) {
   if (!login) return false;
