@@ -44,34 +44,75 @@ export const PROVIDER_MODELS: Record<
   ],
 }
 
-/** Display labels, key format hints, and console URLs for each provider. */
+/** Display labels, key format hints, console URLs, and step-by-step key
+ * generation instructions for each provider — shown as a collapsible guide
+ * on the Settings page so first-time users don't have to leave the app to
+ * figure out where a "Groq API key" even comes from. */
 export const PROVIDER_META: Record<
   LlmProvider,
-  { label: string; keyHint: string; keyUrl: string; keyUrlLabel: string }
+  {
+    label: string
+    keyHint: string
+    keyUrl: string
+    keyUrlLabel: string
+    keySteps: string[]
+    keyNote?: string
+  }
 > = {
   groq: {
     label: 'Groq',
     keyHint: 'gsk_...',
     keyUrl: 'https://console.groq.com',
     keyUrlLabel: 'Get a free key at console.groq.com',
+    keySteps: [
+      'Go to console.groq.com and sign in (Google, GitHub, or email).',
+      'Open "API Keys" in the left sidebar.',
+      'Click "Create API Key", give it a name (e.g. "Nexus"), then Submit.',
+      'Copy the key immediately — it starts with gsk_ and is shown only once.',
+      'Paste it into the API key field below.',
+    ],
+    keyNote: 'Free tier available — no card required to start.',
   },
   anthropic: {
     label: 'Claude — Anthropic',
     keyHint: 'sk-ant-...',
     keyUrl: 'https://console.anthropic.com',
     keyUrlLabel: 'Get your key at console.anthropic.com',
+    keySteps: [
+      'Go to console.anthropic.com and sign in or create an account.',
+      'Open Settings → API Keys.',
+      'Click "Create Key", name it, and click Create.',
+      'Copy the key — it starts with sk-ant- and is shown only once.',
+      'Paste it into the API key field below.',
+    ],
+    keyNote: 'Requires adding billing/credits — Anthropic has no permanent free tier.',
   },
   openai: {
     label: 'OpenAI',
     keyHint: 'sk-...',
     keyUrl: 'https://platform.openai.com/api-keys',
     keyUrlLabel: 'Get your key at platform.openai.com',
+    keySteps: [
+      'Go to platform.openai.com/api-keys and sign in.',
+      'Click "Create new secret key".',
+      'Name it (and pick a project, if prompted), then click Create secret key.',
+      'Copy the key — it starts with sk- and is shown only once.',
+      'Paste it into the API key field below.',
+    ],
+    keyNote: 'Requires billing set up on your OpenAI account.',
   },
   xai: {
     label: 'xAI Grok',
     keyHint: 'xai-...',
     keyUrl: 'https://console.x.ai',
     keyUrlLabel: 'Get your key at console.x.ai',
+    keySteps: [
+      'Go to console.x.ai and sign in with your X account.',
+      'Open the "API Keys" tab.',
+      'Click "Create API Key", name it, and confirm.',
+      'Copy the key — it starts with xai- and is shown only once.',
+      'Paste it into the API key field below.',
+    ],
   },
 }
 
