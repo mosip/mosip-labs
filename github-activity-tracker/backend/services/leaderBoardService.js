@@ -1,13 +1,18 @@
 const pool = require('../db/dbPool');
 const { EXCLUDED_GITHUB_LOGINS } = require('../config/excludedGitHubLogins');
 const { pushRoleUserDetailsJoin } = require('../utils/userRoleSql');
+const { getCustomDateRange } = require('../utils/dateRange');
 
 /* ---------------------------------------------
    Calculate date ranges
 --------------------------------------------- */
-function getDateRange(period) {
+function getDateRange(period, startDate, endDate) {
   if (period === "all") {
     return { start: null, end: null };
+  }
+
+  if (period === "custom") {
+    return getCustomDateRange(startDate, endDate);
   }
 
   const periods = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
@@ -29,10 +34,10 @@ function getDateRange(period) {
 /* ---------------------------------------------
    MAIN SERVICE
 --------------------------------------------- */
-const getLeaderboard = async (orgId, period = "weekly", limit = 10, role = null) => {
+const getLeaderboard = async (orgId, period = "weekly", limit = 10, role = null, startDate = null, endDate = null) => {
   limit = parseInt(limit) || 10;
 
-  const { start, end } = getDateRange(period);
+  const { start, end } = getDateRange(period, startDate, endDate);
 
   const params = [];
   const userDetailsJoin = role ? pushRoleUserDetailsJoin(params, role) : '';

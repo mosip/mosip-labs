@@ -98,15 +98,30 @@ export const fetchUserRoles = async (): Promise<Array<{ id: number; name: string
   }
 };
 
+function periodParams(
+  period: string,
+  extra: { role?: string; startDate?: string; endDate?: string } = {},
+) {
+  return {
+    period,
+    ...(extra.role !== undefined ? { role: extra.role } : {}),
+    ...(period === "custom" && extra.startDate && extra.endDate
+      ? { startDate: extra.startDate, endDate: extra.endDate }
+      : {}),
+  };
+}
+
 // Fetch org-wide activity chart data
 export const fetchOrgActivity = async (
   orgId: string,
   period: string,
   role: string = "all",
+  startDate?: string,
+  endDate?: string,
 ) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/orgs/${orgId}/activity`, {
-      params: { period, role },
+      params: periodParams(period, { role, startDate, endDate }),
     });
     return response.data;
   } catch (error) {
@@ -124,14 +139,15 @@ export const fetchOrgUsers = async (
   search: string = "",
   sortBy?: "prs" | "reviews" | "issues" | null,
   sortOrder: "asc" | "desc" = "desc",
+  startDate?: string,
+  endDate?: string,
 ) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/orgs/${org}/users`, {
       params: {
-        period,
+        ...periodParams(period, { role, startDate, endDate }),
         page,
         limit,
-        role,
         ...(search ? { search } : {}),
         ...(sortBy ? { sortBy, sortOrder } : {}),
       },
@@ -149,12 +165,14 @@ export const fetchLeaderboard = async (
   period: string,
   role: string = "all",
   limit: number = 10,
+  startDate?: string,
+  endDate?: string,
 ) => {
   try {
     const response = await axios.get(
       `${API_BASE_URL}/orgs/${org}/leaderboard`,
       {
-        params: { period, limit, role },
+        params: { ...periodParams(period, { role, startDate, endDate }), limit },
       },
     );
 
@@ -169,10 +187,12 @@ export const fetchOrgSummary = async (
   orgId: string,
   period: string,
   role: string = "all",
+  startDate?: string,
+  endDate?: string,
 ) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/orgs/${orgId}/summary`, {
-      params: { period, role },
+      params: periodParams(period, { role, startDate, endDate }),
     });
     return response.data;
   } catch (error) {

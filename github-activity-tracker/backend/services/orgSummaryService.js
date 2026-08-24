@@ -1,8 +1,19 @@
 const db = require("../db/dbPool");
 const { EXCLUDED_GITHUB_LOGINS } = require("../config/excludedGitHubLogins");
 const { pushRoleUserDetailsJoin } = require("../utils/userRoleSql");
+const { getCustomDateRange } = require("../utils/dateRange");
 
-function getDateRanges(period) {
+function getDateRanges(period, startDate, endDate) {
+  if (period === "custom") {
+    const range = getCustomDateRange(startDate, endDate);
+    return {
+      currentStart: range.start,
+      currentEnd: range.end,
+      previousStart: range.prevStart,
+      previousEnd: range.prevEnd,
+    };
+  }
+
   const now = new Date();
 
   let currentStart, previousStart, currentEnd, previousEnd;
@@ -132,9 +143,9 @@ function calculateChange(current, previous) {
   };
 }
 
-async function getOrgSummary(orgId, period, role) {
+async function getOrgSummary(orgId, period, role, startDate, endDate) {
   const { currentStart, currentEnd, previousStart, previousEnd } =
-    getDateRanges(period);
+    getDateRanges(period, startDate, endDate);
 
   const current = await fetchCounts(orgId, currentStart, currentEnd, role);
   const previous = await fetchCounts(orgId, previousStart, previousEnd, role);

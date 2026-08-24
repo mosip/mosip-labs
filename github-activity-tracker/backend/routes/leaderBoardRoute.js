@@ -3,12 +3,15 @@ const router = express.Router();
 
 const { getLeaderboard } = require("../services/leaderBoardService");
 const { resolveRoleFilter } = require("../services/userRolesService");
+const { resolvePeriodQuery } = require("../utils/dateRange");
 
 router.get("/orgs/:org_id/leaderboard", async (req, res) => {
   try {
     const { org_id } = req.params;
 
-    const period = req.query.period || "weekly";
+    const { error: periodError, period, startDate, endDate } = resolvePeriodQuery(req.query, {
+      allowAll: true,
+    });
     const limit = parseInt(req.query.limit) || 10;
     const { role } = req.query;
 
@@ -16,8 +19,8 @@ router.get("/orgs/:org_id/leaderboard", async (req, res) => {
       return res.status(400).json({ error: "Invalid org_id" });
     }
 
-    if (!["daily", "weekly", "monthly", "yearly", "all"].includes(period)) {
-      return res.status(400).json({ error: "Invalid period value" });
+    if (periodError) {
+      return res.status(400).json({ error: periodError });
     }
 
     const { error, roleFilter } = await resolveRoleFilter(role);
@@ -25,7 +28,7 @@ router.get("/orgs/:org_id/leaderboard", async (req, res) => {
       return res.status(400).json({ error });
     }
 
-    const data = await getLeaderboard(org_id, period, limit, roleFilter);
+    const data = await getLeaderboard(org_id, period, limit, roleFilter, startDate, endDate);
 
     return res.status(200).json(data);
   } catch (error) {
