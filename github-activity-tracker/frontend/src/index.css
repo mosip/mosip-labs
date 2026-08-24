@@ -6,15 +6,47 @@
 @import 'tailwindcss/utilities';
 
 :root {
-  background-color: #f3f4f6;
+  background-color: #f6faff;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #f3f4f6;
+  color: #111827;
+  background:
+    radial-gradient(900px 420px at 100% -10%, rgba(125, 211, 252, 0.18), transparent 55%),
+    radial-gradient(700px 380px at -5% 110%, rgba(186, 230, 253, 0.28), transparent 50%),
+    #f6faff;
 }
 
 #root {
   min-height: 100vh;
+}
+
+.app-header {
+  background:
+    radial-gradient(900px 280px at 12% -40%, rgba(186, 230, 253, 0.45), transparent 55%),
+    radial-gradient(700px 260px at 92% 0%, rgba(147, 197, 253, 0.4), transparent 50%),
+    #4a90c8;
+}
+
+.panel-card {
+  background: #ffffff;
+  border: 1px solid #e3eef6;
+  box-shadow: 0 10px 30px -18px rgba(74, 144, 200, 0.28);
+}
+
+.orb {
+  position: fixed;
+  border-radius: 9999px;
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+}
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-18px); }
 }

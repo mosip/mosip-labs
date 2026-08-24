@@ -75,11 +75,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
   const detailed: DailyActivityRow[] = userData?.daily_activity || [];
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="w-full bg-white border-b shadow-sm px-8 py-6">
+    <div className="min-h-screen">
+      <div className="app-header w-full text-white">
+        <div className="h-1.5 bg-gradient-to-r from-sky-200 via-sky-300 to-cyan-100" />
+        <div className="px-8 py-6">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-blue-600 hover:underline mb-6"
+          className="flex items-center gap-2 text-sky-50 hover:text-white mb-6 font-bold"
         >
           <ArrowLeft size={18} />
           Back to Dashboard
@@ -87,21 +89,21 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-6">
-            <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-4xl text-blue-600">
-              👤
+            <div className="w-20 h-20 rounded-full bg-[#f3f9ff] text-sky-700 flex items-center justify-center text-3xl font-black shadow-lg">
+              {(profile.name || "?").charAt(0).toUpperCase()}
             </div>
 
             <div>
-              <h1 className="text-4xl font-bold">{profile.name}</h1>
+              <h1 className="text-4xl font-black text-white">{profile.name}</h1>
               <a
                 href={githubProfileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
+                className="text-sky-200 hover:text-white hover:underline"
               >
                 {githubProfileUrl}
               </a>
-              <p className="text-gray-500">
+              <p className="text-sky-100">
                 {profile.team} • {profile.project}
               </p>
             </div>
@@ -114,10 +116,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
               <button
                 key={value}
                 onClick={() => setPeriod(value)}
-                className={`px-5 py-2 rounded-lg ${
+                className={`px-5 py-2 rounded-full font-black transition-all ${
                   period === value
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700"
+                    ? "bg-[#f3f9ff] text-sky-800 shadow-lg"
+                    : "bg-white/20 text-white hover:bg-white/30"
                 }`}
               >
                 {label}
@@ -126,16 +128,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg">
+            <button className="flex items-center gap-2 bg-orange-400 hover:bg-orange-500 text-white px-5 py-2 rounded-full font-black">
               <img src={DownloadIcon} alt="download" className="w-4 h-4" />
               CSV
             </button>
 
-            <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg">
+            <button className="flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-white px-5 py-2 rounded-full font-black">
               <img src={DownloadIcon} alt="download" className="w-4 h-4" />
               JSON
             </button>
           </div>
+        </div>
         </div>
       </div>
 
@@ -147,6 +150,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
             value={prs}
             change={changePRs}
             icon={PRIcon}
+            accent="emerald"
           />
 
           <StatsCard
@@ -154,6 +158,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
             value={reviews}
             change={changeReviews}
             icon={CodeReviewIcon}
+            accent="amber"
           />
 
           <StatsCard
@@ -161,12 +166,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
             value={issues}
             change={changeIssues}
             icon={IssueIcon}
+            accent="violet"
           />
         </div>
 
         {/* Activity Chart */}
-        <div className="bg-white border rounded-xl p-6 mb-8 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">
+        <div className="panel-card rounded-2xl p-6 mb-8">
+          <h2 className="text-2xl font-black mb-4 text-sky-800">
             Activity Overview – {formatPeriodLabel(period)}
           </h2>
 
@@ -186,43 +192,45 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
         />
 
         {/* Detailed Activity Table */}
-        <div className="bg-white border rounded-xl p-6 shadow-sm mb-10">
-          <h2 className="text-xl font-semibold mb-4">Detailed Activity</h2>
+        <div className="panel-card rounded-2xl p-6 mb-10">
+          <h2 className="text-2xl font-black mb-4 text-sky-800">
+            Detailed Activity
+          </h2>
 
           <table className="w-full">
             <thead>
-              <tr className="text-left text-gray-600 border-b">
-                <th className="pb-3">Date</th>
-                <th className="pb-3">Pull Requests</th>
-                <th className="pb-3">File Changes</th>
-                <th className="pb-3">Reviews</th>
-                <th className="pb-3">Issues</th>
-                <th className="pb-3">Total</th>
+              <tr className="text-left text-white bg-sky-500">
+                <th className="p-3">Date</th>
+                <th className="p-3">Pull Requests</th>
+                <th className="p-3">File Changes</th>
+                <th className="p-3">Reviews</th>
+                <th className="p-3">Issues</th>
+                <th className="p-3">Total</th>
               </tr>
             </thead>
 
             <tbody>
               {detailed.map((row, idx) => (
-                <tr key={idx} className="border-b last:border-0">
-                  <td className="py-3">{row.date}</td>
+                <tr key={idx} className="border-b border-[#e3eef6] last:border-0 hover:bg-[#f3f9ff]">
+                  <td className="py-3 px-3 text-gray-800">{row.date}</td>
 
-                  <td className="font-medium" style={{ color: "#00A63E" }}>
+                  <td className="font-black px-3 text-sky-600">
                     {row.prs}
                   </td>
 
-                  <td className="font-medium text-gray-900">
+                  <td className="font-medium text-gray-900 px-3">
                     {row.pr_files_changed ?? 0}
                   </td>
 
-                  <td className="font-medium" style={{ color: "#F54900" }}>
+                  <td className="font-black px-3 text-orange-600">
                     {row.reviews}
                   </td>
 
-                  <td className="font-medium" style={{ color: "#7C3AED" }}>
+                  <td className="font-black px-3 text-indigo-600">
                     {row.issues ?? 0}
                   </td>
 
-                  <td className="font-semibold">
+                  <td className="font-black px-3 text-sky-800">
                     {row.prs + row.reviews + (row.issues ?? 0)}
                   </td>
                 </tr>

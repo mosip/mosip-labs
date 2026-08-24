@@ -21,7 +21,7 @@ const dottedGridPlugin = {
     const yScale = scales.y;
 
     ctx.save();
-    ctx.strokeStyle = "rgba(0,0,0,0.12)";
+    ctx.strokeStyle = "rgba(28,25,23,0.12)";
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
 
@@ -72,7 +72,7 @@ const columnHoverPlugin = {
     const highlightWidth = categoryWidth;
 
     ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.07)";
+    ctx.fillStyle = "rgba(250,204,21,0.18)";
     ctx.fillRect(
       highlightLeft,
       chartArea.top,
@@ -213,9 +213,9 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
     issues = aggregated.issues;
   }
 
-  const COLOR_PULLS = "#10B981";
-  const COLOR_REVIEWS = "#F59E0B";
-  const COLOR_ISSUES = "#7C3AED";
+  const COLOR_PULLS = "#0EA5E9";
+  const COLOR_REVIEWS = "#EA580C";
+  const COLOR_ISSUES = "#4F46E5";
 
   const chartData = {
     labels,
@@ -234,18 +234,21 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: "bottom" },
+      legend: {
+        position: "bottom",
+        labels: { color: "#334155" },
+      },
 
       tooltip: {
         mode: "index" as const,
         intersect: false,
         backgroundColor: "rgba(255,255,255,0.98)",
-        borderColor: "rgba(0,0,0,0.2)",
+        borderColor: "rgba(196,149,110,0.45)",
         borderWidth: 1,
         cornerRadius: 8,
         padding: 14,
 
-        titleColor: "#111",
+        titleColor: "#0f172a",
         titleFont: { size: 18, weight: 600 },
         titleMarginBottom: 12,
 
@@ -269,7 +272,7 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
             if (label === "Pull Requests") return COLOR_PULLS;
             if (label === "Reviews") return COLOR_REVIEWS;
             if (label === "Issues") return COLOR_ISSUES;
-            return "#111";
+            return "#0f172a";
           },
         },
       },
@@ -278,20 +281,23 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
     hover: { mode: "index" as const, intersect: false },
 
     scales: {
-      x: { grid: { display: false } },
+      x: {
+        grid: { display: false },
+        ticks: { color: "#64748b" },
+      },
       y: {
         beginAtZero: true,
-        ticks: { stepSize: 5 },
+        ticks: { stepSize: 5, color: "#64748b" },
         grid: { display: false },
       },
     },
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm font-arimo">
+    <div className="bg-transparent p-0 rounded-xl font-arimo">
 
       {showTitle && (
-        <h2 className="text-gray-800 text-[18px] mb-4">
+        <h2 className="text-[22px] mb-4 font-black text-sky-800">
           Activity Overview – {formatPeriodLabel(period)}
         </h2>
       )}

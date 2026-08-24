@@ -39,8 +39,8 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
       {
         label: "Pull Requests",
         data: data.map((d) => d.prs),
-        borderColor: "#10b981",
-        backgroundColor: "#10b981",
+        borderColor: "#0EA5E9",
+        backgroundColor: "#0EA5E9",
         tension: 0.4,
         pointRadius: 4,
         pointBorderWidth: 2,
@@ -48,8 +48,8 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
       {
         label: "Reviews",
         data: data.map((d) => d.reviews),
-        borderColor: "#f59e0b",
-        backgroundColor: "#f59e0b",
+        borderColor: "#EA580C",
+        backgroundColor: "#EA580C",
         tension: 0.4,
         pointRadius: 4,
         pointBorderWidth: 2,
@@ -57,8 +57,8 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
       {
         label: "Issues",
         data: data.map((d) => d.issues),
-        borderColor: "#7c3aed",
-        backgroundColor: "#7c3aed",
+        borderColor: "#4F46E5",
+        backgroundColor: "#4F46E5",
         tension: 0.4,
         pointRadius: 4,
         pointBorderWidth: 2,
@@ -73,25 +73,30 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
         position: "bottom" as const,
         labels: {
           usePointStyle: true,
+          color: "#334155",
         },
       },
     },
     scales: {
       x: {
         grid: { display: false },
+        ticks: { color: "#64748b" },
       },
       y: {
+        ticks: { color: "#64748b" },
         grid: {
           borderDash: [6, 6],
-          color: "#e5e7eb",
+          color: "rgba(28,25,23,0.12)",
         },
       },
     },
   };
 
   return (
-    <div className="bg-white border rounded-xl p-6 shadow-sm mb-8">
-      <h2 className="text-xl font-semibold mb-4">Activity Trend</h2>
+    <div className="panel-card rounded-2xl p-6 mb-8">
+      <h2 className="text-2xl font-black mb-4 text-sky-800">
+        Activity Trend
+      </h2>
       <Line data={chartData} options={options} />
     </div>
   );

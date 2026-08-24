@@ -152,7 +152,12 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="relative min-h-screen overflow-hidden">
+      <div className="orb h-72 w-72 bg-sky-200 top-24 -left-16" style={{ animation: "floaty 8s ease-in-out infinite" }} />
+      <div className="orb h-80 w-80 bg-blue-200 bottom-10 -right-10" style={{ animation: "floaty 10s ease-in-out infinite" }} />
+      <div className="orb h-56 w-56 bg-cyan-100 top-1/2 left-1/3" style={{ animation: "floaty 12s ease-in-out infinite" }} />
+
+      <div className="relative z-10">
       {activePage !== "profile" && (
         <TopNav
           activePage={activePage}
@@ -184,17 +189,32 @@ function App() {
 
       {activePage === "dashboard" && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {dashboardLoading && <p>Loading...</p>}
-          {dashboardError && <p className="text-red-500">{dashboardError}</p>}
+          {dashboardLoading && (
+            <p className="text-sky-700 font-black tracking-wide">Loading...</p>
+          )}
+          {dashboardError && (
+            <p className="text-rose-500 font-medium">{dashboardError}</p>
+          )}
 
           {!dashboardLoading && !dashboardError && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+                <StatsCard
+                  title="Total Activity"
+                  value={summary?.total_activity ?? 0}
+                  change={summary?.change?.activity}
+                  icon={TotalActivityIcon}
+                  accent="sky"
+                  featured
+                  className="md:col-span-2 xl:row-span-2"
+                />
+
                 <StatsCard
                   title="Pull Requests"
                   value={summary?.total_prs ?? 0}
                   change={summary?.change?.prs}
                   icon={PRIcon}
+                  accent="emerald"
                 />
 
                 <StatsCard
@@ -202,6 +222,7 @@ function App() {
                   value={summary?.total_reviews ?? 0}
                   change={summary?.change?.reviews}
                   icon={CodeReviewIcon}
+                  accent="amber"
                 />
 
                 <StatsCard
@@ -209,17 +230,12 @@ function App() {
                   value={summary?.total_issues ?? 0}
                   change={summary?.change?.issues}
                   icon={IssueIcon}
-                />
-
-                <StatsCard
-                  title="Total Activity"
-                  value={summary?.total_activity ?? 0}
-                  change={summary?.change?.activity}
-                  icon={TotalActivityIcon}
+                  accent="violet"
+                  className="md:col-span-2 xl:col-span-2"
                 />
               </div>
 
-              <div className="bg-white border rounded-xl shadow-sm p-6 mb-8">
+              <div className="panel-card rounded-2xl p-6 mb-8">
                 <ActivityChart data={activityChartData} period={period} />
               </div>
 
@@ -238,11 +254,14 @@ function App() {
 
       {activePage === "leaderboard" && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-3xl font-arimo font-bold mb-6">Leaderboard</h1>
+          <h1 className="text-4xl font-arimo font-black mb-6 text-sky-800">
+            Leaderboard
+          </h1>
 
           <LeaderboardCard leaders={leaderboard} />
         </main>
       )}
+      </div>
     </div>
   );
 }
