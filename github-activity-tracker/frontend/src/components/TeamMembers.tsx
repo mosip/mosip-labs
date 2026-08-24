@@ -2,14 +2,33 @@ import React, { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { fetchOrgUsers } from "../lib/api";
 import type { PeriodValue } from "../lib/periods";
+import { chartTheme } from "../lib/theme";
 
 type SortField = "prs" | "reviews" | "issues";
 type SortOrder = "asc" | "desc";
-const UserIcon = () => (
-  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-2xl">
-    👤
-  </div>
-);
+const AVATAR_COLORS = [
+  "bg-avatar-1",
+  "bg-avatar-2",
+  "bg-avatar-3",
+  "bg-avatar-4",
+  "bg-avatar-5",
+  "bg-avatar-6",
+];
+
+const UserIcon = ({ name }: { name: string }) => {
+  const initial = (name || "?").charAt(0).toUpperCase();
+  const colorIndex =
+    name.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) %
+    AVATAR_COLORS.length;
+
+  return (
+    <div
+      className={`w-10 h-10 rounded-full ${AVATAR_COLORS[colorIndex]} flex items-center justify-center text-white font-semibold`}
+    >
+      {initial}
+    </div>
+  );
+};
 
 interface TeamMembersProps {
   org: string;
@@ -21,9 +40,10 @@ interface TeamMembersProps {
 }
 
 const getDiffColor = (diff: number) => {
-  if (diff > 0) return "#00A63E";
-  if (diff < 0) return "#E7000B";
-  return "#155DFC";
+  const theme = chartTheme();
+  if (diff > 0) return theme.up;
+  if (diff < 0) return theme.down;
+  return theme.neutral;
 };
 
 interface SortableHeaderProps {
@@ -51,10 +71,10 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({
           <button
             type="button"
             onClick={() => onSort(field, "asc")}
-            className={`p-0.5 rounded hover:bg-gray-200 transition ${
+            className={`p-0.5 rounded hover:bg-white/20 transition ${
               isActive && sortOrder === "asc"
-                ? "text-blue-600 bg-blue-50"
-                : "text-gray-400"
+                ? "text-white bg-white/25"
+                : "text-brand-muted"
             }`}
             aria-label={`Sort ${label} ascending`}
           >
@@ -63,10 +83,10 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({
           <button
             type="button"
             onClick={() => onSort(field, "desc")}
-            className={`p-0.5 rounded hover:bg-gray-200 transition ${
+            className={`p-0.5 rounded hover:bg-white/20 transition ${
               isActive && sortOrder === "desc"
-                ? "text-blue-600 bg-blue-50"
-                : "text-gray-400"
+                ? "text-white bg-white/25"
+                : "text-brand-muted"
             }`}
             aria-label={`Sort ${label} descending`}
           >
@@ -153,9 +173,11 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
   const endItem = Math.min(page * limit, totalUsers);
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border mb-8 font-arimo">
+    <div className="panel-card p-6 rounded-2xl mb-8 font-arimo">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">Team Members</h2>
+        <h2 className="text-2xl font-black text-brand-dark">
+          Team Members
+        </h2>
         <div className="flex gap-2 w-full sm:w-auto">
           <input
             type="text"
@@ -163,12 +185,12 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
             value={userSearchTerm}
             onChange={(e) => setUserSearchTerm(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="flex-1 sm:w-64 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500"
+            className="flex-1 sm:w-64 border border-panel-border rounded-full px-4 py-1.5 text-sm focus:ring-2 focus:ring-brand-light bg-white text-gray-900 placeholder:text-gray-400"
           />
           <button
             type="button"
             onClick={handleSearch}
-            className="px-4 py-1 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+            className="px-4 py-1.5 text-sm font-black text-white bg-brand rounded-full hover:bg-brand-hover"
           >
             Search
           </button>
@@ -186,7 +208,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
             <col className="w-[15%]" />
           </colgroup>
           <thead>
-            <tr className="text-left text-gray-600 border-b bg-gray-50">
+            <tr className="text-left text-white border-b-0 bg-brand">
               <th className="px-4 py-3 font-semibold">Team Member</th>
               <th className="px-4 py-3 font-semibold">Role</th>
               <SortableHeader
@@ -218,7 +240,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
             {members.map((m, index) => (
               <tr
                 key={m.assignment_id ?? `${m.login}-${index}`}
-                className="border-b last:border-0 cursor-pointer hover:bg-gray-50 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                className="border-b border-panel-border last:border-0 cursor-pointer hover:bg-brand-softer transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
                 onClick={() => onSelectUser?.(m.login)}
                 role={onSelectUser ? "button" : undefined}
                 tabIndex={onSelectUser ? 0 : undefined}
@@ -237,20 +259,20 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
               >
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-3">
-                  <UserIcon />
+                  <UserIcon name={m.name || m.login || "?"} />
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-gray-900">
+                      <p className="truncate font-semibold text-slate-800">
                         {m.name || m.login}
                       </p>
-                      <p className="truncate text-gray-500 text-sm">{m.login}</p>
+                      <p className="truncate text-slate-500 text-sm">{m.login}</p>
                     </div>
                   </div>
                 </td>
 
-                <td className="px-4 py-4 text-left text-gray-700">
+                <td className="px-4 py-4 text-left text-slate-600">
                   {m.role || "—"}
                   {m.role && m.is_active === false && (
-                    <span className="ml-2 text-xs text-gray-500">(inactive)</span>
+                    <span className="ml-2 text-xs text-slate-400">(inactive)</span>
                   )}
                 </td>
 
@@ -270,7 +292,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
                   </div>
                 </td>
 
-                <td className="px-4 py-4 text-center font-semibold text-gray-900">
+                <td className="px-4 py-4 text-center font-semibold text-slate-800">
                   {m.pr_files_changed ?? 0}
                 </td>
 
@@ -313,7 +335,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
 
       {/* Pagination */}
 
-      <div className="flex items-center justify-between mt-6 text-sm text-gray-600">
+      <div className="flex items-center justify-between mt-6 text-sm text-slate-500">
         <div className="flex items-center gap-2">
           <span>Items per page</span>
 
@@ -323,7 +345,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
               setLimit(Number(e.target.value));
               setPage(1);
             }}
-            className="border rounded px-2 py-1"
+            className="border border-panel-border rounded-full px-2 py-1 bg-white text-gray-900"
           >
             <option value={10}>10</option>
             <option value={20}>20</option>
@@ -353,7 +375,9 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
             ◀ Previous
           </button>
 
-          <span className="border px-3 py-1 rounded">{page}</span>
+          <span className="border-0 px-3 py-1 rounded-full bg-brand text-white font-black">
+            {page}
+          </span>
 
           <span>of {totalPages}</span>
 

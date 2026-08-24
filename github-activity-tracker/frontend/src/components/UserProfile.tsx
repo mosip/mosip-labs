@@ -15,6 +15,8 @@ import PRIcon from "../assets/PRIcon.svg";
 import CodeReviewIcon from "../assets/CodeReviewIcon.svg";
 import IssueIcon from "../assets/IssueIcon.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
+import ThemeSwitcher from "./ThemeSwitcher";
+import { useTheme } from "../ThemeContext";
 
 interface UserProfileProps {
   org: string;
@@ -31,6 +33,7 @@ interface DailyActivityRow {
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
+  const { theme } = useTheme();
   const [period, setPeriod] = useState<PeriodValue>(DEFAULT_PERIOD);
 
   const [userData, setUserData] = useState<any>(null);
@@ -75,11 +78,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
   const detailed: DailyActivityRow[] = userData?.daily_activity || [];
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="w-full bg-white border-b shadow-sm px-8 py-6">
+    <div className="min-h-screen">
+      <div className="app-header w-full text-white">
+        <div className="app-stripe" />
+        <div className="px-8 py-6">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-blue-600 hover:underline mb-6"
+          className="flex items-center gap-2 text-brand-muted hover:text-white mb-6 font-bold"
         >
           <ArrowLeft size={18} />
           Back to Dashboard
@@ -87,25 +92,26 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-6">
-            <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-4xl text-blue-600">
-              👤
+            <div className="w-20 h-20 rounded-full bg-brand-softer text-brand-mid flex items-center justify-center text-3xl font-black shadow-lg">
+              {(profile.name || "?").charAt(0).toUpperCase()}
             </div>
 
             <div>
-              <h1 className="text-4xl font-bold">{profile.name}</h1>
+              <h1 className="text-4xl font-black text-white">{profile.name}</h1>
               <a
                 href={githubProfileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
+                className="text-brand-muted hover:text-white hover:underline"
               >
                 {githubProfileUrl}
               </a>
-              <p className="text-gray-500">
+              <p className="text-brand-muted">
                 {profile.team} • {profile.project}
               </p>
             </div>
           </div>
+          <ThemeSwitcher />
         </div>
 
         <div className="flex justify-between items-center mt-8">
@@ -114,10 +120,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
               <button
                 key={value}
                 onClick={() => setPeriod(value)}
-                className={`px-5 py-2 rounded-lg ${
+                className={`px-5 py-2 rounded-full font-black transition-all ${
                   period === value
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700"
+                    ? "bg-brand-softer text-brand-dark shadow-lg"
+                    : "bg-white/20 text-white hover:bg-white/30"
                 }`}
               >
                 {label}
@@ -126,16 +132,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg">
+            <button className="flex items-center gap-2 bg-csv hover:bg-csv-hover text-white px-5 py-2 rounded-full font-black">
               <img src={DownloadIcon} alt="download" className="w-4 h-4" />
               CSV
             </button>
 
-            <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg">
+            <button className="flex items-center gap-2 bg-brand hover:bg-brand-light text-white px-5 py-2 rounded-full font-black">
               <img src={DownloadIcon} alt="download" className="w-4 h-4" />
               JSON
             </button>
           </div>
+        </div>
         </div>
       </div>
 
@@ -147,6 +154,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
             value={prs}
             change={changePRs}
             icon={PRIcon}
+            accent="emerald"
           />
 
           <StatsCard
@@ -154,6 +162,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
             value={reviews}
             change={changeReviews}
             icon={CodeReviewIcon}
+            accent="amber"
           />
 
           <StatsCard
@@ -161,20 +170,22 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
             value={issues}
             change={changeIssues}
             icon={IssueIcon}
+            accent="violet"
           />
         </div>
 
         {/* Activity Chart */}
-        <div className="bg-white border rounded-xl p-6 mb-8 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">
+        <div className="panel-card rounded-2xl p-6 mb-8">
+          <h2 className="text-2xl font-black mb-4 text-brand-dark">
             Activity Overview – {formatPeriodLabel(period)}
           </h2>
 
-          <ActivityChart data={chartData} period={period} showTitle={false} />
+          <ActivityChart key={theme} data={chartData} period={period} showTitle={false} />
         </div>
 
         {/* Activity Trend */}
         <ActivityTrend
+          key={theme}
           data={
             userData?.trend?.labels?.map((label: string, i: number) => ({
               date: label,
@@ -186,43 +197,45 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
         />
 
         {/* Detailed Activity Table */}
-        <div className="bg-white border rounded-xl p-6 shadow-sm mb-10">
-          <h2 className="text-xl font-semibold mb-4">Detailed Activity</h2>
+        <div className="panel-card rounded-2xl p-6 mb-10">
+          <h2 className="text-2xl font-black mb-4 text-brand-dark">
+            Detailed Activity
+          </h2>
 
           <table className="w-full">
             <thead>
-              <tr className="text-left text-gray-600 border-b">
-                <th className="pb-3">Date</th>
-                <th className="pb-3">Pull Requests</th>
-                <th className="pb-3">File Changes</th>
-                <th className="pb-3">Reviews</th>
-                <th className="pb-3">Issues</th>
-                <th className="pb-3">Total</th>
+              <tr className="text-left text-white bg-brand">
+                <th className="p-3">Date</th>
+                <th className="p-3">Pull Requests</th>
+                <th className="p-3">File Changes</th>
+                <th className="p-3">Reviews</th>
+                <th className="p-3">Issues</th>
+                <th className="p-3">Total</th>
               </tr>
             </thead>
 
             <tbody>
               {detailed.map((row, idx) => (
-                <tr key={idx} className="border-b last:border-0">
-                  <td className="py-3">{row.date}</td>
+                <tr key={idx} className="border-b border-panel-border last:border-0 hover:bg-brand-softer">
+                  <td className="py-3 px-3 text-gray-800">{row.date}</td>
 
-                  <td className="font-medium" style={{ color: "#00A63E" }}>
+                  <td className="font-black px-3 text-brand">
                     {row.prs}
                   </td>
 
-                  <td className="font-medium text-gray-900">
+                  <td className="font-medium text-gray-900 px-3">
                     {row.pr_files_changed ?? 0}
                   </td>
 
-                  <td className="font-medium" style={{ color: "#F54900" }}>
+                  <td className="font-black px-3 text-review">
                     {row.reviews}
                   </td>
 
-                  <td className="font-medium" style={{ color: "#7C3AED" }}>
+                  <td className="font-black px-3 text-issue">
                     {row.issues ?? 0}
                   </td>
 
-                  <td className="font-semibold">
+                  <td className="font-black px-3 text-brand-dark">
                     {row.prs + row.reviews + (row.issues ?? 0)}
                   </td>
                 </tr>

@@ -6,6 +6,18 @@
     <meta name="description" content="GitHub Activity Dashboard for tracking pull requests, issues, and reviews" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <title>GitHub Activity Dashboard</title>
+    <script>
+      (function () {
+        try {
+          var allowed = /^(sky|teal|sunset|forest|violet|graphite|midnight)$/;
+          var theme = localStorage.getItem("gat-theme") || "sky";
+          if (!allowed.test(theme)) theme = "sky";
+          document.documentElement.setAttribute("data-theme", theme);
+          document.documentElement.style.colorScheme =
+            theme === "midnight" ? "dark" : "light";
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

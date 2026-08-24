@@ -8,6 +8,7 @@ import DashboardIconBlack from "../assets/DashboardIconBlack.svg";
 import LeaderboardIconWhite from "../assets/LeaderboardIconWhite.svg";
 import LeaderboardIconBlack from "../assets/LeaderboardIconBlack.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
+import ThemeSwitcher from "./ThemeSwitcher";
 
 interface TopNavProps {
   activePage: "dashboard" | "leaderboard";
@@ -119,24 +120,25 @@ const TopNav: React.FC<TopNavProps> = ({
   }, []);
 
   const tabStyle = (active: boolean) =>
-    `px-4 py-2 rounded-lg font-medium transition-all ${
+    `px-4 py-2 rounded-full font-black transition-all ${
       active
-        ? "bg-blue-600 font-arimo text-white"
-        : "text-gray-600 font-arimo hover:text-black"
+        ? "bg-brand-softer font-arimo text-brand-dark shadow-lg"
+        : "text-white font-arimo hover:bg-white/20"
     }`;
 
   const periodBtn = (active: boolean) =>
-    `px-4 py-2 rounded-lg font-arimo font-medium transition-all ${
+    `px-4 py-2 rounded-full font-arimo font-bold transition-all ${
       active
-        ? "bg-blue-600 font-arimo text-white shadow"
-        : "bg-gray-100 font-arimo text-gray-700 hover:bg-gray-200"
+        ? "bg-brand-softer font-arimo text-brand-dark shadow-lg"
+        : "bg-white/20 font-arimo text-white hover:bg-white/30"
     }`;
 
   const filterSelectClass =
-    "w-44 px-4 py-2 border rounded-lg bg-white";
+    "w-44 px-4 py-2 border-0 rounded-full bg-white text-gray-900 shadow-md";
 
   return (
-    <div className="w-full bg-white border-b shadow-sm pb-6 font-arimo">
+    <div className="app-header w-full pb-6 font-arimo text-white">
+      <div className="app-stripe" />
       <div className="max-w-7xl mx-auto px-6 py-4 flex font-arimo items-center gap-6">
 
         {/* DASHBOARD BUTTON */}
@@ -149,8 +151,8 @@ const TopNav: React.FC<TopNavProps> = ({
             <img
               src={
                 activePage === "dashboard"
-                  ? DashboardIconWhite
-                  : DashboardIconBlack
+                  ? DashboardIconBlack
+                  : DashboardIconWhite
               }
               alt="dashboard"
               className="w-4 h-4"
@@ -169,8 +171,8 @@ const TopNav: React.FC<TopNavProps> = ({
             <img
               src={
                 activePage === "leaderboard"
-                  ? LeaderboardIconWhite
-                  : LeaderboardIconBlack
+                  ? LeaderboardIconBlack
+                  : LeaderboardIconWhite
               }
               alt="leaderboard"
               className="w-4 h-4"
@@ -180,11 +182,11 @@ const TopNav: React.FC<TopNavProps> = ({
         </button>
       </div>
 
-      <div className="border-b"></div>
+      <div className="border-b border-white/10"></div>
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         <h1
-          className="text-3xl font-bold font-arimo text-gray-900"
+          className="text-3xl font-bold font-arimo text-white tracking-wide"
           style={{ fontFamily: "Arimo, sans-serif" }}
         >
           {activePage === "dashboard"
@@ -199,7 +201,7 @@ const TopNav: React.FC<TopNavProps> = ({
         <div className="flex items-end gap-6">
 
           <div className="flex flex-col">
-            <label className="text-gray-600 text-sm font-medium mb-2">
+            <label className="text-white/85 text-sm font-bold mb-2 tracking-wide">
               Period
             </label>
 
@@ -255,7 +257,7 @@ const TopNav: React.FC<TopNavProps> = ({
                       </button>
                       <button
                         type="button"
-                        className="px-3 py-1.5 rounded-lg text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                        className="px-3 py-1.5 rounded-full text-sm text-white bg-brand hover:bg-brand-hover disabled:opacity-50"
                         disabled={!draftStart || !draftEnd || draftStart > draftEnd}
                         onClick={applyCustomRange}
                       >
@@ -269,7 +271,7 @@ const TopNav: React.FC<TopNavProps> = ({
           </div>
 
           <div className="flex flex-col">
-            <label className="text-gray-600 text-sm font-medium mb-2">
+            <label className="text-white/85 text-sm font-bold mb-2 tracking-wide">
               Organization
             </label>
 
@@ -290,7 +292,7 @@ const TopNav: React.FC<TopNavProps> = ({
 
         {/* ROLE */}
         <div className="flex flex-col">
-          <label className="text-gray-600 text-sm font-medium mb-2">
+          <label className="text-white/85 text-sm font-bold mb-2 tracking-wide">
             Role
           </label>
 
@@ -308,15 +310,17 @@ const TopNav: React.FC<TopNavProps> = ({
           </select>
         </div>
 
+        <ThemeSwitcher />
+
         {/* CSV */}
         <div className="flex flex-col">
-          <label className="text-gray-600 text-sm font-medium mb-2">
+          <label className="text-white/85 text-sm font-bold mb-2 tracking-wide">
             &nbsp;
           </label>
 
           <button
             onClick={onDownloadCSV}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+            className="flex items-center gap-2 bg-csv hover:bg-csv-hover text-white px-4 py-2 rounded-full font-black shadow-lg"
           >
             <img src={DownloadIcon} alt="download" className="w-4 h-4" />
             CSV
@@ -325,13 +329,13 @@ const TopNav: React.FC<TopNavProps> = ({
 
         {/* JSON */}
         <div className="flex flex-col">
-          <label className="text-gray-600 text-sm font-medium mb-2">
+          <label className="text-white/85 text-sm font-bold mb-2 tracking-wide">
             &nbsp;
           </label>
 
           <button
             onClick={onDownloadJSON}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            className="flex items-center gap-2 bg-brand hover:bg-brand-light text-white px-4 py-2 rounded-full font-black shadow-lg"
           >
             <img src={DownloadIcon} alt="download" className="w-4 h-4" />
             JSON
