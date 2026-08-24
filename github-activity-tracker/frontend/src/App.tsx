@@ -144,15 +144,6 @@ function App() {
 
   const handlePeriodChange = (nextPeriod: PeriodValue) => {
     setPeriod(nextPeriod);
-    if (nextPeriod === "custom" && (!startDate || !endDate)) {
-      const end = new Date();
-      const start = new Date();
-      start.setDate(end.getDate() - 6);
-      const ymd = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      setStartDate(ymd(start));
-      setEndDate(ymd(end));
-    }
   };
 
   const handleSelectUser = (name: string) => {

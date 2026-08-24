@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { PERIOD_OPTIONS, type PeriodValue } from "../lib/periods";
 import { fetchUserRoles } from "../lib/api";
@@ -52,6 +52,51 @@ const TopNav: React.FC<TopNavProps> = ({
   onDownloadJSON,
 }) => {
   const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [showCustomPopup, setShowCustomPopup] = useState(false);
+  const [draftStart, setDraftStart] = useState(startDate);
+  const [draftEnd, setDraftEnd] = useState(endDate);
+  const customPopupRef = useRef<HTMLDivElement>(null);
+
+  const toYmd = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+  const openCustomPopup = () => {
+    if (startDate && endDate) {
+      setDraftStart(startDate);
+      setDraftEnd(endDate);
+    } else {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 6);
+      setDraftStart(toYmd(start));
+      setDraftEnd(toYmd(end));
+    }
+    setShowCustomPopup(true);
+  };
+
+  const applyCustomRange = () => {
+    if (!draftStart || !draftEnd || draftStart > draftEnd) return;
+    onStartDateChange(draftStart);
+    onEndDateChange(draftEnd);
+    onPeriodChange("custom");
+    setShowCustomPopup(false);
+  };
+
+  useEffect(() => {
+    if (!showCustomPopup) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        customPopupRef.current &&
+        !customPopupRef.current.contains(event.target as Node)
+      ) {
+        setShowCustomPopup(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showCustomPopup]);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,32 +213,59 @@ const TopNav: React.FC<TopNavProps> = ({
                   {label}
                 </button>
               ))}
-              <button
-                className={periodBtn(period === "custom")}
-                onClick={() => onPeriodChange("custom")}
-              >
-                Custom
-              </button>
-            </div>
-            {period === "custom" && (
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  type="date"
-                  value={startDate}
-                  max={endDate || undefined}
-                  onChange={(e) => onStartDateChange(e.target.value)}
-                  className="px-3 py-2 border rounded-lg bg-white text-sm"
-                />
-                <span className="text-gray-500 text-sm">to</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  min={startDate || undefined}
-                  onChange={(e) => onEndDateChange(e.target.value)}
-                  className="px-3 py-2 border rounded-lg bg-white text-sm"
-                />
+              <div className="relative" ref={customPopupRef}>
+                <button
+                  className={periodBtn(period === "custom")}
+                  onClick={openCustomPopup}
+                >
+                  Custom
+                </button>
+                {showCustomPopup && (
+                  <div className="absolute left-0 top-full mt-2 z-30 w-72 rounded-xl border bg-white p-4 shadow-lg">
+                    <p className="text-sm font-medium text-gray-800 mb-3">
+                      Custom date range
+                    </p>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      From
+                    </label>
+                    <input
+                      type="date"
+                      value={draftStart}
+                      max={draftEnd || undefined}
+                      onChange={(e) => setDraftStart(e.target.value)}
+                      className="w-full mb-3 px-3 py-2 border rounded-lg bg-white text-sm"
+                    />
+                    <label className="block text-xs text-gray-500 mb-1">
+                      To
+                    </label>
+                    <input
+                      type="date"
+                      value={draftEnd}
+                      min={draftStart || undefined}
+                      onChange={(e) => setDraftEnd(e.target.value)}
+                      className="w-full mb-4 px-3 py-2 border rounded-lg bg-white text-sm"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg text-sm text-gray-700 bg-gray-100 hover:bg-gray-200"
+                        onClick={() => setShowCustomPopup(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                        disabled={!draftStart || !draftEnd || draftStart > draftEnd}
+                        onClick={applyCustomRange}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           <div className="flex flex-col">
