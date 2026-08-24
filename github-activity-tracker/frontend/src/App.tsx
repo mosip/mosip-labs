@@ -32,6 +32,8 @@ function App() {
   const [selectedOrg, setSelectedOrg] = useState<string>("");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [period, setPeriod] = useState<PeriodValue>(DEFAULT_PERIOD);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [role, setRole] = useState("all");
 
   const [summary, setSummary] = useState<any | null>(null);
@@ -72,6 +74,7 @@ function App() {
 
   useEffect(() => {
     if (!selectedOrg) return;
+    if (period === "custom" && (!startDate || !endDate || startDate > endDate)) return;
 
     let cancelled = false;
 
@@ -81,8 +84,8 @@ function App() {
 
       try {
         const [summaryData, activityData] = await Promise.all([
-          fetchOrgSummary(selectedOrg, period, role),
-          fetchOrgActivity(selectedOrg, period, role),
+          fetchOrgSummary(selectedOrg, period, role, startDate, endDate),
+          fetchOrgActivity(selectedOrg, period, role, startDate, endDate),
         ]);
 
         if (cancelled) return;
@@ -102,14 +105,15 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [selectedOrg, period, role]);
+  }, [selectedOrg, period, role, startDate, endDate]);
 
   useEffect(() => {
     if (!selectedOrg) return;
+    if (period === "custom" && (!startDate || !endDate || startDate > endDate)) return;
 
     async function loadLeaderboard() {
       try {
-        const data = await fetchLeaderboard(selectedOrg, period, role, 10);
+        const data = await fetchLeaderboard(selectedOrg, period, role, 10, startDate, endDate);
 
         const list = Array.isArray(data) ? data : data?.leaderboard || [];
 
@@ -131,11 +135,24 @@ function App() {
     }
 
     loadLeaderboard();
-  }, [selectedOrg, period, role]);
+  }, [selectedOrg, period, role, startDate, endDate]);
 
   const handleOrganizationChange = (org: string) => {
     setSelectedOrg(org);
     setRole("all");
+  };
+
+  const handlePeriodChange = (nextPeriod: PeriodValue) => {
+    setPeriod(nextPeriod);
+    if (nextPeriod === "custom" && (!startDate || !endDate)) {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 6);
+      const ymd = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      setStartDate(ymd(start));
+      setEndDate(ymd(end));
+    }
   };
 
   const handleSelectUser = (name: string) => {
@@ -154,7 +171,11 @@ function App() {
           organizations={organizations}
           onOrganizationChange={handleOrganizationChange}
           period={period}
-          onPeriodChange={setPeriod}
+          onPeriodChange={handlePeriodChange}
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
           role={role}
           onRoleChange={setRole}
           onDownloadCSV={() => {}}
@@ -215,6 +236,8 @@ function App() {
                 org={selectedOrg}
                 role={role}
                 period={period}
+                startDate={startDate}
+                endDate={endDate}
                 onSelectUser={handleSelectUser}
               />
             </>

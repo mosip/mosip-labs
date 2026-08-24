@@ -4,6 +4,7 @@ const dayjs = require("dayjs");
 
 const { EXCLUDED_GITHUB_LOGINS } = require("../config/excludedGitHubLogins");
 const { pushRoleUserDetailsJoin } = require("../utils/userRoleSql");
+const { getCustomDateRange } = require("../utils/dateRange");
 
 
 
@@ -13,23 +14,26 @@ const { pushRoleUserDetailsJoin } = require("../utils/userRoleSql");
 
  */
 
-async function getOrgActivity(orgId, period, role) {
+async function getOrgActivity(orgId, period, role, startDate, endDate) {
 
-  const periods = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
+  let days;
+  let start;
+  let end;
 
-  const days = periods[period];
-
-  if (!days) {
-
-    throw new Error("Invalid period");
-
+  if (period === "custom") {
+    const range = getCustomDateRange(startDate, endDate);
+    days = range.days;
+    start = dayjs(range.start);
+    end = dayjs(range.end);
+  } else {
+    const periods = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
+    days = periods[period];
+    if (!days) {
+      throw new Error("Invalid period");
+    }
+    end = dayjs().endOf("day");
+    start = end.subtract(days - 1, "day").startOf("day");
   }
-
-
-
-  const end = dayjs().endOf("day");
-
-  const start = end.subtract(days - 1, "day").startOf("day");
 
 
 

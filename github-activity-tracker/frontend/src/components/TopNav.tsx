@@ -17,6 +17,10 @@ interface TopNavProps {
 
   period: PeriodValue;
   onPeriodChange: (p: PeriodValue) => void;
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
 
   organization: string;
   organizations: Organization[];
@@ -35,6 +39,10 @@ const TopNav: React.FC<TopNavProps> = ({
   title,
   period,
   onPeriodChange,
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
   organization,
   organizations,
   onOrganizationChange,
@@ -160,7 +168,32 @@ const TopNav: React.FC<TopNavProps> = ({
                   {label}
                 </button>
               ))}
+              <button
+                className={periodBtn(period === "custom")}
+                onClick={() => onPeriodChange("custom")}
+              >
+                Custom
+              </button>
             </div>
+            {period === "custom" && (
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="date"
+                  value={startDate}
+                  max={endDate || undefined}
+                  onChange={(e) => onStartDateChange(e.target.value)}
+                  className="px-3 py-2 border rounded-lg bg-white text-sm"
+                />
+                <span className="text-gray-500 text-sm">to</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => onEndDateChange(e.target.value)}
+                  className="px-3 py-2 border rounded-lg bg-white text-sm"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col">

@@ -15,6 +15,8 @@ interface TeamMembersProps {
   org: string;
   role: string;
   period: PeriodValue;
+  startDate?: string;
+  endDate?: string;
   onSelectUser?: (name: string) => void;
 }
 
@@ -79,6 +81,8 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
   org,
   role,
   period,
+  startDate,
+  endDate,
   onSelectUser,
 }) => {
   const [members, setMembers] = useState<any[]>([]);
@@ -92,6 +96,8 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
   const [sortBy, setSortBy] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   useEffect(() => {
+    if (period === "custom" && (!startDate || !endDate || startDate > endDate)) return;
+
     async function loadUsers() {
       try {
         const data = await fetchOrgUsers(
@@ -103,6 +109,8 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
           appliedSearch,
           sortBy,
           sortOrder,
+          startDate,
+          endDate,
         );
 
         if (Array.isArray(data)) {
@@ -126,10 +134,10 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
     }
 
     loadUsers();
-  }, [org, period, page, limit, role, appliedSearch, sortBy, sortOrder]);
+  }, [org, period, page, limit, role, appliedSearch, sortBy, sortOrder, startDate, endDate]);
   useEffect(() => {
     setPage(1);
-  }, [org, role, period]);
+  }, [org, role, period, startDate, endDate]);
 
   const handleSearch = () => {
     setPage(1);

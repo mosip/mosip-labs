@@ -1,9 +1,14 @@
 const db = require("../db/dbPool");
 const { EXCLUDED_GITHUB_LOGINS } = require("../config/excludedGitHubLogins");
+const { getCustomDateRange } = require("../utils/dateRange");
 
 const DEFAULT_LIMIT = 20;
 
-function getDateRanges(period) {
+function getDateRanges(period, startDate, endDate) {
+  if (period === "custom") {
+    return getCustomDateRange(startDate, endDate);
+  }
+
   const periods = {
     daily: 1,
     weekly: 7,
@@ -166,12 +171,14 @@ const getOrgUsers = async (
   role = null,
   search = null,
   sortBy = null,
-  sortOrder = "desc"
+  sortOrder = "desc",
+  startDate = null,
+  endDate = null
 ) => {
   page = Math.max(1, parseInt(page, 10) || 1);
   limit = Math.max(1, parseInt(limit, 10) || DEFAULT_LIMIT);
 
-  const { start, end, prevStart, prevEnd } = getDateRanges(period);
+  const { start, end, prevStart, prevEnd } = getDateRanges(period, startDate, endDate);
   const assignments = await fetchAssignments(orgId, role);
   const currentMap = await fetchAssignmentActivityMap(orgId, role, start, end);
   const previousMap = await fetchAssignmentActivityMap(orgId, role, prevStart, prevEnd);

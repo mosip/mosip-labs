@@ -3,12 +3,13 @@ const router = express.Router();
 
 const { getOrgUsers } = require("../services/orgUsersService");
 const { isValidUserRole } = require("../services/userRolesService");
+const { resolvePeriodQuery } = require("../utils/dateRange");
 
 router.get("/orgs/:org_id/users", async (req, res) => {
   try {
     const { org_id } = req.params;
 
-    const period = req.query.period || "weekly";
+    const { error: periodError, period, startDate, endDate } = resolvePeriodQuery(req.query);
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const { role, search, sortBy, sortOrder } = req.query;
@@ -17,8 +18,8 @@ router.get("/orgs/:org_id/users", async (req, res) => {
       return res.status(400).json({ error: "Invalid org_id" });
     }
 
-    if (!["daily", "weekly", "monthly", "yearly"].includes(period)) {
-      return res.status(400).json({ error: "Invalid period value" });
+    if (periodError) {
+      return res.status(400).json({ error: periodError });
     }
 
     if (role && role !== "all" && !(await isValidUserRole(role))) {
@@ -47,6 +48,8 @@ router.get("/orgs/:org_id/users", async (req, res) => {
       searchFilter,
       sortByFilter,
       sortOrderFilter,
+      startDate,
+      endDate,
     );
 
     return res.status(200).json(users);

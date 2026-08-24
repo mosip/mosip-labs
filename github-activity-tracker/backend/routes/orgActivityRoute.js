@@ -2,17 +2,19 @@ const express = require("express");
 const router = express.Router();
 const { getOrgActivity } = require("../services/orgActivityService");
 const { resolveRoleFilter } = require("../services/userRolesService");
+const { resolvePeriodQuery } = require("../utils/dateRange");
 
 router.get("/orgs/:org_id/activity", async (req, res) => {
   const { org_id } = req.params;
-  const { period = "weekly", role } = req.query;
+  const { role } = req.query;
+  const { error: periodError, period, startDate, endDate } = resolvePeriodQuery(req.query);
 
   if (!org_id || typeof org_id !== "string") {
     return res.status(400).json({ error: "Invalid org_id" });
   }
 
-  if (!["daily", "weekly", "monthly", "yearly"].includes(period)) {
-    return res.status(400).json({ error: "Invalid period value" });
+  if (periodError) {
+    return res.status(400).json({ error: periodError });
   }
 
   try {
@@ -21,7 +23,7 @@ router.get("/orgs/:org_id/activity", async (req, res) => {
       return res.status(400).json({ error });
     }
 
-    const data = await getOrgActivity(org_id, period, roleFilter);
+    const data = await getOrgActivity(org_id, period, roleFilter, startDate, endDate);
     return res.json(data);
   } catch (err) {
     console.error("Error fetching org activity:", err);
