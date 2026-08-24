@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 import React from 'react';
+import { ThemeProvider } from './ThemeContext';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
@@ -38,7 +39,9 @@ root.render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
-        <App />
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
       </ErrorBoundary>
     </QueryClientProvider>
   </StrictMode>

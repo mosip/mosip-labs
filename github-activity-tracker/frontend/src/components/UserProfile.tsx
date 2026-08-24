@@ -15,6 +15,8 @@ import PRIcon from "../assets/PRIcon.svg";
 import CodeReviewIcon from "../assets/CodeReviewIcon.svg";
 import IssueIcon from "../assets/IssueIcon.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
+import ThemeSwitcher from "./ThemeSwitcher";
+import { useTheme } from "../ThemeContext";
 
 interface UserProfileProps {
   org: string;
@@ -31,6 +33,7 @@ interface DailyActivityRow {
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
+  const { theme } = useTheme();
   const [period, setPeriod] = useState<PeriodValue>(DEFAULT_PERIOD);
 
   const [userData, setUserData] = useState<any>(null);
@@ -108,6 +111,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
               </p>
             </div>
           </div>
+          <ThemeSwitcher />
         </div>
 
         <div className="flex justify-between items-center mt-8">
@@ -176,11 +180,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
             Activity Overview – {formatPeriodLabel(period)}
           </h2>
 
-          <ActivityChart data={chartData} period={period} showTitle={false} />
+          <ActivityChart key={theme} data={chartData} period={period} showTitle={false} />
         </div>
 
         {/* Activity Trend */}
         <ActivityTrend
+          key={theme}
           data={
             userData?.trend?.labels?.map((label: string, i: number) => ({
               date: label,

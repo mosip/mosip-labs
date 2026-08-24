@@ -7,6 +7,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        "on-page": "var(--color-on-page)",
         page: "var(--color-page)",
         surface: "var(--color-surface)",
         "panel-border": "var(--color-panel-border)",

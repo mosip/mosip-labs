@@ -8,6 +8,7 @@ import DashboardIconBlack from "../assets/DashboardIconBlack.svg";
 import LeaderboardIconWhite from "../assets/LeaderboardIconWhite.svg";
 import LeaderboardIconBlack from "../assets/LeaderboardIconBlack.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
+import ThemeSwitcher from "./ThemeSwitcher";
 
 interface TopNavProps {
   activePage: "dashboard" | "leaderboard";
@@ -308,6 +309,8 @@ const TopNav: React.FC<TopNavProps> = ({
             ))}
           </select>
         </div>
+
+        <ThemeSwitcher />
 
         {/* CSV */}
         <div className="flex flex-col">

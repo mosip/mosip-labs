@@ -21,8 +21,10 @@ import PRIcon from "./assets/PRIcon.svg";
 import CodeReviewIcon from "./assets/CodeReviewIcon.svg";
 import IssueIcon from "./assets/IssueIcon.svg";
 import TotalActivityIcon from "./assets/TotalActivityIcon.svg";
+import { useTheme } from "./ThemeContext";
 
 function App() {
+  const { theme } = useTheme();
   const [activePage, setActivePage] = useState<
     "dashboard" | "leaderboard" | "profile"
   >("dashboard");
@@ -190,7 +192,7 @@ function App() {
       {activePage === "dashboard" && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {dashboardLoading && (
-            <p className="text-brand-mid font-black tracking-wide">Loading...</p>
+            <p className="text-on-page font-black tracking-wide">Loading...</p>
           )}
           {dashboardError && (
             <p className="text-rose-500 font-medium">{dashboardError}</p>
@@ -236,7 +238,7 @@ function App() {
               </div>
 
               <div className="panel-card rounded-2xl p-6 mb-8">
-                <ActivityChart data={activityChartData} period={period} />
+                <ActivityChart key={theme} data={activityChartData} period={period} />
               </div>
 
               <TeamMembers
@@ -254,7 +256,7 @@ function App() {
 
       {activePage === "leaderboard" && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-4xl font-arimo font-black mb-6 text-brand-dark">
+          <h1 className="text-4xl font-arimo font-black mb-6 text-on-page">
             Leaderboard
           </h1>
 
