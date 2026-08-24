@@ -20,28 +20,28 @@ const accentStyles: Record<
   { card: string; title: string; value: string; blob: string }
 > = {
   emerald: {
-    card: "bg-[#e8f4fb]",
-    title: "text-sky-700",
-    value: "text-sky-900",
-    blob: "bg-sky-300/30",
+    card: "bg-pr-fill",
+    title: "text-pr-text",
+    value: "text-brand-ink",
+    blob: "bg-pr-blob",
   },
   amber: {
-    card: "bg-[#fff3e8]",
-    title: "text-orange-700",
-    value: "text-orange-900",
-    blob: "bg-orange-300/30",
+    card: "bg-review-fill",
+    title: "text-review-text",
+    value: "text-review-ink",
+    blob: "bg-review-blob",
   },
   violet: {
-    card: "bg-[#eeedff]",
-    title: "text-indigo-700",
-    value: "text-indigo-900",
-    blob: "bg-indigo-300/25",
+    card: "bg-issue-fill",
+    title: "text-issue-text",
+    value: "text-issue-ink",
+    blob: "bg-issue-blob",
   },
   sky: {
-    card: "bg-[#def1fb]",
-    title: "text-sky-700",
-    value: "text-sky-900",
-    blob: "bg-sky-300/35",
+    card: "bg-brand-featured",
+    title: "text-brand-mid",
+    value: "text-brand-ink",
+    blob: "bg-brand-blob",
   },
 };
 
@@ -96,14 +96,14 @@ export const StatsCard: React.FC<StatsCardProps> = ({
 
       {change !== undefined && (
         <div className="relative flex items-center gap-1 mt-4">
-          {isNegative && <ArrowDown size={16} className="text-red-600" />}
-          {isPositive && <ArrowUp size={16} className="text-sky-700" />}
+          {isNegative && <ArrowDown size={16} className="text-down" />}
+          {isPositive && <ArrowUp size={16} className="text-up" />}
           <span
             className={`text-sm font-semibold ${
               isNegative
-                ? "text-red-600"
+                ? "text-down"
                 : isPositive
-                ? "text-sky-700"
+                ? "text-up"
                 : "text-stone-500"
             }`}
           >

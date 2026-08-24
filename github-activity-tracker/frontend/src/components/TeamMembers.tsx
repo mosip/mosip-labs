@@ -2,16 +2,17 @@ import React, { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { fetchOrgUsers } from "../lib/api";
 import type { PeriodValue } from "../lib/periods";
+import { chartTheme } from "../lib/theme";
 
 type SortField = "prs" | "reviews" | "issues";
 type SortOrder = "asc" | "desc";
 const AVATAR_COLORS = [
-  "bg-sky-500",
-  "bg-orange-400",
-  "bg-indigo-400",
-  "bg-blue-400",
-  "bg-sky-400",
-  "bg-slate-400",
+  "bg-avatar-1",
+  "bg-avatar-2",
+  "bg-avatar-3",
+  "bg-avatar-4",
+  "bg-avatar-5",
+  "bg-avatar-6",
 ];
 
 const UserIcon = ({ name }: { name: string }) => {
@@ -39,9 +40,10 @@ interface TeamMembersProps {
 }
 
 const getDiffColor = (diff: number) => {
-  if (diff > 0) return "#0EA5E9";
-  if (diff < 0) return "#E11D48";
-  return "#EA580C";
+  const theme = chartTheme();
+  if (diff > 0) return theme.up;
+  if (diff < 0) return theme.down;
+  return theme.neutral;
 };
 
 interface SortableHeaderProps {
@@ -72,7 +74,7 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({
             className={`p-0.5 rounded hover:bg-white/20 transition ${
               isActive && sortOrder === "asc"
                 ? "text-white bg-white/25"
-                : "text-sky-100"
+                : "text-brand-muted"
             }`}
             aria-label={`Sort ${label} ascending`}
           >
@@ -84,7 +86,7 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({
             className={`p-0.5 rounded hover:bg-white/20 transition ${
               isActive && sortOrder === "desc"
                 ? "text-white bg-white/25"
-                : "text-sky-100"
+                : "text-brand-muted"
             }`}
             aria-label={`Sort ${label} descending`}
           >
@@ -173,7 +175,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
   return (
     <div className="panel-card p-6 rounded-2xl mb-8 font-arimo">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h2 className="text-2xl font-black text-sky-800">
+        <h2 className="text-2xl font-black text-brand-dark">
           Team Members
         </h2>
         <div className="flex gap-2 w-full sm:w-auto">
@@ -183,12 +185,12 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
             value={userSearchTerm}
             onChange={(e) => setUserSearchTerm(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="flex-1 sm:w-64 border border-[#e3eef6] rounded-full px-4 py-1.5 text-sm focus:ring-2 focus:ring-sky-300 bg-white text-gray-900 placeholder:text-gray-400"
+            className="flex-1 sm:w-64 border border-panel-border rounded-full px-4 py-1.5 text-sm focus:ring-2 focus:ring-brand-light bg-white text-gray-900 placeholder:text-gray-400"
           />
           <button
             type="button"
             onClick={handleSearch}
-            className="px-4 py-1.5 text-sm font-black text-white bg-sky-500 rounded-full hover:bg-sky-600"
+            className="px-4 py-1.5 text-sm font-black text-white bg-brand rounded-full hover:bg-brand-hover"
           >
             Search
           </button>
@@ -206,7 +208,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
             <col className="w-[15%]" />
           </colgroup>
           <thead>
-            <tr className="text-left text-white border-b-0 bg-sky-500">
+            <tr className="text-left text-white border-b-0 bg-brand">
               <th className="px-4 py-3 font-semibold">Team Member</th>
               <th className="px-4 py-3 font-semibold">Role</th>
               <SortableHeader
@@ -238,7 +240,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
             {members.map((m, index) => (
               <tr
                 key={m.assignment_id ?? `${m.login}-${index}`}
-                className="border-b border-[#e3eef6] last:border-0 cursor-pointer hover:bg-[#f3f9ff] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+                className="border-b border-panel-border last:border-0 cursor-pointer hover:bg-brand-softer transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
                 onClick={() => onSelectUser?.(m.login)}
                 role={onSelectUser ? "button" : undefined}
                 tabIndex={onSelectUser ? 0 : undefined}
@@ -343,7 +345,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
               setLimit(Number(e.target.value));
               setPage(1);
             }}
-            className="border border-[#e3eef6] rounded-full px-2 py-1 bg-white text-gray-900"
+            className="border border-panel-border rounded-full px-2 py-1 bg-white text-gray-900"
           >
             <option value={10}>10</option>
             <option value={20}>20</option>
@@ -373,7 +375,7 @@ const TeamMembers: React.FC<TeamMembersProps> = ({
             ◀ Previous
           </button>
 
-          <span className="border-0 px-3 py-1 rounded-full bg-sky-500 text-white font-black">
+          <span className="border-0 px-3 py-1 rounded-full bg-brand text-white font-black">
             {page}
           </span>
 

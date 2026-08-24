@@ -26,17 +26,17 @@ const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaders }) => {
         const rank = idx + 1;
 
         let badge = null;
-        let wrapperClass = "bg-[#f8fbff] border border-[#d5e4f0]";
+        let wrapperClass = "bg-surface border border-panel-border";
 
         if (rank === 1) {
           badge = <img src={GoldIcon} alt="gold" className="w-7 h-7" />;
-          wrapperClass = "bg-[#f3f9ff] border border-sky-200";
+          wrapperClass = "bg-brand-softer border border-brand-light";
         } else if (rank === 2) {
           badge = <img src={SilverIcon} alt="silver" className="w-7 h-7" />;
-          wrapperClass = "bg-[#e8f4fb] border border-sky-100";
+          wrapperClass = "bg-brand-soft border border-brand-light";
         } else if (rank === 3) {
           badge = <img src={BronzeIcon} alt="bronze" className="w-7 h-7" />;
-          wrapperClass = "bg-[#fff3e8] border border-orange-100";
+          wrapperClass = "bg-review-fill border border-csv";
         }
 
         return (
@@ -49,7 +49,7 @@ const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaders }) => {
                 {rank <= 3 && <div className="mt-1">{badge}</div>}
 
                 {rank > 3 && (
-                  <span className="w-9 h-9 rounded-full bg-sky-500 text-white flex items-center justify-center text-sm font-black">
+                  <span className="w-9 h-9 rounded-full bg-brand text-white flex items-center justify-center text-sm font-black">
                     {rank}
                   </span>
                 )}
@@ -63,7 +63,7 @@ const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaders }) => {
               </div>
 
               <div className="text-right">
-                <p className="text-3xl font-black text-sky-700">{user.total}</p>
+                <p className="text-3xl font-black text-brand-mid">{user.total}</p>
                 <p className="text-stone-400 text-xs font-bold tracking-widest uppercase">
                   Total
                 </p>
@@ -71,17 +71,17 @@ const LeaderboardCard: React.FC<LeaderboardCardProps> = ({ leaders }) => {
             </div>
 
             <div className="flex mt-4 text-sm pl-12 w-full gap-3">
-              <div className="flex justify-between flex-1 rounded-full bg-[#e8f4fb] px-4 py-2">
-                <span className="text-sky-700 font-bold">PRs</span>
-                <span className="text-sky-800 font-black">{user.prs}</span>
+              <div className="flex justify-between flex-1 rounded-full bg-pr-fill px-4 py-2">
+                <span className="text-pr-text font-bold">PRs</span>
+                <span className="text-brand-dark font-black">{user.prs}</span>
               </div>
-              <div className="flex justify-between flex-1 rounded-full bg-[#fff3e8] px-4 py-2">
-                <span className="text-orange-800 font-bold">Reviews</span>
-                <span className="text-orange-900 font-black">{user.reviews}</span>
+              <div className="flex justify-between flex-1 rounded-full bg-review-fill px-4 py-2">
+                <span className="text-review-text font-bold">Reviews</span>
+                <span className="text-review-ink font-black">{user.reviews}</span>
               </div>
-              <div className="flex justify-between flex-1 rounded-full bg-[#eeedff] px-4 py-2">
-                <span className="text-indigo-800 font-bold">Issues</span>
-                <span className="text-indigo-900 font-black">{user.issues}</span>
+              <div className="flex justify-between flex-1 rounded-full bg-issue-fill px-4 py-2">
+                <span className="text-issue-text font-bold">Issues</span>
+                <span className="text-issue-ink font-black">{user.issues}</span>
               </div>
             </div>
           </div>

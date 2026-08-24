@@ -9,6 +9,7 @@ import {
   Legend,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { chartTheme } from "../lib/theme";
 
 ChartJS.register(
   CategoryScale,
@@ -32,6 +33,7 @@ interface ActivityTrendProps {
 
 const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
   const labels = data.map((d) => d.date);
+  const { prs, reviews, issues, legend, tick, grid } = chartTheme();
 
   const chartData = {
     labels,
@@ -39,8 +41,8 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
       {
         label: "Pull Requests",
         data: data.map((d) => d.prs),
-        borderColor: "#0EA5E9",
-        backgroundColor: "#0EA5E9",
+        borderColor: prs,
+        backgroundColor: prs,
         tension: 0.4,
         pointRadius: 4,
         pointBorderWidth: 2,
@@ -48,8 +50,8 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
       {
         label: "Reviews",
         data: data.map((d) => d.reviews),
-        borderColor: "#EA580C",
-        backgroundColor: "#EA580C",
+        borderColor: reviews,
+        backgroundColor: reviews,
         tension: 0.4,
         pointRadius: 4,
         pointBorderWidth: 2,
@@ -57,8 +59,8 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
       {
         label: "Issues",
         data: data.map((d) => d.issues),
-        borderColor: "#4F46E5",
-        backgroundColor: "#4F46E5",
+        borderColor: issues,
+        backgroundColor: issues,
         tension: 0.4,
         pointRadius: 4,
         pointBorderWidth: 2,
@@ -73,20 +75,20 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
         position: "bottom" as const,
         labels: {
           usePointStyle: true,
-          color: "#334155",
+          color: legend,
         },
       },
     },
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: "#64748b" },
+        ticks: { color: tick },
       },
       y: {
-        ticks: { color: "#64748b" },
+        ticks: { color: tick },
         grid: {
           borderDash: [6, 6],
-          color: "rgba(28,25,23,0.12)",
+          color: grid,
         },
       },
     },
@@ -94,7 +96,7 @@ const ActivityTrend: React.FC<ActivityTrendProps> = ({ data }) => {
 
   return (
     <div className="panel-card rounded-2xl p-6 mb-8">
-      <h2 className="text-2xl font-black mb-4 text-sky-800">
+      <h2 className="text-2xl font-black mb-4 text-brand-dark">
         Activity Trend
       </h2>
       <Line data={chartData} options={options} />

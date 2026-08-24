@@ -10,6 +10,7 @@ import {
 import type { ChartOptions } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import { formatPeriodLabel, type PeriodValue } from "../lib/periods";
+import { chartTheme } from "../lib/theme";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -21,7 +22,7 @@ const dottedGridPlugin = {
     const yScale = scales.y;
 
     ctx.save();
-    ctx.strokeStyle = "rgba(28,25,23,0.12)";
+    ctx.strokeStyle = chartTheme().grid;
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
 
@@ -72,7 +73,7 @@ const columnHoverPlugin = {
     const highlightWidth = categoryWidth;
 
     ctx.save();
-    ctx.fillStyle = "rgba(250,204,21,0.18)";
+    ctx.fillStyle = chartTheme().hover;
     ctx.fillRect(
       highlightLeft,
       chartArea.top,
@@ -213,9 +214,7 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
     issues = aggregated.issues;
   }
 
-  const COLOR_PULLS = "#0EA5E9";
-  const COLOR_REVIEWS = "#EA580C";
-  const COLOR_ISSUES = "#4F46E5";
+  const { prs: COLOR_PULLS, reviews: COLOR_REVIEWS, issues: COLOR_ISSUES, legend, tick, tooltipBg, tooltipBorder, title } = chartTheme();
 
   const chartData = {
     labels,
@@ -236,19 +235,19 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
     plugins: {
       legend: {
         position: "bottom",
-        labels: { color: "#334155" },
+        labels: { color: legend },
       },
 
       tooltip: {
         mode: "index" as const,
         intersect: false,
-        backgroundColor: "rgba(255,255,255,0.98)",
-        borderColor: "rgba(196,149,110,0.45)",
+        backgroundColor: tooltipBg,
+        borderColor: tooltipBorder,
         borderWidth: 1,
         cornerRadius: 8,
         padding: 14,
 
-        titleColor: "#0f172a",
+        titleColor: title,
         titleFont: { size: 18, weight: 600 },
         titleMarginBottom: 12,
 
@@ -272,7 +271,7 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
             if (label === "Pull Requests") return COLOR_PULLS;
             if (label === "Reviews") return COLOR_REVIEWS;
             if (label === "Issues") return COLOR_ISSUES;
-            return "#0f172a";
+            return title;
           },
         },
       },
@@ -283,11 +282,11 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: "#64748b" },
+        ticks: { color: tick },
       },
       y: {
         beginAtZero: true,
-        ticks: { stepSize: 5, color: "#64748b" },
+        ticks: { stepSize: 5, color: tick },
         grid: { display: false },
       },
     },
@@ -297,7 +296,7 @@ const ActivityChart: React.FC<ActivityChartProps> = ({
     <div className="bg-transparent p-0 rounded-xl font-arimo">
 
       {showTitle && (
-        <h2 className="text-[22px] mb-4 font-black text-sky-800">
+        <h2 className="text-[22px] mb-4 font-black text-brand-dark">
           Activity Overview – {formatPeriodLabel(period)}
         </h2>
       )}

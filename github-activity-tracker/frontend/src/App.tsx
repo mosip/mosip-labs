@@ -153,9 +153,9 @@ function App() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      <div className="orb h-72 w-72 bg-sky-200 top-24 -left-16" style={{ animation: "floaty 8s ease-in-out infinite" }} />
-      <div className="orb h-80 w-80 bg-blue-200 bottom-10 -right-10" style={{ animation: "floaty 10s ease-in-out infinite" }} />
-      <div className="orb h-56 w-56 bg-cyan-100 top-1/2 left-1/3" style={{ animation: "floaty 12s ease-in-out infinite" }} />
+      <div className="orb h-72 w-72 bg-orb-1 top-24 -left-16" style={{ animation: "floaty 8s ease-in-out infinite" }} />
+      <div className="orb h-80 w-80 bg-orb-2 bottom-10 -right-10" style={{ animation: "floaty 10s ease-in-out infinite" }} />
+      <div className="orb h-56 w-56 bg-orb-3 top-1/2 left-1/3" style={{ animation: "floaty 12s ease-in-out infinite" }} />
 
       <div className="relative z-10">
       {activePage !== "profile" && (
@@ -190,7 +190,7 @@ function App() {
       {activePage === "dashboard" && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {dashboardLoading && (
-            <p className="text-sky-700 font-black tracking-wide">Loading...</p>
+            <p className="text-brand-mid font-black tracking-wide">Loading...</p>
           )}
           {dashboardError && (
             <p className="text-rose-500 font-medium">{dashboardError}</p>
@@ -254,7 +254,7 @@ function App() {
 
       {activePage === "leaderboard" && (
         <main className="font-arimo max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-4xl font-arimo font-black mb-6 text-sky-800">
+          <h1 className="text-4xl font-arimo font-black mb-6 text-brand-dark">
             Leaderboard
           </h1>
 

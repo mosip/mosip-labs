@@ -77,11 +77,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
   return (
     <div className="min-h-screen">
       <div className="app-header w-full text-white">
-        <div className="h-1.5 bg-gradient-to-r from-sky-200 via-sky-300 to-cyan-100" />
+        <div className="app-stripe" />
         <div className="px-8 py-6">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-sky-50 hover:text-white mb-6 font-bold"
+          className="flex items-center gap-2 text-brand-muted hover:text-white mb-6 font-bold"
         >
           <ArrowLeft size={18} />
           Back to Dashboard
@@ -89,7 +89,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-6">
-            <div className="w-20 h-20 rounded-full bg-[#f3f9ff] text-sky-700 flex items-center justify-center text-3xl font-black shadow-lg">
+            <div className="w-20 h-20 rounded-full bg-brand-softer text-brand-mid flex items-center justify-center text-3xl font-black shadow-lg">
               {(profile.name || "?").charAt(0).toUpperCase()}
             </div>
 
@@ -99,11 +99,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
                 href={githubProfileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sky-200 hover:text-white hover:underline"
+                className="text-brand-muted hover:text-white hover:underline"
               >
                 {githubProfileUrl}
               </a>
-              <p className="text-sky-100">
+              <p className="text-brand-muted">
                 {profile.team} • {profile.project}
               </p>
             </div>
@@ -118,7 +118,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
                 onClick={() => setPeriod(value)}
                 className={`px-5 py-2 rounded-full font-black transition-all ${
                   period === value
-                    ? "bg-[#f3f9ff] text-sky-800 shadow-lg"
+                    ? "bg-brand-softer text-brand-dark shadow-lg"
                     : "bg-white/20 text-white hover:bg-white/30"
                 }`}
               >
@@ -128,12 +128,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 bg-orange-400 hover:bg-orange-500 text-white px-5 py-2 rounded-full font-black">
+            <button className="flex items-center gap-2 bg-csv hover:bg-csv-hover text-white px-5 py-2 rounded-full font-black">
               <img src={DownloadIcon} alt="download" className="w-4 h-4" />
               CSV
             </button>
 
-            <button className="flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-white px-5 py-2 rounded-full font-black">
+            <button className="flex items-center gap-2 bg-brand hover:bg-brand-light text-white px-5 py-2 rounded-full font-black">
               <img src={DownloadIcon} alt="download" className="w-4 h-4" />
               JSON
             </button>
@@ -172,7 +172,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
         {/* Activity Chart */}
         <div className="panel-card rounded-2xl p-6 mb-8">
-          <h2 className="text-2xl font-black mb-4 text-sky-800">
+          <h2 className="text-2xl font-black mb-4 text-brand-dark">
             Activity Overview – {formatPeriodLabel(period)}
           </h2>
 
@@ -193,13 +193,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
         {/* Detailed Activity Table */}
         <div className="panel-card rounded-2xl p-6 mb-10">
-          <h2 className="text-2xl font-black mb-4 text-sky-800">
+          <h2 className="text-2xl font-black mb-4 text-brand-dark">
             Detailed Activity
           </h2>
 
           <table className="w-full">
             <thead>
-              <tr className="text-left text-white bg-sky-500">
+              <tr className="text-left text-white bg-brand">
                 <th className="p-3">Date</th>
                 <th className="p-3">Pull Requests</th>
                 <th className="p-3">File Changes</th>
@@ -211,10 +211,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
 
             <tbody>
               {detailed.map((row, idx) => (
-                <tr key={idx} className="border-b border-[#e3eef6] last:border-0 hover:bg-[#f3f9ff]">
+                <tr key={idx} className="border-b border-panel-border last:border-0 hover:bg-brand-softer">
                   <td className="py-3 px-3 text-gray-800">{row.date}</td>
 
-                  <td className="font-black px-3 text-sky-600">
+                  <td className="font-black px-3 text-brand">
                     {row.prs}
                   </td>
 
@@ -222,15 +222,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
                     {row.pr_files_changed ?? 0}
                   </td>
 
-                  <td className="font-black px-3 text-orange-600">
+                  <td className="font-black px-3 text-review">
                     {row.reviews}
                   </td>
 
-                  <td className="font-black px-3 text-indigo-600">
+                  <td className="font-black px-3 text-issue">
                     {row.issues ?? 0}
                   </td>
 
-                  <td className="font-black px-3 text-sky-800">
+                  <td className="font-black px-3 text-brand-dark">
                     {row.prs + row.reviews + (row.issues ?? 0)}
                   </td>
                 </tr>

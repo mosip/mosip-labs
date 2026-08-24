@@ -1,3 +1,4 @@
+@import './theme.css';
 /* @tailwind base; */
 @import 'tailwindcss/base';
 /* @tailwind components; */
@@ -6,18 +7,17 @@
 @import 'tailwindcss/utilities';
 
 :root {
-  background-color: #f6faff;
-  color-scheme: light;
+  background-color: var(--color-page);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  color: #111827;
+  color: var(--color-text);
   background:
-    radial-gradient(900px 420px at 100% -10%, rgba(125, 211, 252, 0.18), transparent 55%),
-    radial-gradient(700px 380px at -5% 110%, rgba(186, 230, 253, 0.28), transparent 50%),
-    #f6faff;
+    radial-gradient(900px 420px at 100% -10%, var(--color-page-glow-1), transparent 55%),
+    radial-gradient(700px 380px at -5% 110%, var(--color-page-glow-2), transparent 50%),
+    var(--color-page);
 }
 
 #root {
@@ -26,15 +26,15 @@ body {
 
 .app-header {
   background:
-    radial-gradient(900px 280px at 12% -40%, rgba(186, 230, 253, 0.45), transparent 55%),
-    radial-gradient(700px 260px at 92% 0%, rgba(147, 197, 253, 0.4), transparent 50%),
-    #4a90c8;
+    radial-gradient(900px 280px at 12% -40%, var(--color-header-glow-1), transparent 55%),
+    radial-gradient(700px 260px at 92% 0%, var(--color-header-glow-2), transparent 50%),
+    var(--color-header);
 }
 
 .panel-card {
-  background: #ffffff;
-  border: 1px solid #e3eef6;
-  box-shadow: 0 10px 30px -18px rgba(74, 144, 200, 0.28);
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-border);
+  box-shadow: 0 10px 30px -18px var(--color-panel-shadow);
 }
 
 .orb {

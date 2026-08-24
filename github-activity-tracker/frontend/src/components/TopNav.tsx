@@ -121,14 +121,14 @@ const TopNav: React.FC<TopNavProps> = ({
   const tabStyle = (active: boolean) =>
     `px-4 py-2 rounded-full font-black transition-all ${
       active
-        ? "bg-[#f3f9ff] font-arimo text-sky-800 shadow-lg"
+        ? "bg-brand-softer font-arimo text-brand-dark shadow-lg"
         : "text-white font-arimo hover:bg-white/20"
     }`;
 
   const periodBtn = (active: boolean) =>
     `px-4 py-2 rounded-full font-arimo font-bold transition-all ${
       active
-        ? "bg-[#f3f9ff] font-arimo text-sky-800 shadow-lg"
+        ? "bg-brand-softer font-arimo text-brand-dark shadow-lg"
         : "bg-white/20 font-arimo text-white hover:bg-white/30"
     }`;
 
@@ -137,7 +137,7 @@ const TopNav: React.FC<TopNavProps> = ({
 
   return (
     <div className="app-header w-full pb-6 font-arimo text-white">
-      <div className="h-1.5 bg-gradient-to-r from-sky-200 via-sky-300 to-cyan-100" />
+      <div className="app-stripe" />
       <div className="max-w-7xl mx-auto px-6 py-4 flex font-arimo items-center gap-6">
 
         {/* DASHBOARD BUTTON */}
@@ -256,7 +256,7 @@ const TopNav: React.FC<TopNavProps> = ({
                       </button>
                       <button
                         type="button"
-                        className="px-3 py-1.5 rounded-full text-sm text-white bg-sky-500 hover:bg-sky-600 disabled:opacity-50"
+                        className="px-3 py-1.5 rounded-full text-sm text-white bg-brand hover:bg-brand-hover disabled:opacity-50"
                         disabled={!draftStart || !draftEnd || draftStart > draftEnd}
                         onClick={applyCustomRange}
                       >
@@ -317,7 +317,7 @@ const TopNav: React.FC<TopNavProps> = ({
 
           <button
             onClick={onDownloadCSV}
-            className="flex items-center gap-2 bg-orange-400 hover:bg-orange-500 text-white px-4 py-2 rounded-full font-black shadow-lg"
+            className="flex items-center gap-2 bg-csv hover:bg-csv-hover text-white px-4 py-2 rounded-full font-black shadow-lg"
           >
             <img src={DownloadIcon} alt="download" className="w-4 h-4" />
             CSV
@@ -332,7 +332,7 @@ const TopNav: React.FC<TopNavProps> = ({
 
           <button
             onClick={onDownloadJSON}
-            className="flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-white px-4 py-2 rounded-full font-black shadow-lg"
+            className="flex items-center gap-2 bg-brand hover:bg-brand-light text-white px-4 py-2 rounded-full font-black shadow-lg"
           >
             <img src={DownloadIcon} alt="download" className="w-4 h-4" />
             JSON
