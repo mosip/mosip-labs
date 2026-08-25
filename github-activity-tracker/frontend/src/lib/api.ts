@@ -205,12 +205,14 @@ export const fetchUserDetails = async (
   orgId: string,
   login: string,
   period: PeriodValue,
+  startDate?: string,
+  endDate?: string,
 ) => {
   try {
     const response = await axios.get(
       `${API_BASE_URL}/orgs/${orgId}/users/${login}`,
       {
-        params: { period },
+        params: periodParams(period, { startDate, endDate }),
       },
     );
     return response.data;

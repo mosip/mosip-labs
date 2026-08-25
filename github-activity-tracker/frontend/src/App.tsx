@@ -186,6 +186,10 @@ function App() {
           org={selectedOrg}
           userName={selectedUser}
           onBack={() => setActivePage("dashboard")}
+          period={period}
+          startDate={startDate}
+          endDate={endDate}
+          onPeriodChange={handlePeriodChange}
         />
       )}
 
