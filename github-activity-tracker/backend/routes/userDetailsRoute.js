@@ -2,18 +2,20 @@ const express = require('express');
 const router = express.Router();
 const { getUserDetails } = require('../services/userDetailsService');
 const { resolveRoleFilter } = require('../services/userRolesService');
+const { resolvePeriodQuery } = require('../utils/dateRange');
 
-// GET /orgs/:org_id/users/:login?period=daily|weekly|monthly|yearly&role=Developer
+// GET /orgs/:org_id/users/:login?period=daily|weekly|monthly|yearly|custom&role=Developer
 router.get('/orgs/:org_id/users/:login', async (req, res) => {
   const { org_id, login } = req.params;
-  const { period = 'weekly', role } = req.query;
+  const { role } = req.query;
+  const { error: periodError, period, startDate, endDate } = resolvePeriodQuery(req.query);
 
   if (!login) {
     return res.status(400).json({ error: 'Missing user login' });
   }
 
-  if (!['daily', 'weekly', 'monthly', 'yearly'].includes(period)) {
-    return res.status(400).json({ error: 'Invalid period value' });
+  if (periodError) {
+    return res.status(400).json({ error: periodError });
   }
 
   try {
@@ -22,7 +24,7 @@ router.get('/orgs/:org_id/users/:login', async (req, res) => {
       return res.status(400).json({ error });
     }
 
-    const data = await getUserDetails(org_id, login, period, roleFilter);
+    const data = await getUserDetails(org_id, login, period, roleFilter, startDate, endDate);
     return res.json(data);
   } catch (err) {
     console.error('Error in User Details API:', err);

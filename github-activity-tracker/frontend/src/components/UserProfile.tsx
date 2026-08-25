@@ -5,7 +5,6 @@ import ActivityChart from "./ActivityChart";
 import ActivityTrend from "./ActivityTrend";
 import { fetchUserDetails } from "../lib/api";
 import {
-  DEFAULT_PERIOD,
   formatPeriodLabel,
   PERIOD_OPTIONS,
   type PeriodValue,
@@ -22,6 +21,10 @@ interface UserProfileProps {
   org: string;
   userName: string;
   onBack: () => void;
+  period: PeriodValue;
+  startDate: string;
+  endDate: string;
+  onPeriodChange: (p: PeriodValue) => void;
 }
 
 interface DailyActivityRow {
@@ -32,16 +35,32 @@ interface DailyActivityRow {
   issues: number;
 }
 
-const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
+const UserProfile: React.FC<UserProfileProps> = ({
+  org,
+  userName,
+  onBack,
+  period,
+  startDate,
+  endDate,
+  onPeriodChange,
+}) => {
   const { theme } = useTheme();
-  const [period, setPeriod] = useState<PeriodValue>(DEFAULT_PERIOD);
-
   const [userData, setUserData] = useState<any>(null);
 
   useEffect(() => {
+    if (period === "custom" && (!startDate || !endDate || startDate > endDate)) {
+      return;
+    }
+
     async function loadUser() {
       try {
-        const data = await fetchUserDetails(org, userName, period);
+        const data = await fetchUserDetails(
+          org,
+          userName,
+          period,
+          startDate,
+          endDate,
+        );
         setUserData(data);
       } catch (err) {
         console.error("Failed to load user details:", err);
@@ -49,7 +68,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
     }
 
     loadUser();
-  }, [org, userName, period]);
+  }, [org, userName, period, startDate, endDate]);
 
   const githubUsername = userData?.login || userName;
   const githubProfileUrl = `https://github.com/${githubUsername}`;
@@ -119,7 +138,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
             {PERIOD_OPTIONS.map(({ value, label }) => (
               <button
                 key={value}
-                onClick={() => setPeriod(value)}
+                onClick={() => onPeriodChange(value)}
                 className={`px-5 py-2 rounded-full font-black transition-all ${
                   period === value
                     ? "bg-brand-softer text-brand-dark shadow-lg"
@@ -129,6 +148,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ org, userName, onBack }) => {
                 {label}
               </button>
             ))}
+            {period === "custom" && (
+              <button
+                className="px-5 py-2 rounded-full font-black bg-brand-softer text-brand-dark shadow-lg"
+              >
+                Custom
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-4">

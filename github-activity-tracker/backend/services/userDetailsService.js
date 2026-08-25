@@ -2,6 +2,7 @@ const dayjs = require('dayjs');
 const pool = require('../db/dbPool');
 const { isExcludedGitHubLogin } = require('../config/excludedGitHubLogins');
 const { userDetailsJoinSql } = require('../utils/userRoleSql');
+const { getCustomDateRange } = require('../utils/dateRange');
 
 /* ------------------------------------------------
    Helper: Calculate % change
@@ -14,7 +15,7 @@ function percentChange(current, previous) {
 /* ------------------------------------------------
    MAIN SERVICE
 ------------------------------------------------ */
-async function getUserDetails(orgId, login, period, role = null) {
+async function getUserDetails(orgId, login, period, role = null, startDate, endDate) {
   if (isExcludedGitHubLogin(login)) {
     throw new Error('User not found');
   }
@@ -42,22 +43,37 @@ async function getUserDetails(orgId, login, period, role = null) {
   const userId = user.id;
 
   /* 2. Determine date ranges */
-  const periods = {
-    daily: 1,
-    weekly: 7,
-    monthly: 30,
-    yearly: 365,
-  };
+  let start;
+  let end;
+  let prevStart;
+  let prevEnd;
+  let days;
 
-  const days = periods[period];
-  if (!days) {
-    throw new Error('Invalid period');
+  if (period === 'custom') {
+    const range = getCustomDateRange(startDate, endDate);
+    start = dayjs(range.start);
+    end = dayjs(range.end);
+    prevStart = dayjs(range.prevStart);
+    prevEnd = dayjs(range.prevEnd);
+    days = range.days;
+  } else {
+    const periods = {
+      daily: 1,
+      weekly: 7,
+      monthly: 30,
+      yearly: 365,
+    };
+
+    days = periods[period];
+    if (!days) {
+      throw new Error('Invalid period');
+    }
+
+    end = dayjs().endOf('day');
+    start = end.subtract(days - 1, 'day').startOf('day');
+    prevEnd = start.subtract(1, 'millisecond');
+    prevStart = prevEnd.subtract(days - 1, 'day').startOf('day');
   }
-
-  const end = dayjs().endOf('day');
-  const start = end.subtract(days - 1, 'day').startOf('day');
-  const prevEnd = start.subtract(1, 'millisecond');
-  const prevStart = prevEnd.subtract(days - 1, 'day').startOf('day');
 
   const orgOwner = String(orgId).toLowerCase();
 

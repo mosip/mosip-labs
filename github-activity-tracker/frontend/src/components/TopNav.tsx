@@ -235,7 +235,7 @@ const TopNav: React.FC<TopNavProps> = ({
                       value={draftStart}
                       max={draftEnd || undefined}
                       onChange={(e) => setDraftStart(e.target.value)}
-                      className="w-full mb-3 px-3 py-2 border rounded-lg bg-white text-sm"
+                      className="w-full mb-3 px-3 py-2 border rounded-lg bg-white text-gray-900 text-sm"
                     />
                     <label className="block text-xs text-gray-500 mb-1">
                       To
@@ -245,7 +245,7 @@ const TopNav: React.FC<TopNavProps> = ({
                       value={draftEnd}
                       min={draftStart || undefined}
                       onChange={(e) => setDraftEnd(e.target.value)}
-                      className="w-full mb-4 px-3 py-2 border rounded-lg bg-white text-sm"
+                      className="w-full mb-4 px-3 py-2 border rounded-lg bg-white text-gray-900 text-sm"
                     />
                     <div className="flex justify-end gap-2">
                       <button
