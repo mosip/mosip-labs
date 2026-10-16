@@ -15,6 +15,7 @@ import CodeReviewIcon from "../assets/CodeReviewIcon.svg";
 import IssueIcon from "../assets/IssueIcon.svg";
 import DownloadIcon from "../assets/DownloadIcon.svg";
 import ThemeSwitcher from "./ThemeSwitcher";
+import CustomPeriodButton from "./CustomPeriodButton";
 import { useTheme } from "../ThemeContext";
 
 interface UserProfileProps {
@@ -25,6 +26,8 @@ interface UserProfileProps {
   startDate: string;
   endDate: string;
   onPeriodChange: (p: PeriodValue) => void;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
 }
 
 interface DailyActivityRow {
@@ -43,6 +46,8 @@ const UserProfile: React.FC<UserProfileProps> = ({
   startDate,
   endDate,
   onPeriodChange,
+  onStartDateChange,
+  onEndDateChange,
 }) => {
   const { theme } = useTheme();
   const [userData, setUserData] = useState<any>(null);
@@ -94,7 +99,9 @@ const UserProfile: React.FC<UserProfileProps> = ({
     issues: userData?.overview?.issues || [],
   };
 
-  const detailed: DailyActivityRow[] = userData?.daily_activity || [];
+  const detailed: DailyActivityRow[] = [...(userData?.daily_activity || [])].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  );
 
   return (
     <div className="min-h-screen">
@@ -148,13 +155,18 @@ const UserProfile: React.FC<UserProfileProps> = ({
                 {label}
               </button>
             ))}
-            {period === "custom" && (
-              <button
-                className="px-5 py-2 rounded-full font-black bg-brand-softer text-brand-dark shadow-lg"
-              >
-                Custom
-              </button>
-            )}
+            <CustomPeriodButton
+              startDate={startDate}
+              endDate={endDate}
+              onPeriodChange={onPeriodChange}
+              onStartDateChange={onStartDateChange}
+              onEndDateChange={onEndDateChange}
+              buttonClassName={`px-5 py-2 rounded-full font-black transition-all ${
+                period === "custom"
+                  ? "bg-brand-softer text-brand-dark shadow-lg"
+                  : "bg-white/20 text-white hover:bg-white/30"
+              }`}
+            />
           </div>
 
           <div className="flex items-center gap-4">

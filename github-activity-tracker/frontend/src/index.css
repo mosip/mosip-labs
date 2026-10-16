@@ -37,6 +37,11 @@ body {
   box-shadow: 0 10px 30px -18px var(--color-panel-shadow);
 }
 
+/* Date inputs stay light-surface; keep calendar icon dark even under dark themes. */
+.themed-date-input {
+  color-scheme: light;
+}
+
 .orb {
   position: fixed;
   border-radius: 9999px;
