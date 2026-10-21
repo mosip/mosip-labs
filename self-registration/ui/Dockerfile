@@ -69,6 +69,9 @@ ENV plugins_path=${nginx_dir}/html/plugins
 
 ENV plugins_format=iife
 
+# backend self-registration service url that nginx proxies /v1/selfregistration to, can be overridden at docker runtime
+ENV SELF_REGISTRATION_SERVICE_URL=http://self-registration.mc25-demo
+
 # set working directory for the user
 WORKDIR /home/${container_user}
 
@@ -84,6 +87,9 @@ ADD configure_start.sh configure_start.sh
 RUN chmod +x configure_start.sh
 
 COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
+
+# allow configure_start.sh to substitute the backend url into nginx.conf as the container user
+RUN chown ${container_user}:${container_user} /etc/nginx/nginx.conf
 
 # copy build files to nginx html directory
 COPY --from=build_self_registration_ui /build  ${work_dir}
