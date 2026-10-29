@@ -36,7 +36,7 @@ SCHEMA = CORE / "templates" / "task-manifest.schema.json"
 APPROVAL_FIELDS = ("approver", "reason", "scope", "timestamp")
 TIERS = ["L0", "L1", "L2", "L3"]
 DEFAULT_TYPE = "test-automation"     # manifests from the SDET assistant era carry no task_type
-NEVER_WAIVABLE = {"secrets"}
+NEVER_WAIVABLE = {"secrets", "requirement_clarity", "requirement_fit"}
 
 
 def _get(doc: dict, path: str):

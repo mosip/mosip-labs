@@ -1,7 +1,7 @@
 task_type: bug-fix
 risk_tier: L2
 summary: Reproduce with a failing test FIRST -> classify -> minimal fix -> the same test passes -> reviews -> regression -> PR. No symptom masking.
-path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, REQUIREMENT_ANALYSIS, IMPACT_ANALYSIS, TESTCASE_DESIGN,
+path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, REQUIREMENT_ANALYSIS, ACCEPTANCE_REVIEW, IMPACT_ANALYSIS, TESTCASE_DESIGN,
        TESTCASE_REVIEW, IMPLEMENTATION_PLAN, GITHUB_PLANNING, REPO_READY, IMPLEMENTATION, DETERMINISTIC_VALIDATION,
        UNIT_INTEGRATION_TEST, IMPLEMENTATION_REVIEW, FRESH_CONTEXT_REVIEW, SYSTEM_TEST_EXECUTION, FAILURE_TRIAGE,
        QUALITY_GATE, COMMIT_PR, PR_CLOSEOUT, KNOWLEDGE_UPDATE, FINAL_REPORT, DONE]
@@ -10,6 +10,10 @@ entry_guards:
     - {path: test_plan.environment, ne: ""}   # where SDET runs system tests on the branch build
   IMPLEMENTATION_PLAN:
     - {gate: reproduction, eq: PASS}             # a test that fails on the base for the reported reason
-required_gates: [reproduction, build, unit_tests, diff_coverage, component_tests, deterministic_validation, test_integrity, traceability, full_regression, secrets, change_scope, system_tests]
+  IMPLEMENTATION_REVIEW:
+    - {gate: coding_standards, eq: PASS}
+    - {gate: robustness, eq: PASS}
+    - {gate: requirement_fit, eq: PASS}
+required_gates: [requirement_clarity, acceptance_readiness, reproduction, build, unit_tests, diff_coverage, component_tests, deterministic_validation, coding_standards, robustness, requirement_fit, test_integrity, traceability, full_regression, secrets, change_scope, system_tests, branch_environment, defect_reports, token_budget]
 notes: reproduction PASS means the new or updated test FAILS on the base with the reported symptom; after the fix the same test PASSES on the branch (crewline regression reports REG-006 fixed for it).
 no_silent_na: [system_tests, full_regression]      # SDET always runs them; skipping needs an attributed exception (MAN-015)

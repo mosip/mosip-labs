@@ -12,6 +12,10 @@ entry_guards:
   IMPLEMENTATION_PLAN:
     - {approval: design}
     - {approval: migration_review}               # elevated: DB owner, even for additive changes
-required_gates: [design_readiness, testcase_readiness, migration_pairing, build, unit_tests, diff_coverage, component_tests, deterministic_validation, test_integrity, system_tests, full_regression, secrets, change_scope, release_readiness]
+  IMPLEMENTATION_REVIEW:
+    - {gate: coding_standards, eq: PASS}
+    - {gate: robustness, eq: PASS}
+    - {gate: requirement_fit, eq: PASS}
+required_gates: [requirement_clarity, acceptance_readiness, design_readiness, testcase_readiness, migration_pairing, build, unit_tests, diff_coverage, component_tests, deterministic_validation, coding_standards, robustness, requirement_fit, test_integrity, system_tests, branch_environment, defect_reports, full_regression, secrets, change_scope, release_readiness, token_budget]
 notes: Staged validation means apply upgrade, run tests, apply rollback, re-apply upgrade on a disposable DB. Never against a shared or production DB.
 no_silent_na: [system_tests, full_regression]      # SDET always runs them; skipping needs an attributed exception (MAN-015)

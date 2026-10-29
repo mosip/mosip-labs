@@ -1,0 +1,35 @@
+# Copy of the GitHub workflow. GitHub only runs files from the repository root:
+#   .github/workflows/crewline.yml
+# Keep these two files in lockstep.
+name: crewline
+on:
+  push:
+    paths: ["crewline/**", ".github/workflows/crewline.yml"]
+  pull_request:
+    paths: ["crewline/**", ".github/workflows/crewline.yml"]
+jobs:
+  rails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: deps
+        working-directory: crewline/validators
+        run: pip install -r requirements.txt
+      - name: pytest
+        working-directory: crewline/validators
+        run: python -m pytest -q tests
+      - name: frozen pack
+        working-directory: crewline/validators
+        run: python -m crewline evals --pack frozen --run
+      - name: adapter sync+check
+        working-directory: crewline
+        run: |
+          python adapters/install.py --platform cursor --target "$RUNNER_TEMP/ws" --sync --check
+          python adapters/install.py --platform claude --target "$RUNNER_TEMP/ws" --sync --check
+          python adapters/install.py --platform generic --target "$RUNNER_TEMP/ws" --sync --check
+      - name: cold-start kit
+        working-directory: crewline/validators
+        run: python -m crewline cold-start

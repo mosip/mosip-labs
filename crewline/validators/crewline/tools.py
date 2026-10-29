@@ -1,4 +1,4 @@
-"""Check the local tool capabilities in core/tools.yaml and print enable steps for any that are missing.
+"""Check local tool capabilities (core/tools.yaml + active pack overlay) and print enable steps.
 
   TOOL-001  required capability missing (enable steps attached)   BLOCK
   TOOL-002  capability present                                     INFO
@@ -9,18 +9,14 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from pathlib import Path
 
-import yaml
-
+from . import pack
 from .result import BLOCK, INFO, WARN, Result
-
-CORE = Path(__file__).resolve().parents[2]
 
 
 def run(only: list[str] | None = None) -> Result:
-    spec = yaml.safe_load((CORE / "core" / "tools.yaml").read_text(encoding="utf-8"))["capabilities"]
-    res = Result("tools")
+    spec = pack.merged_tools()["capabilities"]
+    res = Result("tools", inputs={"pack": pack.active_id()})
     for name, cap in spec.items():
         if only and name not in only:
             continue

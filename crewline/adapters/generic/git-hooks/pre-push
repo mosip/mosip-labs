@@ -1,0 +1,3 @@
+#!/bin/sh
+# Crewline: refuse git push unless PR_CLOSEOUT gates pass. Installed by adapters/install.py.
+exec {{PYTHON}} "{{HOOK}}" git-push

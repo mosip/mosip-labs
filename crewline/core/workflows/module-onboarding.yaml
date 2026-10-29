@@ -7,7 +7,7 @@ entry_guards:
     - {gate: onboarding_discovery, eq: PASS}
   FINAL_REPORT:
     - {approval: onboarding_review}               # module owner (or delegate) reviewed the drafts
-required_gates: [onboarding_discovery, onboarding_baseline, secrets]
+required_gates: [onboarding_discovery, onboarding_baseline, secrets, token_budget]
 notes: >-
   IMPACT_ANALYSIS runs `crewline discover` and reads every guidance file it reports (DSC-006). KNOWLEDGE_UPDATE
   turns the drafts into reviewed files: confirm or correct each Inferred row, fill extra_id_fields_by_class from

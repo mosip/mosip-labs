@@ -1,0 +1,1 @@
+{"id": "EV-23", "expected": "IMPLEMENTATION_PLAN refused until reproduction PASS", "pytest": ["tests/test_sdlc.py::test_bug_fix_needs_reproduction_first"]}

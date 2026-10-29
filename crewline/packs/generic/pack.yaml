@@ -1,0 +1,12 @@
+# Product-neutral pack: Crewline core only (workflow, gates, hooks). No TestRig / CoverageCli / MOSIP map.
+id: generic
+title: Generic product
+sdet:
+  testrig: false
+  coverage_cli: false
+knowledge: []
+tools: tools.yaml
+notes: >
+  Use this for a non-MOSIP repo. Put stack facts in the module's .crewline/ (onboarding).
+  System tests are the repo's own suite (unit/component or whatever .crewline/development records).
+  To add a named pack: copy packs/generic/, set id, point knowledge: at your docs, overlay tools.yaml.

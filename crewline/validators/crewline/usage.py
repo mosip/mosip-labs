@@ -13,15 +13,35 @@ Calls are de-duplicated by message id. The numbers are what the API reported, no
 
   USE-001  no transcript records fall inside the task's time window   WARN
   USE-002  manifest has no started_at                                 BLOCK (cannot attribute usage)
+  USE-003  task total tokens exceed usage-budget.yaml per_task        BLOCK
+  USE-004  a workflow state exceeds its per_state / hot_states cap    BLOCK
+  USE-005  a state is past warn_ratio of its cap                      WARN
+  USE-006  no metered calls (typical on Cursor): adapter fire-break is the control  INFO
+  USE-007  a specialist packet on disk exceeds packet_max_chars       BLOCK
+  USE-008  a packet looks like a dump of Crewline core / a full report BLOCK
+
+Exceeding a budget is WAITING_FOR_USER: continue (attributed exception on token_budget), split the task, or abort.
 """
 from __future__ import annotations
 
 import bisect
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+import yaml
+
 from .result import BLOCK, INFO, WARN, Result
+
+CORE = Path(__file__).resolve().parents[2]
+BUDGET_FILE = CORE / "core" / "usage-budget.yaml"
+DUMP_RX = re.compile(
+    r"Carried over from the SDET Architect|core/workflow\.yaml|quality-gates\.yaml"
+    r"|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY"
+    r"|surefire-reports|ExtentHtmlReporter|full-report",
+    re.I,
+)
 
 KINDS = ("input", "cache_write", "cache_read", "output")
 
@@ -72,6 +92,41 @@ def calls(transcripts: list[str]) -> list[dict]:
     return sorted(seen.values(), key=lambda c: c["at"])
 
 
+def load_budget(doc: dict) -> dict:
+    raw = yaml.safe_load(BUDGET_FILE.read_text(encoding="utf-8"))
+    over = (doc.get("usage") or {}).get("budget") or {}
+    hot = dict(raw.get("hot_states") or {})
+    if over.get("hot_states"):
+        hot.update(over["hot_states"])
+    elif "per_state" in over:
+        hot = {}
+    return {
+        "per_task": int(over.get("per_task", raw["per_task"])),
+        "per_state": int(over.get("per_state", raw["per_state"])),
+        "warn_ratio": float(over.get("warn_ratio", raw.get("warn_ratio", 0.7))),
+        "hot_states": hot,
+        "packet_max_chars": int(over.get("packet_max_chars", raw.get("packet_max_chars", 20000))),
+    }
+
+
+def _check_packets(manifest_path: str, budget: dict, res: Result) -> None:
+    root = Path(manifest_path).resolve().parent / "packets"
+    if not root.is_dir():
+        return
+    cap = budget["packet_max_chars"]
+    for f in sorted(p for p in root.rglob("*") if p.is_file()):
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        rel = f.relative_to(root).as_posix()
+        if len(text) > cap:
+            res.add("USE-007", BLOCK, f"packet {rel} is {len(text)} chars (max {cap}): send ACs + FAIL findings, not the repo",
+                    path=rel)
+        if DUMP_RX.search(text) or (len(text) > 8000 and "principles.md" in text):
+            res.add("USE-008", BLOCK, f"packet {rel} looks like a core/report dump, not a specialist packet", path=rel)
+
+
 def _bucket() -> dict:
     return {"calls": 0, **{k: 0 for k in KINDS}, "fresh": 0, "total": 0}
 
@@ -111,9 +166,25 @@ def report(manifest_path: str, transcripts: list[str], out: str | None = None) -
         step = marks[i]["label"] if i >= 0 else "(before first step mark)"
         for b in (overall, by_stage.setdefault(stage, _bucket()), by_step.setdefault(step, _bucket())):
             _add(b, c)
+    budget = load_budget(doc)
     if not overall["calls"]:
         res.add("USE-001", WARN, "no model calls recorded in the task window (wrong transcript?)")
+        res.add("USE-006", INFO, "no metered API calls: on Cursor the adapter token fire-break is the control; "
+                "on Claude pass --transcript so the budget can stop the task")
+    else:
+        if overall["total"] > budget["per_task"]:
+            res.add("USE-003", BLOCK, f"task total {overall['total']:,} exceeds budget {budget['per_task']:,} "
+                    "(core/usage-budget.yaml). WAITING_FOR_USER: continue (exception token_budget) / split / abort")
+        for stage, b in by_stage.items():
+            cap = int(budget["hot_states"].get(stage, budget["per_state"]))
+            if b["total"] > cap:
+                res.add("USE-004", BLOCK, f"{stage}: {b['total']:,} exceeds per-state budget {cap:,} "
+                        "(do not re-read core, do not poll, do not paste reports)")
+            elif b["total"] > cap * budget["warn_ratio"]:
+                res.add("USE-005", WARN, f"{stage}: {b['total']:,} is past {budget['warn_ratio']:.0%} of budget {cap:,}")
+    _check_packets(manifest_path, budget, res)
     data = {"task_id": doc.get("task_id"), "generated_at": now_iso(), "window": [doc["started_at"], doc.get("finished_at")],
+            "budget": budget,
             "overall": overall, "by_stage": by_stage, "by_step": by_step,
             "note": "fresh = input + cache_write + output; total adds cache_read (re-read context)."}
     target = Path(out) if out else Path(manifest_path).with_name("usage.json")

@@ -34,12 +34,17 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `coverage/AGENTS.
 5. Record non-functional requirements the story implies (performance budget, audit, PII, backward compatibility) as ACs
    with `nfr: true`, or as questions when unstated.
 6. Number ACs stably (AC-1, AC-2 ...). Traceability (`crewline trace`) links each AC to `code_refs` and `test_ids` later.
+7. Each AC states actor + observable outcome (status, field, error code, persisted state) in enough words that
+   `crewline requirement-clarity` PASSes. Phrases like "should work", "as expected", "TBD", "etc." fail REQ-002.
+   Record `requirements.story_keys` or `source_refs`. Leave `open_ambiguities` > 0 until every question is answered.
 
 ## Must not
 
 - invent behaviour to fill a gap
 - proceed past a missing mandatory input
 - treat the story text as proof of what the service does
+- zero `open_ambiguities` while an AC is still untestable
+- move past REQUIREMENT_ANALYSIS when `crewline requirement-clarity` would FAIL
 
 ## Output contract
 

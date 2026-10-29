@@ -1,0 +1,1 @@
+{"id": "EV-51", "expected": "requirement_fit FAIL when AC tokens missing from diff or tests", "must_block": ["RFT-001", "RFT-002", "RFT-005"], "pytest": ["tests/test_sdlc.py::test_requirement_fit_blocks_when_diff_misses_ac_tokens", "tests/test_sdlc.py::test_requirement_fit_blocks_when_tests_miss_ac_tokens", "tests/test_sdlc.py::test_requirement_fit_blocks_untouched_code_ref"]}

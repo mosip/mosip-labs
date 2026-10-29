@@ -1,0 +1,1 @@
+{"id": "EV-54", "expected": "branch_environment FAIL on released-only env", "must_block": ["BEV-001", "BEV-002", "BEV-004"], "pytest": ["tests/test_sdlc.py::test_branch_env_refuses_released_as_branch", "tests/test_sdlc.py::test_branch_env_deferral_needs_exception"]}

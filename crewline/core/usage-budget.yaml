@@ -1,0 +1,18 @@
+# Token budgets (Blueprint cost control). Metric is TOTAL tokens the API billed:
+# input + cache_write + cache_read + output. cache_read is cheap per token but is usually
+# the largest number and still counts on Cursor/Claude packs.
+#
+# PILOT-001 (Verified): ~3M total per review round; ~6.7M waiting on background runs.
+# Defaults are a stop, not a target. Raise only with an attributed gate exception on token_budget.
+version: 1
+metric: total
+per_task: 8000000          # whole task; exceed -> WAITING_FOR_USER (continue / split / abort)
+per_state: 2500000         # default cap for any one workflow state
+warn_ratio: 0.7
+hot_states:
+  IMPLEMENTATION: 3000000
+  IMPLEMENTATION_REVIEW: 2500000
+  FRESH_CONTEXT_REVIEW: 2500000
+  SYSTEM_TEST_EXECUTION: 1500000
+  PR_CLOSEOUT: 1500000
+packet_max_chars: 20000    # specialist context packet on disk (tasks/<id>/packets)

@@ -1,7 +1,7 @@
 task_type: test-automation
 risk_tier: L2
 summary: The SDET Architect path proven by PILOT-001 (mosip/pre-registration#1088) - story -> matrix rows -> YAML -> validators -> reviews -> execution -> PR. No production code.
-path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, REQUIREMENT_ANALYSIS, IMPACT_ANALYSIS, TESTCASE_DESIGN,
+path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, REQUIREMENT_ANALYSIS, ACCEPTANCE_REVIEW, IMPACT_ANALYSIS, TESTCASE_DESIGN,
        TESTCASE_REVIEW, IMPLEMENTATION_PLAN, GITHUB_PLANNING, REPO_READY, IMPLEMENTATION, DETERMINISTIC_VALIDATION,
        IMPLEMENTATION_REVIEW, FRESH_CONTEXT_REVIEW, SYSTEM_TEST_EXECUTION, FAILURE_TRIAGE, QUALITY_GATE, COMMIT_PR,
        PR_CLOSEOUT, KNOWLEDGE_UPDATE, FINAL_REPORT, DONE]
@@ -10,5 +10,8 @@ entry_guards:
     - {path: test_plan.environment, ne: ""}
   IMPLEMENTATION_PLAN:
     - {gate: testcase_readiness, eq: PASS}
-required_gates: [testcase_readiness, deterministic_validation, test_integrity, traceability, system_tests, full_regression, secrets, change_scope]
+  IMPLEMENTATION_REVIEW:
+    - {gate: coding_standards, eq: PASS}
+    - {gate: requirement_fit, eq: PASS}
+required_gates: [requirement_clarity, acceptance_readiness, testcase_readiness, deterministic_validation, coding_standards, requirement_fit, test_integrity, traceability, system_tests, branch_environment, defect_reports, full_regression, secrets, change_scope, token_budget]
 notes: change_scope approved_paths default to the module api-test/ (and coverage/ where the matrix exists); production code is out of scope.

@@ -21,13 +21,15 @@ Change scope: {{n}} files, all inside approved paths | scope_change approvals: {
 ## Gates
 | Gate | Status | Evidence |
 |---|---|---|
+| requirement_clarity / acceptance_readiness / requirement_fit | | |
 | design_readiness (+ approval design) | | |
 | testcase_readiness / reproduction | | |
 | build | | `crewline run` record |
-| deterministic_validation / test_integrity / migration_pairing | | |
+| deterministic_validation / coding_standards / robustness / test_integrity / migration_pairing | | |
 | unit_tests | | |
 | implementation_review / fresh_context_review | | |
-| system_tests | | report header commit/branch |
+| system_tests / branch_environment | | report header commit/branch; env kind |
+| defect_reports | | secret-scanned report_path |
 | full_regression (base vs branch) | | new breaks: |
 | traceability / change_scope / secrets / dependency_security | | |
 | dco / branch_scope | | |
@@ -46,7 +48,8 @@ Issue {{link}} · PR {{link}} · review comments {{valid fixed / not valid repli
 {{NOT_APPLICABLE | readiness, rollback plan, environment, deployment record, post-deployment checks}}
 
 ## Token usage
-{{overall calls / fresh / total tokens}} - per stage and per step in {{usage.md}} (crewline usage; API-reported, not estimated)
+{{overall calls / fresh / total tokens}} vs `core/usage-budget.yaml` — per stage and per step in {{usage.md}}
+(`crewline usage`; API-reported, not estimated). Over budget is FAIL, not a footnote.
 
 ## Knowledge
 {{entries added/updated with status}}, or why none was warranted.
