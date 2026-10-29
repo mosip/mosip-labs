@@ -657,3 +657,14 @@ class _nullcontext:
 
     def __exit__(self, *a):
         return False
+
+
+# --- one clone per repo; no worktree left behind -------------------------------------------------------------------
+def test_task_cannot_close_with_open_worktrees(tmp_path):
+    d = doc(current_state="FINAL_REPORT", final_report_ref="final-report.md",
+            workspace={"checkout_mode": "worktree", "open_worktrees": 1})
+    assert "open_worktrees" in " ".join(f.message for f in manifest.transition(write(tmp_path, d), "DONE").findings)
+    d["workspace"]["open_worktrees"] = 0
+    assert manifest.transition(write(tmp_path, d), "DONE").status == "PASS"
+    d["workspace"] = {"checkout_mode": "single"}                                   # user chose branch switching
+    assert manifest.transition(write(tmp_path, d), "DONE").status == "PASS"

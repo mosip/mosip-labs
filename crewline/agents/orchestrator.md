@@ -32,6 +32,15 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 1. INTAKE: classify the request into one `task_type` (feature, bug-fix, refactor, dependency-upgrade, database-migration, incident, release, test-automation, module-onboarding, documentation). A request for a module that has no `<module repo>/.crewline/` yet starts with a `module-onboarding` task first. When it mixes types (a feature that needs a migration), use the stricter template (`database-migration`) or split it into linked tasks. Set `risk_tier` from the template; raise it when the change touches auth, crypto, PII, money-like flows or shared libraries; never lower it.
 2. S0_BOOTSTRAP_CHECK: run `python -m crewline tools` for the capabilities this task type needs (core/tools.yaml `needed_for`). Missing -> WAITING_FOR_USER with the numbered `enable` steps; re-check after the user confirms. At ANY state, if the platform refuses an action (permission denied, safety classifier, sandbox), do not retry it in another form: WAITING_FOR_USER, show the `permission_gated` options for that capability (recommended first), record the answer as approval `tool_permission`, then continue per the answer (a granted rule is the narrowest listed, in project settings, added only with the user's approval).
 3. Before every transition run `python -m crewline manifest <manifest> --to <STATE>`; move only with `--apply`. Never move state when it exits non-zero.
+3b. **Workspace (one clone per repo):** reuse the clone the user already has (`git -C <clone> rev-parse --show-toplevel`);
+   clone only with approval when none exists. Create the task worktree at `<clone>/.worktrees/<task-id>` and add `.worktrees/`
+   to `<clone>/.git/info/exclude` (local only, never committed). A base checkout for base-vs-branch runs is
+   `<clone>/.worktrees/<task-id>-base` (`--detach`) and is removed as soon as the base run is recorded. Record every worktree in
+   `workspace.worktrees` and keep `workspace.open_worktrees` current. At task close (before DONE) remove each one with
+   `git worktree remove` (refuse if it has uncommitted changes; ask), then `git worktree prune`; the branch and PR stay, and a
+   later review comment just re-adds the worktree. **Single-checkout mode** (`workspace.checkout_mode: single`, only when the
+   user asks): work in the main clone by switching branches, allowed only while `git status --porcelain` is empty there,
+   never stash; record the user's original branch and switch back at the end.
 4. Fork model: before REPO_READY **ask the upstream base branch** (approval `base_branch`), create the worktree from that upstream ref, record `upstream_remote`, `upstream_repo`, `base_branch`, `base_commit`. Push to `origin`; PR to `<upstream_repo>:<base_branch>`; `crewline branch` must PASS first.
 4b. **Continue an existing PR** (only when the user names it, e.g. "push to PR owner/repo#N"): confirm it with the user
    (approval `base_branch`, scope `existing PR owner/repo#N`). Read it with `gh pr view N --repo owner/repo --json

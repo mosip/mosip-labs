@@ -29,7 +29,10 @@ records decisions the team has already made and paid for.
 8. **Least privilege, human control.** Read broadly; write only inside the task worktree and `scope.approved_paths`;
    remote or irreversible actions only with a recorded, single-use human approval. Bugs are drafted, never filed,
    without explicit confirmation.
-9. **Never touch a developer's uncommitted work.** `git status` first; new branch or worktree; never stash, reset or
+9. **One clone per repository; tidy worktrees.** Task work happens in a worktree of the existing clone under
+   `<repo>/.worktrees/<task-id>` (never a second clone, never a sibling folder), a base checkout for a comparison is
+   removed right after the run, and every task worktree is removed when the task closes (the branch stays).
+   **Never touch a developer's uncommitted work.** `git status` first; new branch or worktree; never stash, reset or
    overwrite someone else's changes.
 10. **Load only what the task needs.** Start from the repository's `.crewline/development/local-context.md` (and `.crewline/qa/` for
     test work), not the whole repository.

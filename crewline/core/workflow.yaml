@@ -109,6 +109,9 @@ transition_guards:
     - {path: repair.classification, in: [ENVIRONMENT, TEST_DATA]}
   FINAL_REPORT->DONE:
     - {path: final_report_ref, ne: ""}
+    - any_of:                                     # no task worktree left behind (principle 9)
+        - {path: workspace.open_worktrees, eq: 0}
+        - {path: workspace.checkout_mode, eq: single}
 
 # Leaving PR_CLOSEOUT forward (whatever the template's next state is) needs every valid comment dealt with.
 exit_guards:

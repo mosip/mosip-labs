@@ -773,6 +773,52 @@
           }
         }
       }
+    },
+    "workspace": {
+      "type": "object",
+      "properties": {
+        "checkout_mode": {
+          "enum": [
+            "worktree",
+            "single"
+          ]
+        },
+        "clone": {
+          "type": "string",
+          "description": "the user's existing clone (one per repository)"
+        },
+        "worktrees": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "branch": {
+                "type": "string"
+              },
+              "purpose": {
+                "enum": [
+                  "task",
+                  "base"
+                ]
+              },
+              "removed_at": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "open_worktrees": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "original_branch": {
+          "type": "string",
+          "description": "single-checkout mode: branch to restore at the end"
+        }
+      }
     }
   },
   "$defs": {
