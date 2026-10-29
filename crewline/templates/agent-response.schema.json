@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "crewline/agent-response.schema.json",
+  "title": "Specialist agent response (Blueprint v2.1 \u00a77)",
+  "description": "What every specialist returns to the orchestrator. Orchestration metadata, not a testcase or design format.",
+  "type": "object",
+  "required": [
+    "task_id",
+    "agent",
+    "context_id",
+    "status",
+    "summary",
+    "evidence_refs",
+    "assumptions",
+    "unresolved_questions",
+    "proposed_changes",
+    "risks",
+    "recommended_next_state"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "agent": {
+      "type": "string"
+    },
+    "context_id": {
+      "type": "string",
+      "description": "distinct per context; recorded as author or reviewer (MAN-011)"
+    },
+    "status": {
+      "enum": [
+        "DONE",
+        "NEEDS_INPUT",
+        "BLOCKED",
+        "FINDINGS"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "text",
+          "label"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "label": {
+            "enum": [
+              "Inferred",
+              "Unknown"
+            ]
+          }
+        }
+      }
+    },
+    "unresolved_questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "proposed_changes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "enum": [
+              "BLOCKER",
+              "MAJOR",
+              "MINOR",
+              "CRITICAL",
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "location": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "recommendation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommended_next_state": {
+      "type": "string"
+    }
+  }
+}

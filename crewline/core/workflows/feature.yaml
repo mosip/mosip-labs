@@ -1,0 +1,16 @@
+task_type: feature
+risk_tier: L2
+summary: Requirements -> impact -> design -> independent test design -> code + unit tests -> reviews -> system tests -> PR -> release readiness
+path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, REQUIREMENT_ANALYSIS, ACCEPTANCE_REVIEW, IMPACT_ANALYSIS, DESIGN,
+       TESTCASE_DESIGN, TESTCASE_REVIEW, IMPLEMENTATION_PLAN, GITHUB_PLANNING, REPO_READY, IMPLEMENTATION,
+       DETERMINISTIC_VALIDATION, UNIT_INTEGRATION_TEST, IMPLEMENTATION_REVIEW, FRESH_CONTEXT_REVIEW,
+       SYSTEM_TEST_EXECUTION, FAILURE_TRIAGE, QUALITY_GATE, COMMIT_PR, PR_CLOSEOUT, RELEASE_READINESS,
+       KNOWLEDGE_UPDATE, FINAL_REPORT, DONE]
+entry_guards:
+  IMPLEMENTATION:
+    - {path: test_plan.environment, ne: ""}   # where SDET runs system tests on the branch build
+  IMPLEMENTATION_PLAN:
+    - {gate: testcase_readiness, eq: PASS}       # tests designed from ACs before code exists
+    - {approval: design}                         # material design and contract choices belong to a human
+required_gates: [design_readiness, testcase_readiness, build, unit_tests, diff_coverage, component_tests, deterministic_validation, test_integrity, traceability, system_tests, full_regression, secrets, dependency_security, change_scope]
+no_silent_na: [system_tests, full_regression]      # SDET always runs them; skipping needs an attributed exception (MAN-015)

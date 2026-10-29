@@ -1,0 +1,6 @@
+task_type: incident
+risk_tier: L0
+summary: Collect telemetry -> timeline -> hypotheses -> safe read-only diagnostics -> mitigation proposal -> postmortem draft. No writes by default.
+path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, IMPACT_ANALYSIS, KNOWLEDGE_UPDATE, FINAL_REPORT, DONE]
+required_gates: [secrets]
+notes: A fix found during an incident becomes a NEW bug-fix task with its own manifest. The incident report links it; the incident task never edits code.

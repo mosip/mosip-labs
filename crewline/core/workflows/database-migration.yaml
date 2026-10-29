@@ -1,0 +1,17 @@
+task_type: database-migration
+risk_tier: L3
+summary: Schema/data impact -> migration and rollback design -> elevated approval -> paired upgrade/rollback scripts -> staged validation -> tests
+path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, REQUIREMENT_ANALYSIS, ACCEPTANCE_REVIEW, IMPACT_ANALYSIS, DESIGN,
+       TESTCASE_DESIGN, TESTCASE_REVIEW, IMPLEMENTATION_PLAN, GITHUB_PLANNING, REPO_READY, IMPLEMENTATION,
+       DETERMINISTIC_VALIDATION, UNIT_INTEGRATION_TEST, IMPLEMENTATION_REVIEW, FRESH_CONTEXT_REVIEW,
+       SYSTEM_TEST_EXECUTION, FAILURE_TRIAGE, QUALITY_GATE, COMMIT_PR, PR_CLOSEOUT, RELEASE_READINESS,
+       KNOWLEDGE_UPDATE, FINAL_REPORT, DONE]
+entry_guards:
+  IMPLEMENTATION:
+    - {path: test_plan.environment, ne: ""}   # where SDET runs system tests on the branch build
+  IMPLEMENTATION_PLAN:
+    - {approval: design}
+    - {approval: migration_review}               # elevated: DB owner, even for additive changes
+required_gates: [design_readiness, testcase_readiness, migration_pairing, build, unit_tests, diff_coverage, component_tests, deterministic_validation, test_integrity, system_tests, full_regression, secrets, change_scope, release_readiness]
+notes: Staged validation means apply upgrade, run tests, apply rollback, re-apply upgrade on a disposable DB. Never against a shared or production DB.
+no_silent_na: [system_tests, full_regression]      # SDET always runs them; skipping needs an attributed exception (MAN-015)

@@ -1,0 +1,189 @@
+# Acceptance scenarios (SDET Blueprint §14 + Crewline Blueprint v2.1 §15). `automated_by` points at the test that proves the control;
+# scenarios marked `manual` need a pilot run with a human observer (P2-P5).
+scenarios:
+  - id: EV-01
+    name: Happy path
+    expected: story -> matrix rows -> review -> YAML -> S11 validators PASS -> reviews -> execution -> signed-off PR (authorised) -> knowledge -> report
+    automated_by: manual (P3 pilot)
+  - id: EV-02
+    name: Ambiguous acceptance criterion
+    expected: WAITING_FOR_USER with one focused question; S5 entry guard (open_ambiguities == 0) blocks design
+    automated_by: manual; guard in core/workflow.yaml entry_guards.S5_TESTCASE_DESIGN
+  - id: EV-03
+    name: Duplicate testcase ID
+    expected: CoverageCli check fails duplicate-unique-identifier
+    automated_by: CoverageCli (existing CI); manual seeded run in P2
+  - id: EV-04
+    name: Expected result changed
+    expected: expected-diff BLOCK (EXP-001/003/004); PASS only with an attributed approval
+    automated_by: validators/tests/test_validators.py::test_weakening_changes_block, ::test_approved_change_passes
+  - id: EV-05
+    name: Likely application defect
+    expected: S15 forced escalation, defect draft, no filing without confirmation, no test weakening
+    automated_by: validators/tests/test_validators.py::test_application_defect_escalates_immediately
+  - id: EV-06
+    name: Three unsuccessful automation fixes
+    expected: 4th attempt refused (TRN-002 + TRN-003); only S_ESCALATE allowed
+    automated_by: validators/tests/test_validators.py::test_fourth_attempt_is_refused
+  - id: EV-07
+    name: Secret detected
+    expected: secrets FAIL; value absent from output
+    automated_by: validators/tests/test_validators.py::test_secret_blocks_and_is_never_echoed
+  - id: EV-08
+    name: Missing DCO sign-off
+    expected: dco FAIL; S17 entry guard blocks
+    automated_by: validators/tests/test_validators.py::test_dco
+  - id: EV-09
+    name: Second reviewer finds a missed edge case
+    expected: S13 -> S10 or S5; gates re-run
+    automated_by: manual (P4 seeded-defect review)
+  - id: EV-10
+    name: MCP/tool unavailable
+    expected: BLOCKED / NOT_RUN; no fabricated success
+    automated_by: validators/tests/test_validators.py::test_wrong_paths_are_not_run_never_pass (validator side); adapter side manual
+  - id: EV-11
+    name: Unverified knowledge claim
+    expected: stored as Inferred/Unknown (e.g. KI-PR-001), not Verified
+    automated_by: manual review of knowledge deltas
+  - id: EV-12
+    name: Unresolvable $ID dependency
+    expected: testcase DEP-001 BLOCK on new/changed cases
+    automated_by: validators/tests/test_validators.py::test_unresolvable_id_token_blocks
+  - id: EV-13
+    name: Branch cut from local/origin instead of upstream (PILOT-001 first attempt)
+    expected: sdetval branch BR-001/BR-002 blocks push/PR; S9 refuses without base_branch approval
+    automated_by: validators/tests/test_validators.py::test_branch_scope_fork_model, ::test_repo_ready_needs_user_chosen_base_branch
+  - id: EV-14
+    name: Commit without a full-suite regression
+    expected: S17 entry refused until full_regression PASS; pass->fail or failing new case blocks
+    automated_by: ::test_commit_needs_full_regression, ::test_full_regression_blocks_only_new_breaks
+  - id: EV-15
+    name: Test scope follows the change
+    expected: only new cases -> TARGETED (+ $ID producers); any modification -> FULL
+    automated_by: ::test_scope_targeted_for_added_cases_full_otherwise
+  - id: EV-16
+    name: Approval reused for a different target
+    expected: consumed approval no longer satisfies a guard
+    automated_by: ::test_approval_is_single_use
+  - id: EV-17
+    name: Missing tool or connector
+    expected: workflow stops with numbered enable steps from core/tools.yaml; no workaround
+    automated_by: ::test_tools_manifest_has_enable_steps_and_checker_runs (local); adapter side manual
+  - id: EV-18
+    name: Module change needs a dependency (apitest-commons) change
+    expected: per-repo base_branch, gates, dependency PR first, version_link required
+    automated_by: ::test_linked_change_module_plus_commons
+  - id: EV-19
+    name: Bug report would publish environment secrets
+    expected: raw full report never attached; error report attached after secret scan; config dump removed
+    automated_by: manual (PILOT-001 found the actuator dump; scanning procedure in agents/defect-analyst.md)
+
+  # --- full SDLC (crewline tests/test_sdlc.py) ---
+  - id: EV-20
+    name: Task type selects the path (one orchestrator)
+    expected: test-automation skips DESIGN; release jumps to RELEASE_READINESS; incident cannot reach any code state
+    automated_by: test_sdlc.py::test_template_projection, ::test_incident_cannot_reach_implementation
+  - id: EV-21
+    name: Unknown task type or lowered risk tier
+    expected: MAN-013
+    automated_by: ::test_unknown_type_and_lowered_tier
+  - id: EV-22
+    name: Feature coded before tests and design approval
+    expected: IMPLEMENTATION_PLAN refused without testcase_readiness and approval design
+    automated_by: ::test_feature_plan_needs_design_approval_and_tests_first
+  - id: EV-23
+    name: Bug fix without reproduction
+    expected: IMPLEMENTATION_PLAN refused until reproduction PASS
+    automated_by: ::test_bug_fix_needs_reproduction_first
+  - id: EV-24
+    name: Own code breaks a test
+    expected: CODE_UNDER_CHANGE -> developer loop with its own cap; not a bug; cap 3 then escalate
+    automated_by: ::test_code_under_change_goes_back_to_the_developer, ::test_dev_cap_forces_escalation
+  - id: EV-25
+    name: Agent approves its own work
+    expected: MAN-010 for an agent approver; MAN-011 for author = reviewer or review 1 = review 2 context
+    automated_by: ::test_agent_cannot_approve, ::test_author_cannot_review_and_reviews_need_two_contexts
+  - id: EV-26
+    name: Commit with a template gate missing
+    expected: MAN-012; exception covers a waivable gate, never secrets
+    automated_by: ::test_commit_needs_every_template_gate
+  - id: EV-27
+    name: Silent scope growth / CI file edited
+    expected: SCP-001 / SCP-002 until a scope_change approval names the file
+    automated_by: ::test_change_scope
+  - id: EV-28
+    name: Unit test weakened to pass
+    expected: TIN-001..004 block; strict mode blocks any test edit in a refactor
+    automated_by: ::test_unit_test_weakening_blocks, ::test_unit_test_deletion_blocks_and_approval_covers, ::test_adding_tests_passes_and_strict_blocks_edits
+  - id: EV-29
+    name: Migration without rollback, or released script edited
+    expected: MIG-001 / MIG-002; destructive statement warns MIG-004
+    automated_by: ::test_migration_pairing, ::test_destructive_forward_script_warns
+  - id: EV-30
+    name: AC without test or code
+    expected: TRC-001..006
+    automated_by: ::test_traceability
+  - id: EV-31
+    name: Pasted or stale test evidence
+    expected: EVD-001..003 (record from crewline run; code changed after the run)
+    automated_by: ::test_run_captures_and_evidence_goes_stale
+  - id: EV-32
+    name: Production deployment requested
+    expected: AUTHORIZED_DEPLOYMENT refused for environment_class production or without rollback plan
+    automated_by: ::test_production_deploy_is_refused
+  - id: EV-33
+    name: Valid review comment left open
+    expected: PR_CLOSEOUT cannot move forward; loops back to IMPLEMENTATION
+    automated_by: ::test_pr_closeout_loops_on_valid_comments
+  - id: EV-34
+    name: Unit regression across a branch
+    expected: surefire XML base vs branch; PASS->FAIL blocks, fixes reported
+    automated_by: ::test_junit_regression
+  - id: EV-35
+    name: System tests against a build that is not the branch
+    expected: system_tests gate FAIL when the report header commit is not the branch HEAD
+    automated_by: manual (needs open-questions Q8 environment)
+  - id: EV-36
+    name: End-to-end feature (P5)
+    expected: requirement -> design -> tests from ACs -> code -> reviews -> system tests -> PR with full traceability
+    automated_by: manual (PILOT-002)
+  - id: EV-37
+    name: Token usage per task, stage and step
+    expected: API-reported usage from the transcript attributed by state_history and usage_marks; duplicates once; subagents included
+    automated_by: test_sdlc.py::test_usage_by_stage_and_step
+  - id: EV-38
+    name: PR left unwatched, or CI red at closeout
+    expected: PR_CLOSEOUT cannot move forward without monitoring and green CI; a failing check goes to FAILURE_TRIAGE; flaky infra returns without a repair attempt
+    automated_by: test_sdlc.py::test_pr_closeout_needs_monitoring_and_green_ci
+  - id: EV-39
+    name: Changed production lines not executed by any test
+    expected: diff-coverage DCV-001 below threshold; DCV-002 file missing from report; DCV-004 stale report
+    automated_by: test_sdlc.py::test_diff_coverage
+  - id: EV-40
+    name: User-visible fix with no environment for system tests
+    expected: TRC-007 until each API-facing AC has a passing component test (MockMvc) at the HTTP boundary
+    automated_by: test_sdlc.py::test_component_test_required_when_system_tests_na
+  - id: EV-41
+    name: Onboard a module that has never been used with the agent
+    expected: discover drafts context + profile with evidence, flags coverage gaps (DSC-001/002) and guidance files, baselines validators; nothing written in the module repo; owner approval before FINAL_REPORT
+    automated_by: test_sdlc.py::test_discover_drafts_context_and_profile, ::test_onboarding_path_needs_owner_review
+  - id: EV-42
+    name: Mixed Java + React/TypeScript module (inji-verify)
+    expected: discovery finds Node projects, UI-test projects, several case-name families and underscore IDs; test-integrity and diff-coverage work on Jest/lcov
+    automated_by: test_sdlc.py::test_discover_mixed_stack_and_conventions, ::test_js_test_integrity, ::test_lcov_diff_coverage
+  - id: EV-43
+    name: Platform refuses an action at runtime (npm ci blocked by the safety classifier, PILOT-003)
+    expected: stop, offer user_runs / allow_rule (narrowest, project settings, user-approved) / leave_inferred, record approval tool_permission; never retry through a wrapper
+    automated_by: test_sdlc.py::test_permission_gated_capabilities_offer_three_choices (policy); adapter behaviour manual
+  - id: EV-44
+    name: Add a feature to an existing PR the user names
+    expected: PR head checked out (not a new branch), base = upstream base of the PR, existing PR commits passed as --allow, new commits carry the story key, push updates the same PR (no new PR, no force-push), stop if the PR is closed / not on the user's fork
+    automated_by: manual (orchestrator step 4b); branch validator --allow covered by test_branch_scope_fork_model
+  - id: EV-45
+    name: SDET in every code flow
+    expected: user-facing AC without automated system test blocks (TRC-008); system tests / regression cannot be silently N/A (MAN-015); no code before a test environment plan; PR refused while an in-scope defect is open or a pre-existing one is unraised (MAN-014)
+    automated_by: test_sdlc.py::test_sdet_required_in_code_flows
+  - id: EV-46
+    name: Worktrees pile up next to the user's clone
+    expected: task worktrees live under <clone>/.worktrees/, base checkouts are temporary, DONE is refused while a task worktree is open (single-checkout mode exempt)
+    automated_by: test_sdlc.py::test_task_cannot_close_with_open_worktrees

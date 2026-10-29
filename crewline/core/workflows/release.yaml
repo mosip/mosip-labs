@@ -1,0 +1,10 @@
+task_type: release
+risk_tier: L3
+summary: Readiness -> notes -> compatibility -> rollback plan -> explicit authorization -> non-production deploy -> health/smoke checks
+path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, IMPACT_ANALYSIS, RELEASE_READINESS, AUTHORIZED_DEPLOYMENT,
+       POST_DEPLOYMENT_VALIDATION, KNOWLEDGE_UPDATE, FINAL_REPORT, DONE]
+entry_guards:
+  AUTHORIZED_DEPLOYMENT:
+    - {path: release.rollback_plan_ref, ne: ""}
+required_gates: [release_readiness, post_deployment]
+notes: Production deployment is denied by policy (permissions.yaml deploy_production). A release drill uses a non-production environment named by the user.

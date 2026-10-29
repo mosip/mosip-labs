@@ -1,0 +1,15 @@
+task_type: documentation
+risk_tier: L2
+summary: Documentation-only change in a module repository (e.g. publishing reviewed .crewline context) - plan the file list -> fork-model branch -> write -> deterministic checks (secrets, change scope) -> one independent review -> PR. No code, test or build files.
+path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, IMPACT_ANALYSIS, IMPLEMENTATION_PLAN, GITHUB_PLANNING, REPO_READY,
+       IMPLEMENTATION, DETERMINISTIC_VALIDATION, IMPLEMENTATION_REVIEW, QUALITY_GATE, COMMIT_PR, PR_CLOSEOUT,
+       KNOWLEDGE_UPDATE, FINAL_REPORT, DONE]
+required_gates: [deterministic_validation, secrets, change_scope]
+# Gates a core guard names although this type has nothing for them to measure. Owned by a state on the path, so the
+# "skipped state" rule does not cover them; listed here with the reason instead. Never a required gate, never secrets.
+not_applicable_gates:
+  full_regression: documentation-only diff (change_scope limits approved_paths to non-code files); there is no test suite the change can break
+notes: >-
+  approved_paths must name documentation files only (e.g. .crewline/**, .crewline/**, docs/**); a diff that touches code,
+  tests or build files is not this task type - re-classify (stricter template). Review 1 (IMPLEMENTATION_REVIEW) still runs
+  in a context that did not write the files; FRESH_CONTEXT_REVIEW is not on the path, so its guard is not applicable.

@@ -1,0 +1,223 @@
+# Quality gates (Blueprint v2.1 §8). Each gate's status is recorded in the task manifest as
+# PASS | FAIL | BLOCKED | NOT_RUN | NOT_APPLICABLE with rationale + evidence_refs + checked_at_commit.
+# `enforced_by: deterministic` means a command decides; an agent may not set the status by opinion.
+# `state` is where the gate is produced. A gate whose state is not on the task type's path is not applicable
+# (crewline manifest skips guards on it). Which gates a task type REQUIRES is in core/workflows/<type>.yaml.
+version: 2
+
+gates:
+  # --- module onboarding (Phase 0) ---------------------------------------------------------------------
+  onboarding_discovery:
+    state: IMPACT_ANALYSIS
+    enforced_by: deterministic
+    commands: ["discover --repo <module repo> --module <name>"]
+    requires: [discovery.json + drafts written, every guidance file reported (DSC-006) read, DSC-001/002 coverage warnings carried into the drafts]
+
+  onboarding_baseline:
+    state: KNOWLEDGE_UPDATE
+    enforced_by: deterministic+review
+    commands: ["testcase --scope all with the reviewed profile", "tools", "migration conventions recorded"]
+    requires: [reviewed profile in <module repo>/.crewline/qa/profile.yaml, baseline findings recorded as existing debt, Inferred rows confirmed or left Inferred with a reason, approval onboarding_review]
+
+  # --- requirements and design ------------------------------------------------------------------------
+  input_readiness:
+    state: INPUT_VALIDATION
+    enforced_by: agent+human
+    requires: [story or issue key, design document or approved exception, OpenAPI where an API contract exists]
+    on_fail: WAITING_FOR_USER
+
+  acceptance_readiness:
+    state: ACCEPTANCE_REVIEW
+    enforced_by: review
+    agent: acceptance-reviewer
+    requires: [every AC testable (observable outcome, no "should work"), contradictions resolved, NFRs stated where relevant]
+
+  design_readiness:
+    state: DESIGN
+    enforced_by: review+human
+    agent: solution-architect
+    requires: [options considered, recommendation with trade-offs, API/DB/compatibility impact, rollback approach, ADR for a material decision, approval design recorded]
+
+  testcase_readiness:
+    state: TESTCASE_REVIEW
+    enforced_by: deterministic+review
+    commands: [coverage]                 # CoverageCli check where the module has a matrix
+    requires: [every AC maps to >=1 test (matrix row / unit test / TestRig case), tests derived from ACs and design, not from the implementation]
+    on_fail: TESTCASE_DESIGN
+
+  reproduction:
+    state: TESTCASE_REVIEW
+    enforced_by: deterministic
+    requires: [a test that FAILS on the base commit with the reported symptom; command, exit code, report path recorded]
+    note: bug-fix only. The same test must PASS on the branch (regression REG-006 for that id).
+
+  plan_readiness:
+    state: IMPLEMENTATION_PLAN
+    enforced_by: review
+    requires: [files/modules to change listed as scope.approved_paths, existing patterns and commons reuse cited, test plan per AC, $ID chain for TestRig cases]
+
+  repo_ready:
+    state: REPO_READY
+    enforced_by: deterministic
+    requires: [approval base_branch, upstream fetched, task branch/worktree created FROM that upstream ref, base_commit recorded, no foreign uncommitted changes touched]
+
+  # --- build and deterministic checks ----------------------------------------------------------------
+  build:
+    state: DETERMINISTIC_VALIDATION
+    enforced_by: deterministic
+    commands: ["evidence --record <build.json> --repo <dir>"]   # e.g. mvn -B -DskipTests=false verify; exit 0 on HEAD
+    requires: [compile + module lint/format plugins the repository already uses; no new warnings policy unless the repo has one]
+
+  deterministic_validation:
+    state: DETERMINISTIC_VALIDATION
+    enforced_by: deterministic
+    commands:                             # all must PASS; any NOT_RUN keeps the gate NOT_RUN
+      - testcase --base <base_ref>                      # TestRig cases (SDET)
+      - expected-diff --base <base_ref> --approvals <task>/approvals.yaml
+      - coverage
+      - secrets <changed files>
+    on_fail: IMPLEMENTATION
+
+  test_integrity:
+    state: DETERMINISTIC_VALIDATION
+    enforced_by: deterministic
+    commands: ["test-integrity --repo <dir> --base <base_ref> [--approvals <yaml>] [--strict]", "expected-diff (TestRig)"]
+    requires: [no removed/disabled unit tests, no removed assertions, no weakened TestRig expectations without an attributed approval]
+
+  migration_pairing:
+    state: DETERMINISTIC_VALIDATION
+    enforced_by: deterministic
+    commands: ["migration --repo <dir> --base <base_ref>"]
+    requires: [every new upgrade/release script has its rollback/revoke twin, no edits to already-released scripts]
+
+  dependency_security:
+    state: DETERMINISTIC_VALIDATION
+    enforced_by: deterministic
+    commands: ["approved scanner (OWASP dependency-check / CodeQL in CI); evidence --record <scan.json>"]
+    requires: [no new HIGH/CRITICAL finding introduced by the change, or an attributed exception]
+
+  unit_tests:
+    state: UNIT_INTEGRATION_TEST
+    enforced_by: deterministic
+    commands: ["evidence --record <unit.json> --repo <dir>", "regression --baseline <base surefire dir> --candidate <branch surefire dir>"]
+    requires: [changed modules' unit + integration tests run on HEAD; no PASS->FAIL vs base]
+
+  diff_coverage:
+    state: UNIT_INTEGRATION_TEST
+    enforced_by: deterministic
+    commands: ["run tests WITH the coverage agent (no -Djacoco.skip) + jacoco:report via crewline run", "diff-coverage --repo <dir> --base <base_ref> --jacoco <module>/target/site/jacoco --threshold 80"]
+    requires: ["at least 80% of changed executable production lines executed by tests", every changed source file present in a report, report newer than the change]
+    note: the threshold is the default; a repository standard (.crewline/development/local-context.md) may raise it. Lowering it needs an attributed gate exception.
+
+  component_tests:
+    state: UNIT_INTEGRATION_TEST
+    enforced_by: deterministic
+    commands: ["trace <task-manifest.json> (TRC-007)"]
+    requires: [when system_tests is NOT_APPLICABLE, every API-facing AC (api true) has a passing component test at the HTTP boundary (MockMvc / @WebMvcTest / @SpringBootTest) asserting the status code and error code the caller sees]
+    note: this is the developer-level stand-in for system tests when no environment runs the branch build; it never replaces system tests when one exists.
+
+  # --- reviews ---------------------------------------------------------------------------------------
+  implementation_review:
+    state: IMPLEMENTATION_REVIEW
+    enforced_by: review
+    agent: code-reviewer
+    independence: [reviewer is not an author (MAN-011)]
+
+  fresh_context_review:
+    state: FRESH_CONTEXT_REVIEW
+    enforced_by: review
+    agent: fresh-context-reviewer
+    independence: [new context, source-only packet, no implementer reasoning, different context id from review 1]
+
+  # --- system tests, regression, quality gate --------------------------------------------------------
+  system_tests:
+    state: SYSTEM_TEST_EXECUTION
+    enforced_by: deterministic
+    requires: [command, environment, exit code, report path, commit SHA, passed/failed/skipped counts, report header Commit Id/Branch Name equals the tested repo HEAD/branch]
+    note: >-
+      SDET runs the new cases AND the module's existing TestRig regression (API/UI/DSL) on an environment running the BRANCH
+      build, chosen in the test plan (test_plan.environment_kind): branch-deployed-env (CI image on a dev/qa env) |
+      local-stack (module docker-compose or local service run, TestRig pointed at it) | post-merge-deferred (only with an
+      attributed system_tests exception naming the environment and date; results then recorded DEFERRED and the run becomes
+      a follow-up task). Never NOT_APPLICABLE for code templates (no_silent_na, MAN-015).
+
+  full_regression:
+    state: QUALITY_GATE
+    enforced_by: deterministic
+    note: targeted runs are fine while iterating; this full run is required once before commit
+    procedure: [unit/component suites base vs branch AND the TestRig system suites base vs branch (same env, sequential)]
+    commands: ["regression --baseline <base report> --candidate <branch report> --allow-fail <id with attributed exception>"]
+    blocks_on: [PASS->FAIL on branch, new test failing without exception]
+    scope_rule: "crewline scope (TestRig) / changed modules (unit): only new tests added -> those tests (+ producers); anything else -> FULL"
+
+  defect_closure:
+    state: QUALITY_GATE
+    enforced_by: deterministic
+    commands: ["manifest --to COMMIT_PR (MAN-014)"]
+    requires: [every defect found in the task recorded in manifest.defects, CODE_UNDER_CHANGE defects fixed (developer loop) and their tests passing, pre-existing APPLICATION/SECURITY defects raised as bugs with the run report or deferred with a reason]
+
+  traceability:
+    state: QUALITY_GATE
+    enforced_by: deterministic
+    commands: ["trace <task-manifest.json>"]
+    requires: [every AC -> >=1 test id with a recorded result; for code tasks every AC -> >=1 code_ref; every code_ref inside approved_paths; every user-facing AC (api/ui) -> >=1 automated system test built or reused by SDET (TRC-008/009)]
+
+  change_scope:
+    state: QUALITY_GATE
+    enforced_by: deterministic
+    commands: ["change-scope --repo <dir> --base <base_ref> --manifest <task-manifest.json>"]
+    requires: [every changed file inside scope.approved_paths, or an approval scope_change naming it]
+
+  secrets:
+    state: QUALITY_GATE
+    enforced_by: deterministic
+    commands: [secrets <changed files>]
+
+  quality_gate:
+    state: QUALITY_GATE
+    enforced_by: deterministic
+    requires: [every required_gates entry of the task template PASS / NOT_APPLICABLE, or an attributed exception (MAN-012)]
+
+  # --- git / PR --------------------------------------------------------------------------------------
+  dco:
+    state: COMMIT_PR
+    enforced_by: deterministic
+    commands: [dco --range <base_ref>..HEAD]
+
+  branch_scope:
+    state: COMMIT_PR
+    enforced_by: deterministic
+    commands: [branch --upstream <upstream_remote>/<base_branch> --base <base_commit> --story <KEY> --upstream-repo <owner/repo> --pr-repo <owner/repo> --pr-base <branch>]
+
+  pr_ci:
+    state: PR_CLOSEOUT
+    enforced_by: deterministic
+    commands: ["gh pr checks <n> --repo <upstream_repo> (read on each monitor event)"]
+    requires: [monitoring on (pr.monitoring), every required check PASS on the PR head SHA, a failing check triaged in FAILURE_TRIAGE (CODE_UNDER_CHANGE -> dev loop, ENVIRONMENT -> re-run, else escalate)]
+
+  pr_comments:
+    state: PR_CLOSEOUT
+    enforced_by: review
+    requires: [every comment verified against the code that runs; valid -> fixed + retested + pushed + reply saying what changed; not valid -> reply with the reason; every review thread with such a reply resolved (no unresolved threads on the PR head); pr.valid_comments_open == 0]
+
+  # --- release and operations ------------------------------------------------------------------------
+  release_readiness:
+    state: RELEASE_READINESS
+    enforced_by: review+human
+    agent: release-manager
+    requires: [release notes, version compatibility (APIs, DB, config, dependent modules), rollback plan with tested steps, environment named by the user]
+
+  post_deployment:
+    state: POST_DEPLOYMENT_VALIDATION
+    enforced_by: deterministic
+    requires: [health endpoints UP, smoke suite (TestRig Smoke) PASS on the deployed version, report header matches the released commit]
+    on_fail: incident task (read-only) + rollback proposal; never an automatic rollback
+
+  knowledge_update:
+    state: KNOWLEDGE_UPDATE
+    enforced_by: review
+    requires: [each entry labelled Verified/Inferred/Unknown with evidence; pending entries marked pending]
+
+exceptions:
+  required_fields: [gate, approver, reason, scope, timestamp]
+  never_waivable: [secrets, test_integrity without approval, repair caps, production deployment]

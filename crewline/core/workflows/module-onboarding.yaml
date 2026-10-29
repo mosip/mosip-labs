@@ -1,0 +1,15 @@
+task_type: module-onboarding
+risk_tier: L1
+summary: Phase 0 for a new module - discover the repository read-only, draft its .crewline context and validator profile with evidence, baseline the validators, owner review. No code changes in the module repo.
+path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, IMPACT_ANALYSIS, KNOWLEDGE_UPDATE, FINAL_REPORT, DONE]
+entry_guards:
+  KNOWLEDGE_UPDATE:
+    - {gate: onboarding_discovery, eq: PASS}
+  FINAL_REPORT:
+    - {approval: onboarding_review}               # module owner (or delegate) reviewed the drafts
+required_gates: [onboarding_discovery, onboarding_baseline, secrets]
+notes: >-
+  IMPACT_ANALYSIS runs `crewline discover` and reads every guidance file it reports (DSC-006). KNOWLEDGE_UPDATE
+  turns the drafts into reviewed files: confirm or correct each Inferred row, fill extra_id_fields_by_class from
+  DEP-001 findings, run the baseline again with the reviewed profile, and record existing debt as baseline.
+  Copying .crewline/ into the module repository is a separate L2 task with its own branch and PR.
