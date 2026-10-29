@@ -1,0 +1,13 @@
+task_type: refactor
+risk_tier: L2
+summary: Baseline behaviour -> plan -> refactor -> equivalence (no test changes, full regression with zero breaks) -> reviews -> PR
+path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, IMPACT_ANALYSIS, DESIGN, IMPLEMENTATION_PLAN, GITHUB_PLANNING,
+       REPO_READY, IMPLEMENTATION, DETERMINISTIC_VALIDATION, UNIT_INTEGRATION_TEST, IMPLEMENTATION_REVIEW,
+       FRESH_CONTEXT_REVIEW, SYSTEM_TEST_EXECUTION, FAILURE_TRIAGE, QUALITY_GATE, COMMIT_PR, PR_CLOSEOUT,
+       KNOWLEDGE_UPDATE, FINAL_REPORT, DONE]
+required_gates: [design_readiness, build, unit_tests, diff_coverage, component_tests, deterministic_validation, test_integrity, full_regression, secrets, change_scope, system_tests]
+notes: test_integrity runs with --strict, so any change to an existing test or expected result blocks (a refactor must not need one).
+no_silent_na: [system_tests, full_regression]      # SDET always runs them; skipping needs an attributed exception (MAN-015)
+entry_guards:
+  IMPLEMENTATION:
+    - {path: test_plan.environment, ne: ""}   # where SDET runs system tests on the branch build

@@ -1,0 +1,84 @@
+# Permissions, risk tiers and approval matrix (Blueprint v2.1 §11, Plan §7). Adapters map these profiles onto
+# their native tool allow-lists; a platform that cannot enforce a restriction must ask before the action instead.
+# The model cannot grant itself a permission: every approval is a human record (crewline manifest MAN-010).
+version: 2
+
+tiers:                                   # a task's risk_tier comes from its template and may only be raised
+  L0: {name: Advisory,             behaviour: "analyse and recommend only; read-only tools", examples: [incident diagnostics, architecture options]}
+  L1: {name: Assisted,             behaviour: "drafts and diffs for a human to apply", examples: [issue drafts, code proposals]}
+  L2: {name: Controlled execution, behaviour: "edit the task worktree, run tests, prepare commit/PR behind gates + approvals", examples: [feature branch, test automation]}
+  L3: {name: Restricted operations, behaviour: "consequential action only with explicit authorization and an operational checklist", examples: [non-production deploy, DB migration]}
+
+profiles:
+  read-only:
+    allow: [read files, search, git status/log/diff/show, list issues/PRs, read telemetry/logs the user can read]
+  analysis:
+    extends: read-only
+    allow: [run validators, run CoverageCli check (read-only), mvn dependency:tree, run unit tests in a worktree]
+  workspace-write:
+    extends: analysis
+    allow: [edit files inside the task branch/worktree and inside scope.approved_paths, CoverageCli scaffold/sync, mvn compile/test/verify, run targeted tests]
+    deny: [edit outside the task's repositories, git stash/reset/checkout over uncommitted foreign work, edit CI secrets or branch protection]
+  remote-write:
+    extends: workspace-write
+    allow: [git push to the task branch, create/update issue, subtask, PR, comment]
+    approval: per action
+  operations:
+    extends: analysis
+    allow: [deploy to a NON-production environment named by the user, run health/smoke checks]
+    approval: per action (deploy), tier L3
+
+actions:
+  read_repos_docs:              {tier: L0, default: allowed}
+  generate_code_or_testcase:    {tier: L2, default: workspace-write, requires_gate: [plan_readiness, repo_ready]}
+  expand_scope:                 {tier: L2, default: ask, approval: scope_change, note: "a file outside scope.approved_paths; impact analysis first"}
+  run_build_tests:              {tier: L2, default: allowed, note: approved commands and environments only}
+  run_full_suite:               {tier: L2, default: allowed, note: "QUALITY_GATE; creates test data on the shared env; base then branch, never in parallel"}
+  modify_expected_results:      {tier: L2, default: restricted, approval: expected-diff / test-integrity approval record, never_auto: true}
+  onboard_module:               {tier: L1, default: allowed, approval: onboarding_review, note: "read-only on the module repo; drafts go to <module repo>/.crewline/; copying them into the repo is a separate L2 task"}
+  grant_tool_permission:        {tier: L2, default: ask, approval: tool_permission, note: "a blocked action (core/tools.yaml permission_gated): user runs it / narrowest project allow rule / leave unverified; never a workaround"}
+  approve_design:               {tier: L2, default: ask, approval: design, note: "material architecture, API contract or DB change"}
+  create_github_issue_subtasks: {tier: L1, default: draft, approval: user or team policy}
+  create_application_bug:       {tier: L1, default: draft, approval: explicit user confirmation every time, requires: "generated error report attached at creation after a secret scan; full report only with the actuator config dump removed; whitelisted excerpt + run command/env in the description"}
+  reply_to_review_comment:      {tier: L2, default: allowed on the task's own PR (valid -> what changed; not valid -> reason), note: "reason cites code/evidence"}
+  resolve_review_thread:        {tier: L2, default: allowed on the task's own PR after the thread has a fix or a reasoned reply, command: "gh api graphql resolveReviewThread", note: never without a reply}
+  commit_signed_off:            {tier: L2, default: after gates, approval: commit_pr, command: "git commit -s"}
+  push_branch:                  {tier: L2, default: after DCO + branch_scope + change_scope, approval: push_and_pr, note: push to origin (fork)}
+  create_pr:                    {tier: L2, default: after DCO + branch_scope + change_scope, approval: push_and_pr, note: PR targets the upstream base branch}
+  persist_knowledge:            {tier: L2, default: propose, approval: review for high-impact entries}
+  clone_repository:             {tier: L0, default: ask, note: explain why the repo is needed}
+  escalation_decision:          {tier: L0, default: ask, approval: escalation_decision, note: "required to leave S_ESCALATE; names where work resumes"}
+  choose_base_branch:           {tier: L2, default: ask, approval: base_branch, note: "before creating the task branch; upstream ref, never local/origin"}
+  include_origin_or_local_changes: {tier: L2, default: denied, approval: explicit user request naming the commits/files}
+  database_migration:           {tier: L3, default: ask, approval: migration_review, note: "paired rollback; disposable DB only for staged validation"}
+  deploy_non_production:        {tier: L3, default: ask, approval: deploy, note: "environment named by the user; rollback plan first; post-deployment checks after"}
+  deploy_production:            {tier: L3, default: denied, note: "not enabled in this version; a human runs the production release"}
+  rollback_or_disruptive_remediation: {tier: L3, default: denied, approval: explicit elevated approval, note: "propose; a human executes"}
+  merge_release_delete_force_push: {tier: L3, default: denied, approval: explicit elevated approval}
+
+agents:                                  # permission profile per agent (agents/*.md frontmatter repeats it)
+  orchestrator:            analysis      # + writes the task manifest
+  requirement-analyst:     read-only
+  acceptance-reviewer:     read-only
+  impact-analyst:          analysis
+  solution-architect:      read-only     # writes design docs into the task workspace only
+  ux-designer:             read-only     # writes the UX spec into the task workspace only
+  api-contract-designer:   read-only
+  database-engineer:       workspace-write
+  software-developer:      workspace-write
+  sdet-architect:          workspace-write
+  testcase-designer:       workspace-write
+  testcase-reviewer:       read-only
+  api-automation:          workspace-write
+  ui-automation:           workspace-write
+  dsl-automation:          workspace-write
+  security-engineer:       analysis
+  code-reviewer:           analysis
+  fresh-context-reviewer:  analysis
+  failure-analyst:         analysis      # repair proposal only after diagnosis
+  defect-analyst:          read-only     # drafts; never files
+  devops-engineer:         workspace-write
+  release-manager:         read-only
+  sre-analyst:             read-only     # L0 by default
+  knowledge-curator:       workspace-write   # knowledge/ and module context only
+  module-onboarder:        analysis          # writes <module repo>/.crewline/ drafts only

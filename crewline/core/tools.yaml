@@ -1,0 +1,186 @@
+# Tool capability manifest (Plan §8). For every capability: when it is needed, how it is checked, and the
+# numbered steps the user follows to enable it. Rule (core/principles.md #17): when a step needs a capability
+# that is missing, the orchestrator STOPS, moves to WAITING_FOR_USER, and shows the user these steps,
+# never a workaround. `python -m crewline tools` checks the local ones; connector/browser ones are checked by
+# the adapter (tool present and responding).
+version: 2
+
+capabilities:
+  git:
+    needed_for: [REPO_READY, COMMIT_PR, PR_CLOSEOUT]
+    check: {command: "git --version"}
+    enable:
+      - 'Install Git for Windows from https://git-scm.com/download/win (keep "Git from the command line" selected).'
+      - 'Open a new terminal and run `git --version`.'
+      - 'Set your identity: `git config --global user.name "<Name>"` and `git config --global user.email "<email used for DCO>"`.'
+
+  java21:
+    needed_for: [DETERMINISTIC_VALIDATION, SYSTEM_TEST_EXECUTION, QUALITY_GATE]
+    check: {command: "java -version", expect: "21"}
+    enable:
+      - 'Install a JDK 21 (e.g. Eclipse Temurin 21) and add its `bin` folder to PATH.'
+      - 'Open a new terminal and run `java -version`; it must report version 21.'
+
+  maven:
+    needed_for: [DETERMINISTIC_VALIDATION, SYSTEM_TEST_EXECUTION, QUALITY_GATE]
+    check: {command: "mvn -v"}
+    enable:
+      - 'Install Apache Maven 3.9+ from https://maven.apache.org/download.cgi and add `bin` to PATH.'
+      - 'Run `mvn -v`. For offline builds, run one online build first so `~/.m2` has the dependencies (apitest-commons).'
+
+  python:
+    needed_for: [S0..FINAL_REPORT validators]
+    check: {command: "python -c \"import yaml, jsonschema\""}
+    enable:
+      - 'Install Python 3.11+ and add it to PATH.'
+      - 'Run: `pip install -r <assistant>/validators/requirements.txt`.'
+
+  github_cli:
+    needed_for: [GITHUB_PLANNING, PR_CLOSEOUT, PR checks]
+    check: {command: "gh auth status"}
+    enable:
+      - 'Install GitHub CLI from https://cli.github.com.'
+      - 'Run `gh auth login`, choose GitHub.com, HTTPS, and log in with the browser.'
+      - 'Run `gh auth status`; it must show your account (the fork owner).'
+
+  upstream_fetch:
+    needed_for: [REPO_READY]
+    check: {command: "git ls-remote https://github.com/<upstream_repo>.git <base_branch>"}
+    enable:
+      - 'Make sure the machine can reach github.com (VPN/proxy if required).'
+      - 'Optional: `git remote add upstream https://github.com/<upstream_repo>.git` in the module repo.'
+
+  test_credentials:
+    needed_for: [SYSTEM_TEST_EXECUTION, QUALITY_GATE]
+    check: {adapter: "credential fields of <module>.properties are SET (values never read into context)"}
+    enable:
+      - 'Put the environment''s credential file somewhere local (e.g. `Kernel_files/<env>.txt`), never in a repo.'
+      - 'Tell the assistant its path; it merges values into the worktree config, marks it skip-worktree, and restores it after the run.'
+
+  jira_connector:
+    needed_for: [create_application_bug, bug comments]
+    check: {adapter: "Atlassian tools present; getAccessibleAtlassianResources lists mosip.atlassian.net with write:jira-work"}
+    enable:
+      - 'In the Claude desktop app, open Settings → Connectors.'
+      - 'Find Atlassian (Jira/Confluence) and choose Connect; sign in to mosip.atlassian.net and approve the permissions.'
+      - 'Back in the session, ask the assistant to re-check; it will list the accessible sites.'
+
+  browser_upload:
+    needed_for: [attach run report to a bug (the Jira connector cannot upload files)]
+    check: {adapter: "mcp__claude-in-chrome__list_connected_browsers returns at least one browser"}
+    enable:
+      - 'Install Claude in Chrome from https://chromewebstore.google.com/detail/fcoeoabgfenejglbffodgkkbkcdhcgfn (use the Chrome profile you use for Jira).'
+      - 'Click the extension icon to open the Claude side panel and sign in with the same account as this desktop app.'
+      - 'In the same Chrome profile, sign in to https://mosip.atlassian.net.'
+      - 'Keep Chrome open and tell the assistant to retry; it checks for the connected browser before uploading.'
+
+  coverage_cli:
+    needed_for: [DETERMINISTIC_VALIDATION on modules with coverage/]
+    check: {adapter: "mosip-functional-tests/apitest-commons exists and `mvn -q -o compile` succeeds there (crewline coverage reports NOT_RUN otherwise)"}
+    enable:
+      - 'Clone mosip-functional-tests next to the module repos.'
+      - 'Run one online `mvn -q compile -Dgpg.skip=true -Dmaven.gitcommitid.skip=true` in `apitest-commons`.'
+
+  # --- development / operations capabilities (needed only by the task types that list them) ---
+  module_build:
+    needed_for: [feature, bug-fix, refactor, dependency-upgrade, database-migration]
+    check: {command: "mvn -v"}
+    enable:
+      - 'Same as maven + java21 above. Then run one online `mvn -B -q -DskipTests install` in the service parent (e.g. `pre-registration/pre-registration`) so `~/.m2` has kernel libraries.'
+      - 'If the build fails in a git worktree on git-commit-id-plugin, add `-Dmaven.gitcommitid.skip=true` (KI-PR-010).'
+
+  docker:
+    needed_for: [release, devops changes]
+    check: {command: "docker version"}
+    enable:
+      - 'Install Docker Desktop (or another OCI runtime your team approves) and start it.'
+      - 'Run `docker version`; both Client and Server must answer.'
+
+  helm:
+    needed_for: [release, devops changes]
+    check: {command: "helm version"}
+    enable:
+      - 'Install Helm 3 from https://helm.sh/docs/intro/install/ and add it to PATH.'
+      - 'Run `helm version`. Cluster access (kubeconfig) for the NON-production environment is given by your platform team; never production.'
+
+  dependency_scanner:
+    needed_for: [dependency-upgrade, feature (when dependencies change)]
+    check: {adapter: "the repository CI runs CodeQL / dependency review, or `mvn org.owasp:dependency-check-maven:check` works locally"}
+    enable:
+      - 'Preferred: rely on the CI security checks on the PR (codeql workflows) and read their results with `gh pr checks`.'
+      - 'Local: run `mvn -B org.owasp:dependency-check-maven:check` once online (it downloads the NVD data, which takes a while).'
+
+  disposable_db:
+    needed_for: [database-migration staged validation]
+    check: {command: "docker version"}
+    enable:
+      - 'Start a throw-away PostgreSQL matching the module (e.g. `docker run --rm -p 55432:5432 -e POSTGRES_PASSWORD=<local-only> postgres:<version>`).'
+      - 'Apply the release scripts, then the upgrade, run tests, apply the rollback, re-apply the upgrade. Never point this at a shared database.'
+
+  nonprod_environment:
+    needed_for: [AUTHORIZED_DEPLOYMENT, POST_DEPLOYMENT_VALIDATION, SYSTEM_TEST_EXECUTION of a production-code change]
+    check: {adapter: "user named the environment and confirmed it runs (or will run) the branch build; health endpoint answers"}
+    enable:
+      - 'Name the non-production environment (e.g. a dev/qa cluster) and how the branch build gets there (CI image + helm upgrade by the platform team, or a local service run).'
+      - 'Confirm the actuator health URL the assistant may read.'
+
+  pr_monitor:
+    needed_for: [PR_CLOSEOUT]
+    check: {adapter: "Claude desktop: ccd_pr get_status shows the PR bound to the session and monitoring on; otherwise `gh pr checks <n>` works"}
+    enable:
+      - 'Claude desktop: in the session that opened the PR, the assistant binds the PR (ccd_pr bind_pr) and turns on monitoring / Auto-fix (ccd_pr set_monitor); approve the prompt.'
+      - 'Other tools: the assistant starts ONE background `gh pr checks <n> --repo <owner/repo> --watch`; its exit is the wake-up. Requires `gh auth status` OK.'
+      - 'If neither works, tell the assistant you will report CI results and review comments yourself (pr.monitoring = manual-confirmed).'
+
+  branch_test_env:
+    needed_for: [SYSTEM_TEST_EXECUTION of feature, bug-fix, refactor, dependency-upgrade, database-migration]
+    check: {adapter: "test_plan.environment set and reachable (health endpoint), and the TestRig report header shows the branch commit"}
+    enable:
+      - 'Preferred: a dev/qa environment where CI deploys the PR image (ask the platform team which namespace and how to trigger it).'
+      - 'Else a local stack: the module docker-compose or a local service run (e.g. inji-verify docker-compose/), TestRig env.endpoint pointed at it.'
+      - 'Else defer: record an exception for gate system_tests naming the environment and date of the post-merge run; the run becomes a follow-up task and its results close the traceability (TRC-009).'
+
+# --- permission-gated actions ----------------------------------------------------------------------------------------
+# Installed but refused at runtime by the platform (permission prompt, auto-mode safety classifier, sandbox) because the
+# action downloads or runs third-party code, reaches the network, or writes outside the task. Protocol (principle 17):
+#   1. stop (WAITING_FOR_USER, resume_state = the current state); never retry the same action through a wrapper or alias
+#   2. tell the user what was blocked, why it is needed, and the `options` below (recommended first)
+#   3. record the answer as approval `tool_permission` (approver, scope = capability + task, reason, timestamp)
+#   4. continue per the answer; a rule the user grants is the narrowest one listed, in project settings, never broader
+permission_gated:
+  package_install:
+    examples: [npm ci, yarn install, pnpm install, pip install -r, mvn dependency:go-offline on a new registry]
+    needed_for: [verify JS/TS test commands, module onboarding, front-end tasks]
+    risk: downloads third-party packages and (without --ignore-scripts) runs their install scripts
+    options:
+      - id: user_runs
+        label: You run it once
+        steps:
+          - 'In a terminal: `cd <worktree>/<project> && npm ci --ignore-scripts` (drop --ignore-scripts only if tests then fail on a missing native binary).'
+          - 'Tell the assistant it is done; it runs the tests itself through `crewline run` and records the evidence.'
+      - id: allow_rule
+        label: Allow only the install command
+        steps:
+          - 'The assistant adds to the PROJECT settings (`<workspace>/.claude/settings.json`, Claude Code): `"permissions": {"allow": ["Bash(npm ci:*)", "Bash(npm.cmd ci:*)"]}` - nothing broader, never a rule for the `crewline run` wrapper.'
+          - 'You approve the settings change when prompted. The rule applies to this workspace only; remove it from that file to revoke.'
+          - 'The assistant runs `npm ci --prefix <project> --ignore-scripts`, then the tests through `crewline run`.'
+      - id: leave_inferred
+        label: Leave it unverified
+        steps:
+          - 'The command stays "Inferred" in the module context and the gate records the reason; nothing is installed.'
+    check: {adapter: "project settings allow Bash(npm ci:*) OR the user confirmed they ran it OR approval tool_permission says leave_inferred"}
+  network_download:
+    examples: [curl/wget of artifacts, docker pull, helm repo add]
+    needed_for: [release, devops changes]
+    risk: fetches and may execute content from the network
+    options:
+      - id: user_runs
+        label: You run it once
+        steps: ['Run the exact command the assistant shows you, then tell it the result.']
+      - id: allow_rule
+        label: Allow only that command
+        steps: ['The assistant adds one exact-prefix allow rule for that command to project settings; you approve the change.']
+      - id: leave_inferred
+        label: Skip it
+        steps: ['The step is recorded NOT_RUN with the reason.']
+    check: {adapter: "as for package_install"}

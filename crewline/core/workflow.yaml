@@ -1,0 +1,154 @@
+# Crewline workflow state machine (Blueprint v2.1 §5). ONE orchestrator, ONE graph, for every task type.
+# A task's `task_type` selects a template in core/workflows/<type>.yaml: the template lists the states that
+# task walks (`path`) and adds its own guards. A state not on the path is skipped: an edge into it collapses
+# forward to the next state that is on the path (crewline manifest computes this). Loop-backs into a skipped
+# state are dropped.
+#
+# Guard forms (evaluated against the task manifest):
+#   {gate: <name>, eq: PASS}               a gate entry in manifest.gates has this status
+#   {path: a.b.c, eq|ne|lt|gte|in: <v>}    a manifest field comparison
+#   {approval: <action>}                   manifest.approvals has an unconsumed, attributed, human record
+#   {all_of: [<guard>, ...]}               every guard holds
+#   {any_of: [<guard>, ...]}               at least one guard holds
+version: 2
+
+states:
+  S0_BOOTSTRAP_CHECK:        {next: [INTAKE]}                       # tools.yaml capabilities for this task type
+  INTAKE:                    {next: [INPUT_VALIDATION]}             # classify task_type + risk_tier, create manifest
+  INPUT_VALIDATION:          {next: [REQUIREMENT_ANALYSIS]}
+  REQUIREMENT_ANALYSIS:      {next: [ACCEPTANCE_REVIEW]}
+  ACCEPTANCE_REVIEW:         {next: [REQUIREMENT_ANALYSIS, IMPACT_ANALYSIS]}
+  IMPACT_ANALYSIS:           {next: [DESIGN]}
+  DESIGN:                    {next: [TESTCASE_DESIGN]}              # options, ADR, contract/DB/rollback implications
+  TESTCASE_DESIGN:           {next: [TESTCASE_REVIEW]}              # SDET: from ACs + design, never from the code (independent oracle)
+  TESTCASE_REVIEW:           {next: [TESTCASE_DESIGN, IMPLEMENTATION_PLAN]}
+  IMPLEMENTATION_PLAN:       {next: [GITHUB_PLANNING]}
+  GITHUB_PLANNING:           {next: [REPO_READY]}
+  REPO_READY:                {next: [IMPLEMENTATION]}               # fork model: base branch asked first
+  IMPLEMENTATION:            {next: [DETERMINISTIC_VALIDATION]}     # code + unit tests (developer) and/or testcases (SDET)
+  DETERMINISTIC_VALIDATION:  {next: [IMPLEMENTATION, UNIT_INTEGRATION_TEST]}
+  UNIT_INTEGRATION_TEST:     {next: [FAILURE_TRIAGE, IMPLEMENTATION_REVIEW]}
+  IMPLEMENTATION_REVIEW:     {next: [IMPLEMENTATION, FRESH_CONTEXT_REVIEW]}
+  FRESH_CONTEXT_REVIEW:      {next: [IMPLEMENTATION, DESIGN, TESTCASE_DESIGN, SYSTEM_TEST_EXECUTION]}
+  SYSTEM_TEST_EXECUTION:     {next: [FAILURE_TRIAGE, QUALITY_GATE]}  # API/UI/DSL TestRig against a deployed build
+  FAILURE_TRIAGE:            {next: [IMPLEMENTATION, UNIT_INTEGRATION_TEST, SYSTEM_TEST_EXECUTION, PR_CLOSEOUT]}
+  QUALITY_GATE:              {next: [COMMIT_PR, IMPLEMENTATION]}
+  COMMIT_PR:                 {next: [PR_CLOSEOUT]}                  # push + PR happen on this edge
+  PR_CLOSEOUT:               {next: [IMPLEMENTATION, FAILURE_TRIAGE, RELEASE_READINESS]}  # watch CI + review comments until both are clean
+  RELEASE_READINESS:         {next: [AUTHORIZED_DEPLOYMENT]}
+  AUTHORIZED_DEPLOYMENT:     {next: [POST_DEPLOYMENT_VALIDATION]}
+  POST_DEPLOYMENT_VALIDATION: {next: [KNOWLEDGE_UPDATE]}
+  KNOWLEDGE_UPDATE:          {next: [FINAL_REPORT]}
+  FINAL_REPORT:              {next: [DONE]}
+  DONE:                      {next: []}
+
+# Reachable from any non-terminal state. WAITING_FOR_USER returns to manifest.resume_state.
+# S_ESCALATE leaves only to manifest.resume_state, and only with a recorded human decision.
+special_states: [WAITING_FOR_USER, S_ESCALATE, BLOCKED]
+escalation_exit_guard: {approval: escalation_decision}
+terminal_states: [DONE]
+
+# Conditions to ENTER a state (any source). Templates add to these (core/workflows/*.yaml `entry_guards`).
+entry_guards:
+  REQUIREMENT_ANALYSIS:
+    - {gate: input_readiness, eq: PASS}
+  IMPACT_ANALYSIS:
+    - {path: requirements.open_ambiguities, eq: 0}
+  TESTCASE_DESIGN:
+    - {path: requirements.open_ambiguities, eq: 0}
+  IMPLEMENTATION_PLAN:
+    - {gate: design_readiness, eq: PASS}
+  REPO_READY:                                      # ask BEFORE creating any branch
+    - {approval: base_branch}
+  IMPLEMENTATION:
+    - {gate: plan_readiness, eq: PASS}
+    - {gate: repo_ready, eq: PASS}
+  IMPLEMENTATION_REVIEW:
+    - {gate: deterministic_validation, eq: PASS}
+  FRESH_CONTEXT_REVIEW:
+    - {gate: deterministic_validation, eq: PASS}
+    - {path: reviews.implementation_review, eq: PASS}
+  SYSTEM_TEST_EXECUTION:
+    - {path: reviews.implementation_review, eq: PASS}
+    - {path: reviews.fresh_context_review, eq: PASS}
+  QUALITY_GATE:
+    - {path: reviews.implementation_review, eq: PASS}
+    - {path: reviews.fresh_context_review, eq: PASS}
+  COMMIT_PR:
+    - {gate: quality_gate, eq: PASS}
+    - {gate: full_regression, eq: PASS}
+    - {gate: secrets, eq: PASS}
+    - {approval: commit_pr}
+  AUTHORIZED_DEPLOYMENT:                           # L3: never production by default
+    - {gate: release_readiness, eq: PASS}
+    - {path: release.environment_class, eq: non-production}
+    - {approval: deploy}
+
+# Conditions on a specific edge.
+transition_guards:
+  FAILURE_TRIAGE->IMPLEMENTATION:                   # two bounded repair loops, one per track (ADR-0005)
+    - any_of:
+        - all_of: [{path: repair.classification, eq: AUTOMATION}, {path: repair.attempt_count, lt: 3}]
+        - all_of: [{path: repair.classification, eq: CODE_UNDER_CHANGE}, {path: repair.dev_attempt_count, lt: 3}]
+  FAILURE_TRIAGE->UNIT_INTEGRATION_TEST:            # re-run without a change is not an attempt
+    - {path: repair.classification, in: [TEST_DATA, ENVIRONMENT]}
+  FAILURE_TRIAGE->SYSTEM_TEST_EXECUTION:
+    - {path: repair.classification, in: [TEST_DATA, ENVIRONMENT]}
+  COMMIT_PR->PR_CLOSEOUT:                           # checked on the real commit(s), before anything leaves the machine
+    - {gate: dco, eq: PASS}
+    - {gate: branch_scope, eq: PASS}
+    - {gate: change_scope, eq: PASS}
+    - {approval: push_and_pr}
+  PR_CLOSEOUT->IMPLEMENTATION:                      # a valid review comment re-enters the loop; gates re-run
+    - any_of:
+        - {path: pr.valid_comments_open, gte: 1}
+        - {path: repair.classification, eq: CODE_UNDER_CHANGE}   # decided in FAILURE_TRIAGE for a CI failure
+  PR_CLOSEOUT->FAILURE_TRIAGE:                      # a failing required CI check is triaged like any other failure
+    - {path: pr.ci_status, eq: FAIL}
+  FAILURE_TRIAGE->PR_CLOSEOUT:                      # infra/flaky CI: re-run the check, not a repair attempt
+    - {path: repair.classification, in: [ENVIRONMENT, TEST_DATA]}
+  FINAL_REPORT->DONE:
+    - {path: final_report_ref, ne: ""}
+
+# Leaving PR_CLOSEOUT forward (whatever the template's next state is) needs every valid comment dealt with.
+exit_guards:
+  PR_CLOSEOUT:
+    forward:
+      - {path: pr.valid_comments_open, eq: 0}
+      - {path: pr.unresolved_threads, eq: 0}            # every thread resolved after a fix or a reasoned reply
+      - {path: pr.ci_status, eq: PASS}                 # every required check green on the PR head
+      - {path: pr.monitoring, in: [app, gh-watch, manual-confirmed]}   # someone was actually watching
+
+# PR watch (PR_CLOSEOUT): right after the PR is opened, turn on monitoring so CI failures, merge conflicts and review
+# comments wake the orchestrator instead of being polled for. Order of preference (core/tools.yaml pr_monitor):
+#   app            Claude desktop PR monitor / Auto-fix bound to the session that owns the PR
+#   gh-watch       one background `gh pr checks <n> --watch` whose exit wakes the session (no sleep loops)
+#   manual-confirmed  the user confirmed they will report CI/review events
+# Every event gets a usage mark "PR_CLOSEOUT: <event>". A fix pushed after a comment or CI failure needs a NEW
+# push_and_pr approval (approvals are single-use).
+
+# Mandatory escalation in FAILURE_TRIAGE: when any holds, the only legal exits are S_ESCALATE / WAITING_FOR_USER.
+forced_escalation:
+  FAILURE_TRIAGE:
+    - all_of: [{path: repair.classification, eq: AUTOMATION}, {path: repair.attempt_count, gte: 3}]
+    - all_of: [{path: repair.classification, eq: CODE_UNDER_CHANGE}, {path: repair.dev_attempt_count, gte: 3}]
+    - {path: repair.classification, eq: APPLICATION}
+    - {path: repair.classification, eq: SECURITY}
+    - {path: repair.classification, eq: SPECIFICATION}
+
+# CODE_UNDER_CHANGE = the failure is caused by this task's own production-code diff (fails on the branch,
+# passes or is absent on the base, and the failing path runs through changed code). It goes back to the
+# developer, NOT to a bug. A bug is only for a defect the task did not introduce (APPLICATION).
+failure_classes: [AUTOMATION, CODE_UNDER_CHANGE, APPLICATION, TEST_DATA, ENVIRONMENT, SPECIFICATION, UNKNOWN, SECURITY]
+gate_statuses: [PASS, FAIL, BLOCKED, NOT_RUN, NOT_APPLICABLE]
+task_outcomes: [SUCCESS, PARTIAL, BLOCKED, ESCALATED, FAILED]
+task_types: [feature, bug-fix, refactor, dependency-upgrade, database-migration, incident, release, test-automation, module-onboarding, documentation]
+
+# Linked changes across repositories (module + apitest-commons, service + kernel lib, ...), enforced by
+# `crewline manifest` MAN-006..009:
+#   - each changed repo: its own base_branch approval before its branch exists, its own branch_scope:<n>/dco:<n>
+#   - dependency PRs first, primary last, primary PR body links every dependency PR
+#   - a dependency change states version_link (how the primary consumes it)
+linked_changes:
+  per_repo_gates: [branch_scope, dco]
+  pr_order: dependencies first, primary last; primary PR body links every dependency PR

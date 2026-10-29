@@ -1,0 +1,698 @@
+# Crewline
+
+*A full engineering crew, one line of work.*
+
+One controlled, evidence-backed engineering workflow for MOSIP across the whole SDLC: requirements, design,
+independent tests, code, reviews, system tests, a signed-off PR, release readiness and post-deployment checks.
+It is run by one orchestrator with specialist agents, deterministic gates and human approvals.
+
+> **The model proposes; repositories preserve verified knowledge; deterministic controls enforce rules; humans approve.**
+
+| | |
+|---|---|
+| Version | `0.1.0` (see `VERSION`) |
+| Design | `../AI_Engineering_Agent_Full_SDLC_Implementation_Blueprint_v2.1.html` (authoritative) and `../AI_Engineering_Agent_Full_SDLC_Updated_Plan_v1.3.html` |
+| Lineage | Copied from the SDET Architect Assistant 0.2.0. Its proven workflow is the `test-automation` task type and the `agents/qa/` specialty |
+| Pilots | **PILOT-001** (test automation): [mosip/pre-registration#1088](https://github.com/mosip/pre-registration/pull/1088) · **PILOT-002** (bug fix MOSIP-38854): [mosip/pre-registration#1089](https://github.com/mosip/pre-registration/pull/1089) |
+| Health | 77 validator acceptance tests, 41 evaluation scenarios |
+
+---
+
+## Quick start for a new user
+
+1. **Get the agent** (one time): copy or clone `crewline` to your machine, then
+   `pip install -r validators/requirements.txt` and `cd validators && python -m pytest -q tests` (all must pass).
+2. **Check your tools:** `python -m crewline tools` (from `validators/`). Follow the numbered steps for anything missing
+   (Java 21, Maven, Node for UI modules, GitHub CLI logged in with your fork, Jira connector).
+3. **Install the adapter into the folder where you keep your module clones**
+   (e.g. `D:/work/mosip`): `python adapters/install.py --platform claude --target D:/work/mosip --write`
+   (Cursor: `--platform cursor`). This writes the skill and the `crewline-*` subagents, pointing at your copy of the agent.
+4. **Have the module cloned with two remotes:** `origin` = your fork, `upstream` = the official repo
+   (`git remote add upstream https://github.com/<org>/<repo>.git`).
+5. **Open Claude Code (or Cursor) in that folder** and describe the work in one message (templates below).
+   If the module has no `<module repo>/.crewline/` yet, the agent onboards it first (`module-onboarding`).
+6. **Answer what it asks**: open questions, the upstream base branch, design approval, and each commit / push / PR / Jira action.
+   Watch `tasks/<id>/` for the manifest, evidence, `usage.md` and the final report.
+
+**Request templates**
+- New change: `Feature for inji-verify: <story key> <what the user should be able to do>. Acceptance: <...>.`
+- Bug: `Fix <story key> in <module>: <symptom, how to reproduce>.`
+- **Add to an existing PR:** `Feature for inji-verify: <story key> <description>. Push it to the existing PR
+  inji/inji-verify#2460 (do not open a new PR).` - the agent then works on that PR's branch (orchestrator step 4b).
+
+## Contents
+1. [What it is (and is not)](#1-what-it-is-and-is-not)
+2. [Architecture](#2-architecture)
+3. [The workflow](#3-the-workflow)
+4. [Task types](#4-task-types)
+5. [Agents](#5-agents)
+6. [Quality gates](#6-quality-gates)
+7. [Testing model](#7-testing-model)
+8. [Failures, repairs and escalation](#8-failures-repairs-and-escalation)
+9. [Git, PR and review comments](#9-git-pr-and-review-comments)
+10. [Governance: tiers, approvals, independence](#10-governance-tiers-approvals-independence)
+11. [Validators (`crewline`)](#11-validators-crewline)
+12. [Evidence and token usage](#12-evidence-and-token-usage)
+13. [Task manifest](#13-task-manifest)
+14. [Knowledge and module context](#14-knowledge-and-module-context)
+15. [Adapters and installation](#15-adapters-and-installation)
+16. [Running a task, step by step](#16-running-a-task-step-by-step) · [Use it for your module](#use-it-for-your-module)
+17. [Repository layout](#17-repository-layout)
+18. [Pilots and lessons](#18-pilots-and-lessons)
+19. [Status, limits and open questions](#19-status-limits-and-open-questions)
+
+---
+
+## 1. What it is (and is not)
+
+**It is** a repository of rules, contracts and scripts that any AI coding tool (Claude Code, Cursor, others) follows. A task
+(a story, a bug, an upgrade) goes through a fixed state machine. At every step it:
+- delegates to a specialist agent;
+- runs deterministic validators;
+- asks a human for every consequential action;
+- records evidence that cannot be typed in by the model.
+
+**It is not** a code generator that commits on its own, a second testcase format, or a replacement for the team's CI.
+It drives the tools the team already has:
+- API TestRig YAML and the coverage matrix (`CoverageCli`);
+- Maven, JUnit and JaCoCo;
+- the GitHub CI workflows, CodeQL and DCO;
+- Jira.
+
+**Design rules that shape everything:**
+- **One orchestrator** owns state, permissions, evidence, retries and the final status. Specialists only propose.
+- **Deterministic checks decide.** If a script can check a rule, the script decides. A check that didn't run is `NOT_RUN`, never `PASS`.
+- **Humans approve.** Approvals are recorded, attributed, single-use, and never granted by an agent.
+- **Nothing outside the plan.** A task may change only the file paths its plan approved.
+
+---
+
+## 2. Architecture
+
+### 2.1 Layers
+
+```mermaid
+flowchart TB
+    U["Engineer / Product owner<br/>asks · answers · approves"]
+    ADP["Platform adapter<br/>Claude Code skill + crewline-* subagents · Cursor rule · generic ENTRY.md"]
+    subgraph CORE["Crewline core (this repository)"]
+        direction LR
+        O["Orchestrator<br/>task manifest · state · approvals · retries"]
+        POL["Policy<br/>workflow.yaml + 9 templates<br/>quality gates · permissions · escalation · tools"]
+        AG["Specialist agents by role<br/>PO · UI/UX · architect · dev · QA/SDET · review<br/>security · devops · SRE · knowledge (25)"]
+        KN["Knowledge<br/>frameworks · MOSIP · ADRs<br/>each module's own .crewline/ (by role)"]
+    end
+    V["Deterministic layer: crewline<br/>manifest · evidence · scope · test integrity · diff coverage<br/>trace · regression · branch · DCO · secrets · usage"]
+    EXT["Team tooling<br/>MOSIP repos (worktrees) · Maven · JUnit · JaCoCo · API TestRig · CoverageCli"]
+    OUT["Outward actions, each after a human approval<br/>commit · push to fork · PR to upstream · Jira"]
+    T["tasks/&lt;id&gt;/<br/>manifest · evidence · usage · reports"]
+
+    U <--> ADP <--> O
+    O --- POL
+    O <-->|"minimal context packet / agent-response"| AG
+    AG --- KN
+    O <-->|"every transition and gate: PASS · FAIL · NOT_RUN"| V
+    AG --> EXT
+    V --> EXT
+    O --> OUT
+    O --> T
+```
+
+### 2.2 Component boundaries
+
+| Component | Owns | Must not |
+|---|---|---|
+| Adapter | Tool syntax, context loading, tool bindings | Hold workflow policy |
+| Orchestrator | State transitions, delegation, gates, approvals, retries, manifest | Invent results; bypass validators |
+| Specialist agent | Bounded analysis or implementation in its states | Move state; approve; act outside approved paths |
+| Validators | Machine-checkable rules, machine-readable results | Decide ambiguous product intent |
+| Knowledge | Versioned, evidence-labelled facts (Verified / Inferred / Unknown) | Present an unverified claim as fact |
+| Human | Answers, approvals, exceptions, production actions | — |
+
+### 2.3 One task, end to end
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor H as Human
+    participant O as Orchestrator
+    participant S as Specialists
+    participant V as crewline
+    participant GH as GitHub / Jira
+    H->>O: request (story, bug, upgrade ...)
+    O->>V: tools (S0) - missing tool means stop with enable steps
+    O->>O: INTAKE: task_type + risk tier, create manifest
+    O->>S: requirements, AC review, impact, design
+    S-->>O: ACs, impact map, design (approval if material)
+    O->>S: SDET designs tests from ACs (before code)
+    O->>H: base branch? (fork model)
+    H-->>O: approval base_branch
+    O->>S: developer implements in worktree (approved paths only)
+    O->>V: build · test-integrity · change-scope · secrets · diff-coverage · regression · trace
+    O->>S: code review (ctx A), then fresh-context review (ctx B)
+    O->>V: manifest --to COMMIT_PR (every template gate PASS)
+    O->>H: approve commit? / push + PR?
+    H-->>O: approvals (single-use)
+    O->>GH: signed-off commit, push to fork, PR to upstream
+    GH-->>O: CI events and review comments (app PR monitor)
+    O->>O: PR_CLOSEOUT loop until CI green and no valid comment open
+    O->>H: final report + token usage per stage and step
+```
+
+---
+
+## 3. The workflow
+
+`core/workflow.yaml` is the single state machine (28 states). States are declared in **main-line order**.
+`crewline manifest <m> --to <STATE> [--apply]` is the only way state moves: it refuses illegal edges and unmet guards,
+and records every transition with a timestamp.
+
+```mermaid
+flowchart TB
+    P1["<b>1 · Intake and requirements</b><br/>S0_BOOTSTRAP_CHECK → INTAKE → INPUT_VALIDATION<br/>→ REQUIREMENT_ANALYSIS ⇄ ACCEPTANCE_REVIEW"]
+    P2["<b>2 · Analysis, design, tests first</b><br/>IMPACT_ANALYSIS → DESIGN<br/>→ TESTCASE_DESIGN ⇄ TESTCASE_REVIEW"]
+    P3["<b>3 · Plan and branch</b><br/>IMPLEMENTATION_PLAN → GITHUB_PLANNING → REPO_READY<br/>(approved paths · base branch asked)"]
+    P4["<b>4 · Build, test, review</b><br/>IMPLEMENTATION → DETERMINISTIC_VALIDATION → UNIT_INTEGRATION_TEST<br/>→ IMPLEMENTATION_REVIEW → FRESH_CONTEXT_REVIEW → SYSTEM_TEST_EXECUTION"]
+    FT{{"FAILURE_TRIAGE<br/>classify · route · cap 3 per loop"}}
+    P5["<b>5 · Gate, commit, PR</b><br/>QUALITY_GATE → COMMIT_PR → PR_CLOSEOUT<br/>(approvals · CI and review watch)"]
+    P6["<b>6 · Release and close</b><br/>RELEASE_READINESS → AUTHORIZED_DEPLOYMENT → POST_DEPLOYMENT_VALIDATION<br/>→ KNOWLEDGE_UPDATE → FINAL_REPORT → DONE"]
+    ESC(["WAITING_FOR_USER · S_ESCALATE · BLOCKED<br/>reachable from any state"])
+
+    P1 --> P2 --> P3 --> P4 --> P5 --> P6
+    P4 -->|"test failure"| FT
+    P5 -->|"red CI"| FT
+    FT -.->|"repair → IMPLEMENTATION"| P4
+    P5 -.->|"gate failed / valid review comment → IMPLEMENTATION"| P4
+    FT -->|"application · security · cap reached"| ESC
+```
+
+Dashed arrows are loop-backs. From any state the orchestrator can also go to:
+- `WAITING_FOR_USER`, which resumes only to `resume_state`;
+- `S_ESCALATE`, which is left only with a recorded human `escalation_decision`;
+- `BLOCKED`.
+
+**Guards** (evaluated against the task manifest):
+
+| Form | Meaning |
+|---|---|
+| `{gate: X, eq: PASS}` | gate X recorded as PASS (skipped when X's state is not on the template path) |
+| `{path: a.b, eq / ne / lt / gte / in: v}` | manifest field comparison |
+| `{approval: action}` | an unconsumed, attributed, human approval exists; a transition that uses it **consumes** it |
+| `{any_of: [...]}`, `{all_of: [...]}` | combinations, e.g. the two repair loops |
+
+**Important guards:**
+- **Ambiguities:** `IMPACT_ANALYSIS` and `TESTCASE_DESIGN` need `open_ambiguities == 0`.
+- **Base branch:** `REPO_READY` needs approval `base_branch`, asked before any branch exists.
+- **Commit:** `COMMIT_PR` needs `quality_gate`, `full_regression`, `secrets`, approval `commit_pr`, and every `required_gates` entry of the template (MAN-012).
+- **Push and PR:** `COMMIT_PR -> PR_CLOSEOUT` (where push and PR happen) needs `dco`, `branch_scope`, `change_scope` and approval `push_and_pr`.
+- **PR closeout:** `PR_CLOSEOUT` moves forward only with `pr.ci_status == PASS`, `pr.valid_comments_open == 0` and `pr.monitoring` set.
+- **Deployment:** `AUTHORIZED_DEPLOYMENT` needs `release_readiness`, `environment_class == non-production` and approval `deploy`.
+
+---
+
+## 4. Task types
+
+Each of the 9 task types is a **template**: a projection of the one graph, never a second orchestrator (ADR-0004). `path` lists the
+states the type walks. An edge into a skipped state collapses forward along the main line; a loop-back into a skipped
+state is dropped. Templates add guards and list `required_gates`.
+
+| Type | Tier | States | What is special | Required gates |
+|---|---|---:|---|---|
+| `feature` | L2 | 26 | AC review; design + approval `design`; tests from ACs before code; release readiness | design, testcase, build, unit, diff coverage, component, deterministic, test integrity, traceability, system tests, full regression, secrets, dependency security, change scope |
+| `bug-fix` | L2 | 23 | a test that **fails on the base** first (`reproduction`); minimal fix | reproduction, build, unit, diff coverage, component, deterministic, test integrity, traceability, full regression, secrets, change scope |
+| `refactor` | L2 | 21 | strict test integrity: no test may change | design, build, unit, diff coverage, component, deterministic, test integrity, full regression, secrets, change scope |
+| `dependency-upgrade` | L2 | 21 | analysis of the **resolved** version; dependency security | design, build, unit, deterministic, test integrity, dependency security, full regression, secrets, change scope |
+| `database-migration` | L3 | 26 | paired upgrade/rollback; approval `migration_review`; disposable-DB staged validation | design, testcase, migration pairing, build, unit, diff coverage, component, deterministic, test integrity, system tests, full regression, secrets, change scope, release readiness |
+| `incident` | L0 | 7 | read-only: telemetry, timeline, hypotheses, postmortem; a fix becomes a new bug-fix task | secrets |
+| `release` | L3 | 10 | readiness, rollback plan, non-production deploy only, post-deployment checks | release readiness, post deployment |
+| `test-automation` | L2 | 22 | the PILOT-001 SDET path (matrix rows + TestRig YAML) | testcase, deterministic, test integrity, traceability, system tests, full regression, secrets, change scope |
+| `module-onboarding` | L1 | 7 | Phase 0 for a new module: read-only discovery, evidence-labelled drafts, validator baseline, owner approval `onboarding_review` | onboarding discovery, onboarding baseline, secrets |
+| `documentation` | L2 | 16 | docs-only change in a module repo (e.g. publishing reviewed `.crewline/development/`/`.crewline/qa/`); one independent review; `full_regression` not applicable (template `not_applicable_gates`) | deterministic, secrets, change scope |
+
+A request that mixes types takes the stricter template or is split into linked tasks. The risk tier comes from the template
+and can only be raised (MAN-013).
+
+---
+
+## 5. Agents
+
+Contracts live in `agents/` (each has inputs, outputs, procedure, must-not rules and a permission profile). Every agent returns a
+`templates/agent-response.schema.json` block:
+- `task_id`, `agent`, `context_id`, `status`, `summary`;
+- `evidence_refs`, `assumptions`, `unresolved_questions`;
+- `proposed_changes`, `risks`, `recommended_next_state`.
+
+Agents are grouped by the role they play in a team (`agents/<role>/`; full map with states in `agents/README.md`).
+Folders are for people: the workflow and the installer find agents by `name:`.
+
+| Role (folder) | Agent | States | Produces |
+|---|---|---|---|
+| Orchestration (`agents/`) | orchestrator | all | manifest, delegations, approvals, final report |
+| **Product Owner / BA** (`product/`) | requirement-analyst | INPUT_VALIDATION, REQUIREMENT_ANALYSIS | numbered ACs (incl. NFRs), ambiguity register |
+| | acceptance-reviewer | ACCEPTANCE_REVIEW | testability / contradiction findings |
+| **UI / UX** (`ui-ux/`) | ux-designer | DESIGN, TESTCASE_DESIGN (UI), IMPLEMENTATION_REVIEW (UI) | screen states, copy + translation keys, accessibility checklist, testable UI ACs |
+| **Architect** (`architecture/`) | impact-analyst | IMPACT_ANALYSIS | code/API/DB/ops impact, proposed `approved_paths`, linked repos |
+| | solution-architect | DESIGN | design doc, options, ADR, rollback approach |
+| | api-contract-designer | DESIGN, IMPLEMENTATION_REVIEW | contract diff, additive vs breaking verdict |
+| **Developer** (`development/`) | software-developer | IMPLEMENTATION, FAILURE_TRIAGE (CODE_UNDER_CHANGE) | scoped diff, unit + component tests, evidence |
+| | database-engineer | DESIGN, IMPLEMENTATION | paired migrations, staged-validation plan |
+| **QA / SDET** (`qa/`) | sdet-architect (lead) | TESTCASE_DESIGN/REVIEW, SYSTEM_TEST_EXECUTION, FAILURE_TRIAGE (AUTOMATION) | test strategy per AC, delegates below |
+| | testcase-designer · testcase-reviewer | TESTCASE_DESIGN · TESTCASE_REVIEW | coverage-matrix rows, TestRig YAML design |
+| | api-automation · ui-automation · dsl-automation | IMPLEMENTATION | TestRig YAML, templates, Suite.xml wiring |
+| | failure-analyst · defect-analyst | FAILURE_TRIAGE / S_ESCALATE | classification with evidence; bug drafts with secret-scanned run reports |
+| **Reviewer** (`review/`) | code-reviewer | IMPLEMENTATION_REVIEW, PR_CLOSEOUT | review 1; PR comment validity |
+| | fresh-context-reviewer | FRESH_CONTEXT_REVIEW | review 2 in a new context, source-only packet |
+| **Security** (`security/`) | security-engineer | DETERMINISTIC_VALIDATION, IMPLEMENTATION_REVIEW | severity-rated findings, dependency verdict |
+| **DevOps / Release** (`devops/`) | devops-engineer | IMPLEMENTATION, RELEASE_READINESS, AUTHORIZED_DEPLOYMENT | validated CI/Helm/Docker changes, deploy record |
+| | release-manager | RELEASE_READINESS | release notes, compatibility, rollback plan |
+| **SRE / Operations** (`operations/`) | sre-analyst | incident path, POST_DEPLOYMENT_VALIDATION | timeline, hypotheses, postmortem draft |
+| **Knowledge** (`knowledge/`) | knowledge-curator | KNOWLEDGE_UPDATE | evidence-labelled knowledge deltas |
+| | module-onboarder | IMPACT_ANALYSIS, KNOWLEDGE_UPDATE (onboarding) | module context drafts, validator profile, baseline |
+
+---
+
+## 6. Quality gates
+
+`core/quality-gates.yaml` defines 32 gates. Each gate's status goes in the manifest as `PASS | FAIL | BLOCKED | NOT_RUN | NOT_APPLICABLE`,
+with rationale, evidence and the commit it was checked at. `enforced_by: deterministic` means a command decides, not an agent.
+
+| Stage | Gates |
+|---|---|
+| Onboarding | `onboarding_discovery`, `onboarding_baseline` |
+| Requirements / design | `input_readiness`, `acceptance_readiness`, `design_readiness`, `testcase_readiness`, `reproduction`, `plan_readiness`, `repo_ready` |
+| Build / static | `build`, `deterministic_validation`, `test_integrity`, `migration_pairing`, `dependency_security` |
+| Developer testing | `unit_tests`, `diff_coverage`, `component_tests` |
+| Reviews | `implementation_review`, `fresh_context_review` |
+| System / pre-commit | `system_tests`, `full_regression`, `traceability`, `change_scope`, `secrets`, `quality_gate` |
+| Git / PR | `dco`, `branch_scope`, `pr_ci`, `pr_comments` |
+| Release / ops | `release_readiness`, `post_deployment`, `knowledge_update` |
+
+**Exceptions** need `gate`, `approver`, `reason`, `scope` and `timestamp`. Never waivable: `secrets`, `test_integrity` without
+approval, the repair caps, and production deployment.
+
+---
+
+## 7. Testing model
+
+```mermaid
+flowchart TB
+    AC["Acceptance criteria<br/>(numbered, api: true when a caller can observe them)"]
+    AC -->|"designed BEFORE code (independent oracle)"| TD["SDET test design"]
+    subgraph DEV["Developer testing - UNIT_INTEGRATION_TEST"]
+        UT["Unit tests<br/>JUnit + Mockito"]
+        CT["Component tests at the HTTP boundary<br/>MockMvc / @WebMvcTest"]
+        COV["diff-coverage<br/>JaCoCo: at least 80% of changed lines"]
+    end
+    subgraph SYS["System testing - SYSTEM_TEST_EXECUTION"]
+        TR["API / UI / DSL TestRig<br/>against an env running the BRANCH build"]
+    end
+    REG["full_regression<br/>full suite base vs branch: 0 new breaks"]
+    TD --> UT
+    TD --> CT
+    TD --> TR
+    UT --> COV
+    CT --> COV
+    COV --> REG
+    TR --> REG
+    REG --> TRC["trace: AC to code to test id to PASS"]
+```
+
+| Layer | Who | Gate / validator | Rule |
+|---|---|---|---|
+| Reproduction (bug fix) | SDET + developer | `reproduction` | the new test fails on the base for the reported reason, then passes on the branch |
+| Unit | developer | `unit_tests`, `crewline regression` (surefire XML) | targeted while iterating; changed modules' full suite base vs branch before commit |
+| Coverage of the change | developer | `diff_coverage`, `crewline diff-coverage` | at least 80% of changed executable production lines executed; no unreported file; report newer than the code |
+| Component (HTTP boundary) | developer | `component_tests`, `crewline trace` TRC-007 | when system tests are not applicable, every `api: true` AC needs a passing MockMvc / `@WebMvcTest` test asserting what the caller sees |
+| Test integrity | all | `test_integrity`, `crewline test-integrity` + `expected-diff` | no removed/disabled tests, no fewer assertions, no weakened TestRig expectations without approval |
+| System (API/UI/DSL) | SDET | `system_tests` | only counts when the environment runs the branch build; report header must show the branch commit |
+| Regression | all | `full_regression` | full suite on base and branch, same environment, sequential; any PASS to FAIL blocks |
+| Traceability | orchestrator | `traceability`, `crewline trace` | every AC maps to code refs and tests with a recorded result |
+
+**Scope rule:** run targeted tests while iterating. Before committing, run the full suite on base and branch. If only new tests
+were added, those tests plus their producers are enough (`crewline scope` for TestRig).
+
+---
+
+### 7.1 SDET in every flow
+
+Every flow that changes product code runs through the SDET role: new behaviour gets automated system tests, and the existing
+TestRig suites prove nothing broke, before the PR. Steps are included or skipped per task type, never silently.
+
+```mermaid
+flowchart TB
+    S["Story / bug"] --> PO["PO: requirements + AC review<br/>(api / ui flags per AC)"]
+    PO --> UX["UI/UX: screens, states, copy keys, accessibility<br/>(when a UI changes)"]
+    UX --> AR["Architect: impact + design (approval)"]
+    AR --> TD["SDET: test case design from ACs<br/>+ test plan: where the branch build runs"]
+    TD --> DEV["Dev: code + unit + component tests"]
+    TD --> AUTO["SDET: automate missing cases<br/>(TestRig API / UI rig)"]
+    DEV --> REV["Reviews: code review + fresh-context review"]
+    AUTO --> REV
+    REV --> RUN["SDET: TestRig run on the branch build<br/>new cases + existing regression (base vs branch)"]
+    RUN -->|"all pass"| QG["Quality gate: every required gate has evidence"]
+    RUN -->|"failure"| TRI{"Triage: fails on base too?"}
+    TRI -->|"no: our change"| FIX["Bug fixing: developer loop (max 3)"]
+    TRI -->|"yes: pre-existing"| BUG["Bug raising: Jira bug + run report<br/>(or deferred with a reason)"]
+    TRI -->|"test / data / env"| AFIX["SDET fixes the test or re-runs"]
+    FIX --> RUN
+    AFIX --> RUN
+    BUG --> QG
+    QG --> PR["Commit + PR (approvals) -> CI + review watch"]
+```
+
+| Step | feature | bug-fix | refactor | dependency-upgrade | database-migration | test-automation | documentation | incident | release |
+|---|---|---|---|---|---|---|---|---|---|
+| PO: requirements / AC review | yes | yes | — | — | yes | yes | — | — | — |
+| UI/UX spec | when UI changes | when UI changes | — | — | — | — | — | — | — |
+| Design + approval | yes | — | yes | yes | yes (+ migration review) | — | — | — | — |
+| SDET test design from ACs | yes (before code) | yes (reproduction first) | regression selection | regression selection | yes | yes | — | — | — |
+| Test plan (branch environment) | required | required | required | required | required | required | — | — | — |
+| Dev: code + unit + component tests | yes | yes | yes | yes | yes | — | docs only | — | — |
+| SDET: automate missing system cases | every api/ui AC (TRC-008) | the reproduced symptom | — | — | every api/ui AC | the whole task | — | — | — |
+| TestRig run on the branch build (new + regression) | required | required | required | required | required | required | — | — | smoke after deploy |
+| Bug raising / bug fixing before PR | MAN-014 | MAN-014 | MAN-014 | MAN-014 | MAN-014 | MAN-014 | — | read-only | — |
+
+**Enforced by:**
+- **No code before a test plan:** IMPLEMENTATION is refused until `test_plan.environment` says where the branch build runs.
+- **Every user-facing criterion is automated:** an `api` or `ui` acceptance criterion without a system-level automated test is blocked (TRC-008). One without a result on the branch build is blocked too (TRC-009).
+- **System tests and regression can't be quietly skipped:** they can't be marked "not applicable" in code flows (MAN-015). The only way to skip them is a human-approved deferral to a named environment and date; the post-merge run then becomes a follow-up task.
+- **No PR with an open defect:** the PR is refused while a defect caused by the change is open, or while a pre-existing one hasn't been raised (MAN-014).
+- **Where it can run:** an environment where CI deploys the PR image, or a local stack (the module's docker-compose or a local service run). Options and steps are in `core/tools.yaml` under `branch_test_env`.
+
+## 8. Failures, repairs and escalation
+
+```mermaid
+flowchart TB
+    F["Failing test or red CI check"] --> FP["Capture evidence<br/>fingerprint = test id | assertion | status"]
+    FP --> BASE{"Fails on the BASE too?"}
+    BASE -->|"no, and the path runs through the task's diff"| CUC["CODE_UNDER_CHANGE"]
+    BASE -->|"yes"| APP["APPLICATION<br/>(pre-existing defect)"]
+    FP --> AUT["AUTOMATION<br/>(test code / YAML / wiring)"]
+    FP --> ENV["ENVIRONMENT / TEST_DATA"]
+    FP --> SPEC["SPECIFICATION / SECURITY"]
+    CUC --> DL["Developer loop<br/>max 3 attempts (dev_attempt_count)"]
+    AUT --> SL["SDET loop<br/>max 3 attempts (attempt_count)"]
+    ENV --> RERUN["Re-run (not an attempt)"]
+    APP --> ESC["S_ESCALATE<br/>bug draft with secret-scanned run report"]
+    SPEC --> ESC
+    DL -->|"cap reached"| ESC
+    SL -->|"cap reached"| ESC
+    ESC --> HD["Human escalation_decision<br/>names the resume state"]
+```
+
+- **Attempts:** one attempt is one distinct, evidence-based change followed by validation. Re-running unchanged code does not count. Counters reset only for a different fingerprint or a human-approved new investigation (ADR-0005).
+- **Escalate immediately:** a defect outside the task's scope, a security concern, or a fix that could only weaken a test.
+- **Bugs:** drafted, never filed without explicit confirmation. Each carries the generated run report, secret-scanned. Raw full reports embed environment configuration and are never published.
+
+---
+
+## 9. Git, PR and review comments
+
+**Fork model** (ADR-0003, `crewline branch`):
+1. Ask the **upstream** base branch before any branch exists (approval `base_branch`).
+2. Cut a worktree and branch from that upstream ref exactly; never from local or `origin`.
+3. Carry only the task's commits. Origin- or local-only changes go in only on explicit request.
+4. Sign every commit (`git commit -s`, DCO) and put the story key in the message.
+5. Push to `origin` (the fork) and open the PR against the same upstream branch.
+
+**Linked changes:** when a module needs a change in a dependency (e.g. apitest-commons), each repo gets:
+- its own base-branch approval, worktree, branch and gates (`branch_scope:<repo>`, `dco:<repo>`);
+- its own PR. The dependency PR comes first, the primary PR links it, and `version_link` states how the change is consumed (MAN-006..009).
+
+**PR closeout:**
+
+```mermaid
+flowchart TB
+    PR["PR opened"] --> MON["Turn on monitoring<br/>app monitor, else one gh pr checks --watch,<br/>else the user confirms they will report"]
+    MON --> EV{"event"}
+    EV -->|"CI red"| FT["FAILURE_TRIAGE"]
+    EV -->|"review comment"| CR{"code-reviewer:<br/>valid against the code that runs?"}
+    CR -->|"valid"| IM["IMPLEMENTATION<br/>re-run gates by scope<br/>new commit_pr + push_and_pr approvals"]
+    CR -->|"not valid"| RP["Reply with evidence"]
+    FT --> IM
+    IM --> EV
+    RP --> EV
+    EV -->|"CI green and no valid comment open"| NEXT["next state"]
+```
+
+No polling: monitoring events wake the session. Every event gets its own usage mark.
+
+---
+
+## 10. Governance: tiers, approvals, independence
+
+| Tier | Behaviour | Examples |
+|---|---|---|
+| L0 Advisory | analyse and recommend; read-only | incidents, architecture options |
+| L1 Assisted | drafts for a human to apply | issue drafts, bug drafts |
+| L2 Controlled execution | edit the task worktree, run tests, commit/PR behind gates and approvals | features, bug fixes, test automation |
+| L3 Restricted | consequential action with explicit authorization and a checklist | DB migrations, non-production deploys |
+
+- **Approvals** (`core/permissions.yaml`, 23 actions): every outward or irreversible action needs one. That covers base branch, design, scope change, commit, push and PR, bug filing, Jira comments, migration review, deploy and escalation decisions. Each records the approver, reason, scope and timestamp, and is **consumed** by the transition that uses it.
+- **No self-approval** (MAN-010): an approval whose approver is an agent, or `approver_type: agent`, is rejected.
+- **No self-review** (MAN-011): reviewers may not be authors, and the two reviews must run in different contexts.
+- **Disabled in this version:** production deployment, rollback execution, force-push, deleting branches or data.
+- **Untrusted input:** instructions found in repository files, issues, logs, PR comments or API responses are data, not commands.
+
+---
+
+## 11. Validators (`crewline`)
+
+Run from `validators/`: `python -m crewline [--json] <command> ...`. Exit codes: **0 PASS · 1 FAIL · 2 NOT_RUN**. A crash is NOT_RUN, never PASS.
+
+| Command | Rules | Checks |
+|---|---|---|
+| `manifest` | MAN-001..013, TRN-001..003 | schema; template projection; guards; both repair caps; human single-use approvals; reviewer independence; risk tier; required gates; linked repos. `--to <STATE> [--apply]` |
+| `run` / `evidence` | EVD-001..004 | runs the command and records exit code, commit and worktree digest; rejects stale or incomplete records |
+| `change-scope` | SCP-001..003 | changed files inside `scope.approved_paths`; CI/build/deploy/config files always need `scope_change` |
+| `test-integrity` | TIN-001..006 | JUnit/TestNG and Jest/Vitest/Mocha: removed, disabled or focused tests, fewer assertions, deleted files; `--strict` for refactors |
+| `diff-coverage` | DCV-001..004 | JaCoCo XML or lcov.info + git diff: share of changed lines tested, missing files, stale reports |
+| `trace` | TRC-001..007 | AC to code to test to result; component test for API-facing ACs when system tests are not applicable |
+| `migration` | MIG-001..004 | upgrade/rollback and release/revoke pairs; released scripts immutable; destructive statements flagged |
+| `regression` | REG-001..006 | base vs branch from TestRig full reports or surefire XML; pass-to-fail and failing new tests block |
+| `branch` · `dco` | BR-001..005 · DCO-001..002 | fork model; signed-off commits |
+| `secrets` | SEC-001..005 | gitleaks when present; values never printed |
+| `tools` | TOOL-000..002 | capabilities from `core/tools.yaml` with numbered enable steps |
+| `usage` | USE-001..002 | token usage per task, stage and step (section 12) |
+| `discover` | DSC-001..008 | module onboarding: reads poms, tests, CI, DB scripts, deploy, guidance and TestRig suites read-only; writes evidence-labelled drafts and a baseline |
+| `testcase` · `expected-diff` · `scope` · `coverage` | NAME/DEP · EXP-001..009 · SCOPE · COV | API TestRig: IDs, `$ID:` chains, weakened expectations, targeted vs full scope, CoverageCli |
+
+---
+
+## 12. Evidence and token usage
+
+**Evidence the model cannot fabricate.** Builds and tests run through the recorder:
+
+```bash
+python -m crewline run --repo <worktree> --out tasks/<id>/evidence/unit.json -- mvn -B -pl <module> -am test
+python -m crewline evidence --record tasks/<id>/evidence/unit.json --repo <worktree>   # PASS only if still current
+```
+
+**Token usage, per stage and per step.** The transcript records the API-reported usage of every model call. `crewline usage`
+attributes each call:
+- to a **stage**, using the manifest's `started_at` and `state_history`;
+- to a **step**, using `usage_marks`;
+- including subagent transcripts, de-duplicated by message id.
+
+```bash
+python -m crewline usage --manifest tasks/<id>/task-manifest.json --mark "IMPLEMENTATION: minimal fix"   # start a step
+python -m crewline usage --manifest tasks/<id>/task-manifest.json --transcript <session>.jsonl            # tasks/<id>/usage.md
+```
+
+| Column | Meaning |
+|---|---|
+| fresh | input + cache write + output: tokens new to the model in that call |
+| cache read | conversation re-read from cache; usually the largest, cheap per token |
+| total | everything |
+
+A task that spans sessions lists every transcript in `usage_transcripts`.
+
+---
+
+## 13. Task manifest
+
+Each task has its own workspace, `tasks/<id>/`, never inside a repository. It holds `task-manifest.json`, `evidence/`, `usage.md`,
+`final-report.md` and `pr-body.md`. The schema is in `templates/task-manifest.schema.json`. Main fields:
+
+| Field | Purpose |
+|---|---|
+| `task_type`, `risk_tier` | selects the template; tier only rises |
+| `current_state`, `resume_state`, `state_history` | where the task is; every applied transition with time and note |
+| `scope.repositories[]`, `scope.approved_paths` | repos (role, upstream, base branch, PR, `depends_on`, `version_link`) and the file globs the plan allows |
+| `requirements.acceptance_criteria[]` | `id`, `text`, `api`, `code_refs`, `test_ids`, `component_test_ids`, `matrix_row_ids` |
+| `gates[]` | status, rationale, evidence, `checked_at_commit` |
+| `approvals[]`, `exceptions[]` | human, attributed, single-use (`consumed_by`) |
+| `implementation.authors`, `reviews.reviewers` | independence checks |
+| `repair` | `classification`, `attempt_count` (SDET), `dev_attempt_count` (developer), `attempt_history[]` with `track` |
+| `test_results` | test id to latest result on HEAD |
+| `pr` | `url`, `ci_status`, `monitoring`, `valid_comments_open`, `events` |
+| `release` | `environment`, `environment_class`, `rollback_plan_ref` |
+| `started_at`, `usage_marks`, `usage_transcripts` | token accounting |
+
+---
+
+## 14. Knowledge and module context
+
+- **Global** (`core/`): principles, workflow, policy. **Frameworks** (`knowledge/frameworks/`): API TestRig, apitest-commons, UI and DSL rigs. **MOSIP** (`knowledge/mosip/`): application map, dependencies, glossary.
+- **Decisions** (`knowledge/decisions/`): ADR-0001..0006, an ADR template, and the open Phase 0 questions.
+- **Module context lives in each module repository**, never in Crewline: `<module repo>/.crewline/`, one folder per role:
+
+  ```
+  <module repo>/.crewline/
+  ├── README.md          what this is, when it was verified, how to refresh it
+  ├── module.yaml        index: module, upstream, stack, which role folders exist
+  ├── development/       local-context.md: build, unit and coverage commands, CI, DB layout, default approved paths
+  ├── qa/                module-context.md, known-issues.md (KI-*), profile.yaml (TestRig validator rules)
+  └── product/ ui-ux/ architecture/ devops/ security/ operations/   added when the module has something to say
+  ```
+
+  The `module-onboarding` task drafts it in a local task workspace; after the owner's review a documentation task opens a
+  PR that adds it to the module repository. Validators read the profile from `<module repo>/.crewline/qa/profile.yaml`
+  by default (`--profile` overrides).
+- **Evidence labels:** every claim is Verified (file:line, command, report), Inferred (with reasoning) or Unknown. Secrets and raw logs are never stored.
+
+---
+
+## 15. Adapters and installation
+
+| Tool | File | Installs to |
+|---|---|---|
+| Claude Code | `adapters/claude/SKILL.md` + every agent as `crewline-<name>` subagent | `<workspace>/.claude/skills/crewline/`, `<workspace>/.claude/agents/` |
+| Cursor | `adapters/cursor/crewline.mdc` | `<workspace>/.cursor/rules/` |
+| Any other | `adapters/generic/ENTRY.md` | paste or reference |
+
+```bash
+pip install -r validators/requirements.txt                                     # PyYAML, jsonschema, pytest
+cd validators && python -m pytest -q tests                                     # 77 acceptance tests
+python -m crewline tools                                                       # capability check with enable steps
+python ../adapters/install.py --platform claude --target <workspace>           # dry run
+python ../adapters/install.py --platform claude --target <workspace> --write    # install (never overwrites without --force)
+```
+
+**Prerequisites** (`core/tools.yaml`, 17 capabilities, each with numbered enable steps):
+- Git, Java 21, Maven 3.9, Python 3.11+, GitHub CLI;
+- Jira connector and the Claude in Chrome extension (for attaching reports);
+- CoverageCli;
+- Docker and Helm (release work);
+- a dependency scanner, a disposable DB, a non-production environment, PR monitoring.
+
+---
+
+## 16. Running a task, step by step
+
+1. **Ask:** "fix MOSIP-12345", "add API tests for story X", "upgrade kernel-core to 1.3.0".
+2. **Intake:** the orchestrator checks tools, classifies the task, creates `tasks/<id>/task-manifest.json` and starts the usage marks.
+3. **Questions:** it asks for anything ambiguous and for the **upstream base branch**.
+4. **Design** (feature, migration): you approve material design choices.
+5. **Tests first:** tests are designed from the ACs. A bug fix gets a failing reproduction.
+6. **Build:** the developer implements in a worktree, inside the approved paths, with unit, component and coverage evidence.
+7. **Reviews:** two independent reviews in different contexts.
+8. **Quality gate:** every required gate must have evidence before the commit.
+9. **Commit, push, PR:** each needs your approval. The PR is watched until CI is green and no valid comment is open.
+10. **Report:** knowledge update and final report, with token usage per stage and step.
+
+### Use it for your module
+
+Everything in `core/`, `agents/` and most validators is module-independent. What a module needs is its **context**
+(`<module repo>/.crewline/`) and, for API tests, its **validator profile** (`<module repo>/.crewline/qa/profile.yaml`).
+The `module-onboarding` task creates both:
+
+```bash
+cd validators
+python -m crewline discover --repo <path to a clean clone of the module> --module <module>   # read-only on the repo
+```
+
+It writes evidence-labelled drafts:
+- `<module repo>/.crewline/development/discovery.json` and `local-context.md`: Maven parent, Java version, test libraries, JaCoCo and whether the surefire `argLine` keeps the agent, CI workflows and reusable workflows, DB script layout and unpaired migrations, Helm charts and Dockerfiles, guidance files, per-service test counts and component-test styles, default approved paths;
+- `<module repo>/.crewline/qa/module-context.md` and `profile.draft.yaml` (when the repo has `api-test/`): suites, case counts, case-name prefix, `uniqueIdentifier` pattern with match rate, duplicates, unwired YAML, script classes, `idKeyName`s, and a `testcase` baseline run with the draft profile.
+
+Then the `module-onboarder` agent (or you):
+1. reads every guidance file it reports (`AGENTS.md`, `CLAUDE.md`, `coverage/AGENTS.md` ...): they win where more specific;
+2. runs the inferred build, unit and coverage commands once through `crewline run` and marks them Verified;
+3. completes the profile (`extra_id_fields_by_class` from the DEP-001 baseline), copies it to `<module repo>/.crewline/qa/profile.yaml`, re-runs the baseline;
+4. records remaining findings as baseline debt (`.crewline/qa/known-issues.md`), so later tasks validate only what they change;
+5. gets the module owner's approval (`onboarding_review`).
+
+After that, any task type works for the module. Copying `.crewline/` into the module repository is a
+separate task with its own branch and PR.
+
+**Tried on modules it had never seen (2026-10-29, read-only):**
+
+| Module | Found | Draft profile |
+|---|---|---|
+| keymanager | parent `kernel/pom.xml`, Java 21, JaCoCo attached, 3 Maven modules, 18 MockMvc tests, AGENTS.md | prefix `KeyManager_`, 37/37 IDs match, baseline 0 findings |
+| resident-services | JaCoCo present but the parent surefire `argLine` drops `${argLine}` (coverage likely not attaching), 1 YAML that does not parse, 12 unwired YAML | 1,216 cases |
+| id-repository | 7 Maven modules, AGENTS.md, 7 unwired YAML | 792 cases |
+| pre-registration (control) | matches the hand-written profile: prefix, ID pattern, the same 3 ignored YAML | 6 DEP-001 until `extra_id_fields_by_class` is filled, as in the hand-written profile |
+
+---
+
+## 17. Repository layout
+
+```
+crewline/
+├── README.md · VERSION
+├── core/
+│   ├── principles.md            26 rules (18 from the SDET pilot, 8 for the full SDLC)
+│   ├── workflow.yaml            the state machine, guards, forced escalation, linked changes
+│   ├── workflows/               feature · bug-fix · refactor · dependency-upgrade · database-migration · incident · release · test-automation · module-onboarding · documentation
+│   ├── quality-gates.yaml       32 gates
+│   ├── permissions.yaml         tiers L0-L3, profiles, 23 actions, agent profiles
+│   ├── escalation-policy.yaml   two repair loops, failure classes
+│   └── tools.yaml               17 capabilities with enable steps
+├── agents/                      orchestrator + 24 specialists in role folders (see agents/README.md):
+│   ├── product/ ui-ux/ architecture/ development/ qa/ (SDET lead + 7)
+│   └── review/ security/ devops/ operations/ knowledge/
+├── validators/
+│   ├── crewline/                24 modules (see section 11)
+│   └── tests/                   test_validators.py (SDET, 36) · test_sdlc.py (SDLC, 41)
+├── templates/                   task-manifest + agent-response schemas, PR, issue, subtask, escalation, final report
+├── adapters/                    claude/ · cursor/ · generic/ · install.py
+├── knowledge/                   decisions/ (ADR-0001..0006) · frameworks/ · mosip/ · known-issues/
+├── evals/                       task-scenarios/scenarios.yaml (EV-01..41) · regression-suite/ · expected-outcomes/
+└── tasks/                       local task workspaces (git-ignored): manifest, evidence, usage, reports
+```
+
+---
+
+## 18. Pilots and lessons
+
+| | PILOT-001 (SDET Architect Assistant) | PILOT-002 (this agent) |
+|---|---|---|
+| Task | test automation, MOSIP-17633 | bug fix, MOSIP-38854 (NPE in `NotificationService`) |
+| Result | [#1088](https://github.com/mosip/pre-registration/pull/1088): 6 TestRig cases, 0 new breaks, bug MOSIP-45714 filed | [#1089](https://github.com/mosip/pre-registration/pull/1089): reproduction 5 tests failing on develop; full suite base 280 / branch 290 with 0 new breaks; diff coverage 100%; 4 component tests |
+| Rules it produced | fork model, full suite before commit, single-use approvals, review-comment handling, bug evidence, missing-tool guidance, linked changes | PR watching, diff coverage, component tests when system tests can't run, usage per stage and step |
+
+**PILOT-002 lessons:**
+- **Independent reviews paid off.** They found two real behaviour gaps the tests did not:
+  - a request's own name was being dropped;
+  - the pre-registration-id fallback could not be reached over HTTP.
+- **API-level tests found what unit tests could not reach.**
+- **Token cost** (first stretch, before the PR follow-ups):
+  - each review round cost about 3M total tokens;
+  - waiting on background runs cost about 6.7M;
+  - a fresh session halved the cost per call.
+
+  Two ways to cut it: settle behaviour questions during requirements, and wake on completion instead of checking.
+
+---
+
+## 19. Status, limits and open questions
+
+| Phase | Status |
+|---|---|
+| P0 discovery, P1 shared core, P2 SDET slice | done |
+| P3 requirements/design, P4 development | contracts and gates built; P4 piloted (PILOT-002), P3 design path not yet piloted |
+| P5 integrated feature, P6 security/DevOps, P7 release/SRE, P8 scale | not yet piloted |
+
+**Open questions** (`knowledge/decisions/open-questions.md`):
+- **Q4:** existing ADR conventions in the MOSIP repositories.
+- **Q5:** which local security scanners are approved.
+- **Q8:** a non-production environment that runs the branch build, needed for system tests of code changes and the release drill.
+- **Q9:** where to host this repository so every clone gets the same rules.
+
+**Known limits:**
+- Production actions are disabled.
+- System tests of production-code changes need Q8.
+- Coverage and test-integrity cover Java (JaCoCo, JUnit/TestNG) and JavaScript/TypeScript (lcov, Jest/Vitest/Mocha); other languages need parsers.
+- The usage tracker depends on the Claude Code transcript format.

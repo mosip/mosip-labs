@@ -1,0 +1,821 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "crewline/task-manifest.schema.json",
+  "title": "Crewline task manifest",
+  "description": "Orchestration record (Blueprint v2.1 §10). NOT a testcase or requirements schema: testcases live in API TestRig YAML / the coverage matrix / the repository's unit tests; requirements in the issue tracker.",
+  "type": "object",
+  "required": [
+    "task_id",
+    "outcome",
+    "current_state",
+    "scope",
+    "requirements",
+    "testcases",
+    "repair",
+    "reviews",
+    "gates",
+    "approvals",
+    "evidence_refs",
+    "github"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "outcome": {
+      "enum": [
+        "IN_PROGRESS",
+        "SUCCESS",
+        "PARTIAL",
+        "BLOCKED",
+        "ESCALATED",
+        "FAILED"
+      ]
+    },
+    "current_state": {
+      "type": "string"
+    },
+    "resume_state": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "module",
+        "repositories"
+      ],
+      "properties": {
+        "module": {
+          "type": "string"
+        },
+        "track": {
+          "enum": [
+            "API",
+            "UI",
+            "DSL",
+            "SERVICE",
+            "MIXED"
+          ]
+        },
+        "repositories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "path"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "base_ref": {
+                "type": "string"
+              },
+              "branch": {
+                "type": "string"
+              },
+              "baseline_commit": {
+                "type": "string"
+              },
+              "role": {
+                "enum": [
+                  "primary",
+                  "dependency",
+                  "reference"
+                ],
+                "description": "primary = the module the task is for; dependency = a repo that needs its own change (e.g. apitest-commons); reference = read-only"
+              },
+              "upstream_repo": {
+                "type": "string"
+              },
+              "upstream_remote": {
+                "type": "string"
+              },
+              "base_branch": {
+                "type": "string"
+              },
+              "head_commit": {
+                "type": "string"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "pull_request": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "depends_on": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "names of repositories whose PR must exist (and be referenced) before this one's PR"
+              },
+              "version_link": {
+                "type": "string",
+                "description": "how the primary consumes the dependency change, e.g. 'pom apitest-commons 1.6.0 -> 1.6.1-SNAPSHOT' or 'none: released version already contains it'"
+              }
+            }
+          }
+        },
+        "approved_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "glob patterns (relative to each repo root) the plan authorises; change-scope blocks anything else"
+        }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "required": [
+        "source_refs",
+        "acceptance_criteria",
+        "open_ambiguities"
+      ],
+      "properties": {
+        "story_keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+          }
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "matrix_row_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "code_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "repo-relative file[:symbol] that implements the AC"
+              },
+              "test_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "uniqueIdentifier or fully qualified unit test name"
+              },
+              "nfr": {
+                "type": "boolean"
+              },
+              "api": {
+                "type": "boolean",
+                "description": "the AC is observable at an API boundary (status / error code / body)"
+              },
+              "component_test_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "tests at the HTTP boundary (MockMvc / @WebMvcTest / @SpringBootTest); required when system tests are NOT_APPLICABLE (TRC-007)"
+              },
+              "ui": {
+                "type": "boolean",
+                "description": "observable in a user interface"
+              },
+              "system_test_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "TestRig uniqueIdentifier / UI rig scenario proving the AC end to end (TRC-008/009)"
+              }
+            }
+          }
+        },
+        "open_ambiguities": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "testcases": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "canonical_format": {
+          "enum": [
+            "existing-api-testrig-yaml",
+            "none"
+          ]
+        },
+        "traceability": {
+          "const": "coverage-matrix"
+        },
+        "unique_identifiers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "matrix_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unit_test_framework": {
+          "type": "string"
+        }
+      }
+    },
+    "repair": {
+      "type": "object",
+      "required": [
+        "attempt_count",
+        "attempt_history"
+      ],
+      "properties": {
+        "failure_fingerprint": {
+          "type": "string"
+        },
+        "classification": {
+          "enum": [
+            "",
+            "AUTOMATION",
+            "CODE_UNDER_CHANGE",
+            "APPLICATION",
+            "TEST_DATA",
+            "ENVIRONMENT",
+            "SPECIFICATION",
+            "UNKNOWN",
+            "SECURITY"
+          ]
+        },
+        "attempt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempt_history": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "required": [
+              "attempt",
+              "hypothesis",
+              "changed_files",
+              "outcome"
+            ],
+            "properties": {
+              "attempt": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              },
+              "hypothesis": {
+                "type": "string"
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "changed_files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "validator_results": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "outcome": {
+                "enum": [
+                  "FIXED",
+                  "STILL_FAILING",
+                  "NEW_FAILURE"
+                ]
+              },
+              "track": {
+                "enum": [
+                  "sdet",
+                  "dev"
+                ],
+                "description": "absent = sdet"
+              }
+            }
+          }
+        },
+        "dev_attempt_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "reviews": {
+      "type": "object",
+      "properties": {
+        "implementation_review": {
+          "enum": [
+            "NOT_STARTED",
+            "PASS",
+            "FINDINGS",
+            "WAIVED"
+          ]
+        },
+        "fresh_context_review": {
+          "enum": [
+            "NOT_STARTED",
+            "PASS",
+            "FINDINGS",
+            "WAIVED"
+          ]
+        },
+        "reviewers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "review name -> reviewer context id; must not be an author (MAN-011)"
+        },
+        "security_review": {
+          "enum": [
+            "NOT_STARTED",
+            "PASS",
+            "FINDINGS",
+            "WAIVED",
+            "NOT_APPLICABLE"
+          ]
+        }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "gate",
+          "status"
+        ],
+        "properties": {
+          "gate": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "BLOCKED",
+              "NOT_RUN",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "checked_at_commit": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/approval"
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/approval"
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "github": {
+      "type": "object",
+      "properties": {
+        "issue": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "subtasks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pull_request": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "knowledge_delta": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "residual_risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "final_report_ref": {
+      "type": "string"
+    },
+    "state_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "at"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "task_type": {
+      "enum": [
+        "feature",
+        "bug-fix",
+        "refactor",
+        "dependency-upgrade",
+        "database-migration",
+        "incident",
+        "release",
+        "test-automation",
+        "module-onboarding",
+        "documentation"
+      ],
+      "description": "selects core/workflows/<task_type>.yaml; absent = test-automation (SDET assistant manifests)"
+    },
+    "risk_tier": {
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ]
+    },
+    "design": {
+      "type": "object",
+      "properties": {
+        "document_ref": {
+          "type": "string"
+        },
+        "adr_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contract_changes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "migration_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "properties": {
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "agent/context ids or people that wrote the change"
+        },
+        "changed_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "test_results": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "PASS",
+          "FAIL",
+          "SKIP",
+          "NOT_RUN",
+          "DEFERRED"
+        ]
+      },
+      "description": "test id -> latest result on the branch HEAD (from evidence records)"
+    },
+    "pr": {
+      "type": "object",
+      "properties": {
+        "valid_comments_open": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "comments": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "url": {
+          "type": "string"
+        },
+        "head_sha": {
+          "type": "string"
+        },
+        "ci_status": {
+          "enum": [
+            "PENDING",
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "monitoring": {
+          "enum": [
+            "none",
+            "app",
+            "gh-watch",
+            "manual-confirmed"
+          ]
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "CI/review events handled in PR_CLOSEOUT, each with its disposition"
+        },
+        "unresolved_threads": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "review threads still unresolved on the PR head (gh api graphql reviewThreads isResolved=false)"
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "readiness": {
+          "enum": [
+            "NOT_APPLICABLE",
+            "NOT_STARTED",
+            "READY",
+            "NOT_READY"
+          ]
+        },
+        "environment": {
+          "type": "string"
+        },
+        "environment_class": {
+          "enum": [
+            "non-production",
+            "production"
+          ]
+        },
+        "rollback_plan_ref": {
+          "type": "string"
+        },
+        "deployment_record_ref": {
+          "type": "string"
+        }
+      }
+    },
+    "knowledge_delta_reviewed": {
+      "type": "boolean"
+    },
+    "started_at": {
+      "type": "string",
+      "description": "ISO time the task began (usage is attributed from here)"
+    },
+    "finished_at": {
+      "type": "string"
+    },
+    "initial_state": {
+      "type": "string",
+      "description": "state at started_at (usage before the first transition)"
+    },
+    "usage_marks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "at"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "step boundaries for crewline usage (one per meaningful step)"
+    },
+    "usage_ref": {
+      "type": "string",
+      "description": "path of usage.md produced by crewline usage"
+    },
+    "test_plan": {
+      "type": "object",
+      "properties": {
+        "environment": {
+          "type": "string",
+          "description": "where system tests run on the branch build"
+        },
+        "environment_kind": {
+          "enum": [
+            "branch-deployed-env",
+            "local-stack",
+            "post-merge-deferred"
+          ]
+        },
+        "new_cases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "regression_suites": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "existing TestRig/UI suites proving nothing existing broke"
+        }
+      }
+    },
+    "defects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "class",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "found_by": {
+            "type": "string"
+          },
+          "class": {
+            "enum": [
+              "CODE_UNDER_CHANGE",
+              "APPLICATION",
+              "SECURITY",
+              "AUTOMATION",
+              "TEST_DATA",
+              "ENVIRONMENT"
+            ]
+          },
+          "status": {
+            "enum": [
+              "open",
+              "fixed",
+              "raised",
+              "deferred"
+            ]
+          },
+          "bug": {
+            "type": "string",
+            "description": "Jira key when raised"
+          },
+          "fix_commit": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "approval": {
+      "type": "object",
+      "required": [
+        "action",
+        "approver",
+        "reason",
+        "scope",
+        "timestamp"
+      ],
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "approver": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "approver_type": {
+          "enum": [
+            "human",
+            "agent"
+          ],
+          "description": "agent is always rejected (MAN-010)"
+        },
+        "gate": {
+          "type": "string",
+          "description": "for a gate exception: the gate it covers"
+        },
+        "consumed_by": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

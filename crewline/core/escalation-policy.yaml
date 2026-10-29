@@ -1,0 +1,49 @@
+# Bounded repair and escalation (Blueprint v2.1 §9). Enforced by core/workflow.yaml (transition_guards +
+# forced_escalation) and checked by `crewline manifest --to <STATE>`. Two independent counters (ADR-0005):
+# the SDET counter does not govern development repairs and vice versa.
+version: 2
+
+repair_loops:
+  sdet:                                # classification AUTOMATION: test code, YAML, template, wiring, $ID chain
+    counter: repair.attempt_count
+    max_attempts: 3
+    owner_agent: failure-analyst -> api/ui/dsl-automation
+  development:                         # classification CODE_UNDER_CHANGE: this task's own production code
+    counter: repair.dev_attempt_count
+    max_attempts: 3
+    owner_agent: software-developer
+    note: a failing test that the task's own diff explains is a development repair, never a bug report
+
+attempt_definition: one distinct, evidence-based change followed by validators + targeted re-run
+not_an_attempt: [re-running unchanged code, environment retry, adding a retry/sleep]
+before_attempt_1: [capture logs, request/response, report path, environment, exact assertion; assign failure_fingerprint; classify; record track (sdet|dev) on the attempt]
+per_attempt_record: [attempt, track, hypothesis, evidence_refs, changed_files, validator_results, outcome]
+counter_reset: only for a demonstrably distinct fingerprint or a human-approved new investigation (record why)
+
+failure_fingerprint:
+  compose: "<test id>|<assertion or error code>|<HTTP status or exception type>"
+
+classification:
+  AUTOMATION:        test code, YAML, template, wiring or dependency-chain defect -> SDET repair loop
+  CODE_UNDER_CHANGE: fails on the branch, passes/absent on the base, failing path runs through changed code -> development repair loop
+  APPLICATION:       a defect the task did NOT introduce (fails on base too, or outside changed code) -> escalate now, defect draft
+  TEST_DATA:         collision, stale or single-use data (OTP, identity, slot) -> fix data, not assertions
+  ENVIRONMENT:       env down, config, auth infra, HealthChecker termination, branch build not deployed -> report; no code change
+  SPECIFICATION:     requirement/contract ambiguous or contradictory -> WAITING_FOR_USER
+  UNKNOWN:           evidence insufficient -> gather more; never force a root cause
+  SECURITY:          possible vulnerability or exposure -> escalate now
+
+how_to_tell_code_under_change_from_application:
+  - run the failing test on the BASE commit (same env): passes there -> CODE_UNDER_CHANGE candidate
+  - the stack trace / response path touches a file in the task's diff -> confirms
+  - fails on the base too -> APPLICATION (pre-existing); the task may still fix it only if it is in scope
+
+immediate_escalation:
+  - likely APPLICATION defect outside the task's scope
+  - SECURITY concern
+  - the only available fix weakens an assertion, removes a test or changes expected results
+  - destructive or unsafe change required (data loss, irreversible migration)
+  - ambiguous expected behaviour
+  - missing authority for the needed action
+
+escalation_package: templates/escalation-report.md

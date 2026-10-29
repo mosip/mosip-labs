@@ -1,0 +1,659 @@
+"""Acceptance tests for the full-SDLC controls (Blueprint v2.1 §8, §9, §11; evals EV-20..EV-36)."""
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from crewline import change_scope, diff_coverage, discover, evidence, manifest, migration, regression, test_integrity, traceability, usage
+
+READY = [{"gate": g, "status": "PASS"} for g in ("plan_readiness", "repo_ready")]
+HUMAN = {"approver": "mohan", "reason": "r", "scope": "s", "timestamp": "2026-10-28T00:00:00Z"}
+
+
+def git(repo, *args):
+    return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True).stdout
+
+
+def commit_all(repo, msg="c"):
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.name=T", "-c", "user.email=t@example.org", "commit", "-q", "-s", "-m", msg)
+    return git(repo, "rev-parse", "HEAD").strip()
+
+
+@pytest.fixture
+def svc(tmp_path):
+    """A tiny Java service repo with a unit test and MOSIP-style DB scripts."""
+    r = tmp_path / "svc"
+    (r / "src/main/java/x").mkdir(parents=True)
+    (r / "src/test/java/x").mkdir(parents=True)
+    (r / "db_upgrade_scripts/mosip_x/sql").mkdir(parents=True)
+    (r / "src/main/java/x/Svc.java").write_text("class Svc { int f() { return 1; } }\n")
+    (r / "src/test/java/x/SvcTest.java").write_text(
+        "class SvcTest {\n  @Test\n  void returnsOne() { assertEquals(1, new Svc().f()); }\n"
+        "  @Test\n  void notTwo() { assertNotEquals(2, new Svc().f()); }\n}\n")
+    (r / "db_upgrade_scripts/mosip_x/sql/1.0_to_1.1_upgrade.sql").write_text("ALTER TABLE a ADD COLUMN b int;\n")
+    (r / "db_upgrade_scripts/mosip_x/sql/1.0_to_1.1_rollback.sql").write_text("ALTER TABLE a DROP COLUMN b;\n")
+    git(tmp_path, "init", "-q", str(r))
+    commit_all(r, "base")
+    return r
+
+
+def doc(**over):
+    d = {
+        "task_id": "t2", "task_type": "feature", "risk_tier": "L2", "outcome": "IN_PROGRESS", "current_state": "IMPACT_ANALYSIS",
+        "scope": {"module": "svc", "repositories": [], "approved_paths": ["src/main/java/x/**", "src/test/java/x/**"]},
+        "requirements": {"source_refs": [], "acceptance_criteria": [], "open_ambiguities": 0},
+        "testcases": {"canonical_format": "none"},
+        "repair": {"attempt_count": 0, "dev_attempt_count": 0, "attempt_history": [], "classification": ""},
+        "reviews": {"implementation_review": "PASS", "fresh_context_review": "PASS"},
+        "gates": [], "approvals": [], "evidence_refs": [], "github": {"issue": None, "subtasks": [], "pull_request": None},
+        "test_plan": {"environment": "local docker-compose", "environment_kind": "local-stack"},
+    }
+    d.update(over)
+    return d
+
+
+def write(tmp_path, d, name="task-manifest.json"):
+    p = tmp_path / name
+    p.write_text(json.dumps(d))
+    return str(p)
+
+
+def ids(res):
+    return {f.rule_id for f in res.findings}
+
+
+# --- one orchestrator, templated paths ------------------------------------------------------------
+@pytest.mark.parametrize("task_type,src,expected", [
+    ("feature", "IMPACT_ANALYSIS", ["DESIGN"]),
+    ("test-automation", "IMPACT_ANALYSIS", ["TESTCASE_DESIGN"]),               # the SDET path skips DESIGN
+    ("release", "IMPACT_ANALYSIS", ["RELEASE_READINESS"]),
+    ("incident", "IMPACT_ANALYSIS", ["KNOWLEDGE_UPDATE"]),                     # read-only: no code states at all
+    ("test-automation", "DETERMINISTIC_VALIDATION", ["IMPLEMENTATION", "IMPLEMENTATION_REVIEW"]),
+    ("test-automation", "FRESH_CONTEXT_REVIEW", ["IMPLEMENTATION", "TESTCASE_DESIGN", "SYSTEM_TEST_EXECUTION"]),
+])
+def test_template_projection(task_type, src, expected):
+    ctx = manifest.Ctx({"task_type": task_type})
+    assert ctx.next_states(src) == expected
+
+
+def test_incident_cannot_reach_implementation(tmp_path):
+    res = manifest.transition(write(tmp_path, doc(task_type="incident", risk_tier="L0")), "DESIGN")
+    assert "TRN-001" in ids(res)
+
+
+def test_unknown_type_and_lowered_tier(tmp_path):
+    assert "MAN-013" in ids(manifest.check(write(tmp_path, doc(task_type="yolo"))))
+    assert "MAN-013" in ids(manifest.check(write(tmp_path, doc(task_type="database-migration", risk_tier="L2"))))
+
+
+def test_state_off_the_template_path(tmp_path):
+    assert "MAN-002" in ids(manifest.check(write(tmp_path, doc(task_type="incident", risk_tier="L0", current_state="IMPLEMENTATION"))))
+
+
+# --- design approval, independent oracle, reproduction --------------------------------------------
+def test_feature_plan_needs_design_approval_and_tests_first(tmp_path):
+    d = doc(current_state="TESTCASE_REVIEW", gates=[{"gate": "design_readiness", "status": "PASS"}])
+    res = manifest.transition(write(tmp_path, d), "IMPLEMENTATION_PLAN")
+    msg = " ".join(f.message for f in res.findings)
+    assert res.status == "FAIL" and "testcase_readiness" in msg and "'design'" in msg
+    d["gates"].append({"gate": "testcase_readiness", "status": "PASS"})
+    d["approvals"].append({"action": "design", **HUMAN})
+    assert manifest.transition(write(tmp_path, d), "IMPLEMENTATION_PLAN").status == "PASS"
+
+
+def test_bug_fix_needs_reproduction_first(tmp_path):
+    d = doc(task_type="bug-fix", current_state="TESTCASE_REVIEW")
+    assert "reproduction" in " ".join(f.message for f in manifest.transition(write(tmp_path, d), "IMPLEMENTATION_PLAN").findings)
+    d["gates"].append({"gate": "reproduction", "status": "PASS"})
+    assert manifest.transition(write(tmp_path, d), "IMPLEMENTATION_PLAN").status == "PASS"
+
+
+def test_sdet_path_does_not_need_design_gate(tmp_path):
+    d = doc(task_type="test-automation", current_state="TESTCASE_REVIEW", gates=[{"gate": "testcase_readiness", "status": "PASS"}])
+    assert manifest.transition(write(tmp_path, d), "IMPLEMENTATION_PLAN").status == "PASS"
+
+
+# --- two repair loops, failure routing ------------------------------------------------------------
+def attempts(n, track):
+    return [{"attempt": i, "track": track, "hypothesis": "h", "changed_files": ["A.java"], "outcome": "STILL_FAILING"}
+            for i in range(1, n + 1)]
+
+
+def test_code_under_change_goes_back_to_the_developer(tmp_path):
+    d = doc(current_state="FAILURE_TRIAGE", repair={"attempt_count": 3, "dev_attempt_count": 1,
+            "attempt_history": attempts(3, "sdet") + attempts(1, "dev"), "classification": "CODE_UNDER_CHANGE"}, gates=READY)
+    assert manifest.transition(write(tmp_path, d), "IMPLEMENTATION").status == "PASS"   # SDET cap does not apply
+
+
+def test_dev_cap_forces_escalation(tmp_path):
+    d = doc(current_state="FAILURE_TRIAGE", repair={"attempt_count": 0, "dev_attempt_count": 3,
+            "attempt_history": attempts(3, "dev"), "classification": "CODE_UNDER_CHANGE"})
+    path = write(tmp_path, d)
+    assert {"TRN-002", "TRN-003"} <= ids(manifest.transition(path, "IMPLEMENTATION"))
+    assert manifest.transition(path, "S_ESCALATE").status == "PASS"
+
+
+@pytest.mark.parametrize("cls", ["APPLICATION", "SECURITY", "SPECIFICATION"])
+def test_out_of_scope_failures_escalate(tmp_path, cls):
+    d = doc(current_state="FAILURE_TRIAGE", repair={"attempt_count": 0, "dev_attempt_count": 0, "attempt_history": [], "classification": cls})
+    assert "TRN-003" in ids(manifest.transition(write(tmp_path, d), "IMPLEMENTATION"))
+
+
+def test_environment_retry_is_not_a_repair(tmp_path):
+    d = doc(current_state="FAILURE_TRIAGE", repair={"attempt_count": 0, "dev_attempt_count": 0, "attempt_history": [], "classification": "ENVIRONMENT"})
+    path = write(tmp_path, d)
+    assert manifest.transition(path, "SYSTEM_TEST_EXECUTION").status == "PASS"
+    assert manifest.transition(path, "IMPLEMENTATION").status == "FAIL"
+
+
+def test_dev_counter_must_match_history(tmp_path):
+    d = doc(repair={"attempt_count": 0, "dev_attempt_count": 0, "attempt_history": attempts(1, "dev")})
+    assert "MAN-003" in ids(manifest.check(write(tmp_path, d)))
+
+
+# --- no self-approval, no self-review --------------------------------------------------------------
+def test_agent_cannot_approve(tmp_path):
+    d = doc(approvals=[{"action": "commit_pr", **HUMAN, "approver": "software-developer"},
+                       {"action": "design", **HUMAN, "approver_type": "agent"}])
+    assert [f.rule_id for f in manifest.check(write(tmp_path, d)).findings].count("MAN-010") == 2
+
+
+def test_author_cannot_review_and_reviews_need_two_contexts(tmp_path):
+    d = doc(implementation={"authors": ["dev#ctx1"]},
+            reviews={"implementation_review": "PASS", "fresh_context_review": "PASS",
+                     "reviewers": {"implementation_review": "dev#ctx1", "fresh_context_review": "dev#ctx1"}})
+    assert [f.rule_id for f in manifest.check(write(tmp_path, d)).findings].count("MAN-011") == 3
+
+
+# --- required gates, PR comments, release -----------------------------------------------------------
+def test_commit_needs_every_template_gate(tmp_path):
+    base = ["quality_gate", "full_regression", "secrets"]
+    d = doc(current_state="QUALITY_GATE", gates=[{"gate": g, "status": "PASS"} for g in base],
+            approvals=[{"action": "commit_pr", **HUMAN}])
+    res = manifest.transition(write(tmp_path, d), "COMMIT_PR")
+    missing = {f.message.split()[2] for f in res.findings if f.rule_id == "MAN-012"}
+    assert {"design_readiness", "unit_tests", "test_integrity", "traceability", "change_scope"} <= missing
+    d["gates"] = [{"gate": g, "status": "PASS"} for g in base + manifest.load_template("feature")["required_gates"]]
+    d["gates"][-1]["status"] = "FAIL"                                  # change_scope failed ...
+    d["exceptions"] = [{"action": "gate_exception", "gate": "change_scope", **HUMAN}]
+    assert manifest.transition(write(tmp_path, d), "COMMIT_PR").status == "PASS"   # ... with an attributed exception
+    d["gates"][base.index("secrets")]["status"] = "FAIL"
+    d["exceptions"].append({"action": "gate_exception", "gate": "secrets", **HUMAN})
+    assert manifest.transition(write(tmp_path, d), "COMMIT_PR").status == "FAIL"   # secrets is never waivable
+
+
+def test_documentation_path_has_no_regression_or_second_review(tmp_path):
+    ctx = manifest.Ctx({"task_type": "documentation"})
+    assert ctx.next_states("IMPACT_ANALYSIS") == ["IMPLEMENTATION_PLAN"]          # no DESIGN / TESTCASE_* states
+    assert ctx.next_states("IMPLEMENTATION_REVIEW") == ["IMPLEMENTATION", "QUALITY_GATE"]
+    d = doc(task_type="documentation", current_state="IMPLEMENTATION_REVIEW",
+            reviews={"implementation_review": "PASS", "fresh_context_review": "NOT_STARTED"},
+            gates=[{"gate": "deterministic_validation", "status": "PASS"}])
+    assert manifest.transition(write(tmp_path, d), "QUALITY_GATE").status == "PASS"  # FRESH_CONTEXT_REVIEW not on path
+    d["reviews"]["implementation_review"] = "NOT_STARTED"
+    assert manifest.transition(write(tmp_path, d), "QUALITY_GATE").status == "FAIL"  # review 1 is still required
+    d.update(current_state="QUALITY_GATE", approvals=[{"action": "commit_pr", **HUMAN}],
+             gates=[{"gate": g, "status": "PASS"} for g in ("quality_gate", "deterministic_validation", "change_scope")])
+    res = manifest.transition(write(tmp_path, d), "COMMIT_PR")
+    assert "full_regression" not in " ".join(f.message for f in res.findings)    # not_applicable_gates, with rationale
+    assert "secrets" in " ".join(f.message for f in res.findings)                # never waivable, never skipped
+    d["gates"].append({"gate": "secrets", "status": "PASS"})
+    assert manifest.transition(write(tmp_path, d), "COMMIT_PR").status == "PASS"
+    d["task_type"] = "feature"                                                   # other types still need regression
+    assert "full_regression" in " ".join(f.message for f in manifest.transition(write(tmp_path, d), "COMMIT_PR").findings)
+
+
+def test_pr_closeout_loops_on_valid_comments(tmp_path):
+    d = doc(current_state="PR_CLOSEOUT", pr={"valid_comments_open": 1, "unresolved_threads": 0, "ci_status": "PASS", "monitoring": "app"}, gates=READY + [{"gate": "release_readiness", "status": "PASS"}])
+    path = write(tmp_path, d)
+    assert manifest.transition(path, "RELEASE_READINESS").status == "FAIL"
+    assert manifest.transition(path, "IMPLEMENTATION").status == "PASS"
+    d["pr"]["valid_comments_open"] = 0
+    assert manifest.transition(write(tmp_path, d), "RELEASE_READINESS").status == "PASS"
+
+
+def test_production_deploy_is_refused(tmp_path):
+    d = doc(task_type="release", risk_tier="L3", current_state="RELEASE_READINESS",
+            gates=[{"gate": "release_readiness", "status": "PASS"}], approvals=[{"action": "deploy", **HUMAN}],
+            release={"environment": "prod", "environment_class": "production", "rollback_plan_ref": "r.md"})
+    assert manifest.transition(write(tmp_path, d), "AUTHORIZED_DEPLOYMENT").status == "FAIL"
+    d["release"].update(environment="released", environment_class="non-production")
+    assert manifest.transition(write(tmp_path, d), "AUTHORIZED_DEPLOYMENT").status == "PASS"
+    d["release"]["rollback_plan_ref"] = ""
+    assert manifest.transition(write(tmp_path, d), "AUTHORIZED_DEPLOYMENT").status == "FAIL"
+
+
+# --- change scope -----------------------------------------------------------------------------------
+def test_change_scope(svc, tmp_path):
+    (svc / "src/main/java/x/Svc.java").write_text("class Svc { int f() { return 1; } int g() { return 2; } }\n")
+    d = doc()
+    m = write(tmp_path, d)
+    assert change_scope.run(str(svc), "HEAD", m).status == "PASS"
+    (svc / ".github/workflows").mkdir(parents=True)
+    (svc / ".github/workflows/ci.yml").write_text("on: push\n")
+    (svc / "README.md").write_text("x\n")
+    res = change_scope.run(str(svc), "HEAD", m)
+    assert res.status == "FAIL" and {"SCP-001", "SCP-002"} <= ids(res)
+    d["approvals"] = [{"action": "scope_change", **HUMAN, "scope": ".github/workflows/ci.yml README.md"}]
+    assert change_scope.run(str(svc), "HEAD", write(tmp_path, d)).status == "PASS"
+    d["scope"]["approved_paths"] = []
+    assert change_scope.run(str(svc), "HEAD", write(tmp_path, d)).status == "NOT_RUN"
+
+
+# --- unit-test integrity ------------------------------------------------------------------------------
+@pytest.mark.parametrize("new_body,rule", [
+    ("class SvcTest {\n  @Test\n  void returnsOne() { assertEquals(1, new Svc().f()); }\n}\n", "TIN-001"),
+    ("class SvcTest {\n  @Disabled\n  @Test\n  void returnsOne() { assertEquals(1, new Svc().f()); }\n"
+     "  @Test\n  void notTwo() { assertNotEquals(2, new Svc().f()); }\n}\n", "TIN-002"),
+    ("class SvcTest {\n  @Test\n  void returnsOne() { new Svc().f(); }\n"
+     "  @Test\n  void notTwo() { assertNotEquals(2, new Svc().f()); }\n}\n", "TIN-003"),
+])
+def test_unit_test_weakening_blocks(svc, new_body, rule):
+    (svc / "src/test/java/x/SvcTest.java").write_text(new_body)
+    res = test_integrity.run(str(svc), "HEAD")
+    assert res.status == "FAIL" and rule in ids(res)
+
+
+def test_unit_test_deletion_blocks_and_approval_covers(svc, tmp_path):
+    (svc / "src/test/java/x/SvcTest.java").unlink()
+    assert "TIN-004" in ids(test_integrity.run(str(svc), "HEAD"))
+    appr = tmp_path / "approvals.yaml"
+    appr.write_text("approvals:\n  - rule_id: TIN-004\n    target: src/test/java/x/SvcTest.java\n"
+                    "    approver: mohan\n    reason: MOSIP-1 feature removed\n    timestamp: t\n")
+    assert test_integrity.run(str(svc), "HEAD", str(appr)).status == "PASS"
+
+
+def test_adding_tests_passes_and_strict_blocks_edits(svc):
+    p = svc / "src/test/java/x/SvcTest.java"
+    p.write_text(p.read_text().replace("}\n}\n", "}\n  @Test\n  void three() { assertTrue(true); }\n}\n"))
+    assert test_integrity.run(str(svc), "HEAD").status == "PASS"
+    assert "TIN-005" in ids(test_integrity.run(str(svc), "HEAD", strict=True))   # refactor: no test edits at all
+
+
+# --- migration pairing -----------------------------------------------------------------------------------
+def test_migration_pairing(svc):
+    sql = svc / "db_upgrade_scripts/mosip_x/sql"
+    (sql / "1.1_to_1.2_upgrade.sql").write_text("ALTER TABLE a ADD COLUMN c int;\n")
+    res = migration.run(str(svc), "HEAD")
+    assert res.status == "FAIL" and "MIG-001" in ids(res)
+    (sql / "1.1_to_1.2_rollback.sql").write_text("ALTER TABLE a DROP COLUMN c;\n")
+    assert migration.run(str(svc), "HEAD").status == "PASS"
+    (sql / "1.0_to_1.1_upgrade.sql").write_text("ALTER TABLE a ADD COLUMN b bigint;\n")    # editing a released script
+    assert "MIG-002" in ids(migration.run(str(svc), "HEAD"))
+
+
+def test_destructive_forward_script_warns(svc):
+    sql = svc / "db_upgrade_scripts/mosip_x/sql"
+    (sql / "1.1_to_1.2_upgrade.sql").write_text("DROP TABLE old_audit;\n")
+    (sql / "1.1_to_1.2_revoke.sql").write_text("CREATE TABLE old_audit(id int);\n")
+    res = migration.run(str(svc), "HEAD")
+    assert res.status == "PASS" and "MIG-004" in ids(res)
+
+
+# --- traceability ------------------------------------------------------------------------------------------
+def test_traceability(tmp_path):
+    acs = [{"id": "AC-1", "text": "t", "code_refs": ["src/main/java/x/Svc.java"], "test_ids": ["x.SvcTest#returnsOne"]},
+           {"id": "AC-2", "text": "t", "test_ids": ["TC_x_A_01"]},
+           {"id": "AC-3", "text": "t", "code_refs": ["pom.xml"]}]
+    d = doc(requirements={"source_refs": [], "acceptance_criteria": acs, "open_ambiguities": 0},
+            test_results={"x.SvcTest#returnsOne": "PASS"})
+    res = traceability.run(write(tmp_path, d))
+    found = [(f.rule_id, f.evidence or f.path) for f in res.findings]
+    assert ("TRC-002", "AC-2") in found and ("TRC-003", "TC_x_A_01") in found
+    assert ("TRC-001", "AC-3") in found and ("TRC-005", "pom.xml") in found
+    assert "TRC-006" in ids(traceability.run(write(tmp_path, doc())))
+
+
+# --- evidence the model cannot fabricate --------------------------------------------------------------------
+def test_run_captures_and_evidence_goes_stale(svc, tmp_path):
+    out = tmp_path / "ev/unit.json"
+    res = evidence.capture(str(svc), str(out), [sys.executable, "-c", "print('ok')"])
+    assert res.status == "PASS" and evidence.run(str(out), str(svc)).status == "PASS"
+    (svc / "src/main/java/x/Svc.java").write_text("class Svc { int f() { return 2; } }\n")
+    assert "EVD-002" in ids(evidence.run(str(out), str(svc)))                  # code changed after the run
+    bad = evidence.capture(str(svc), str(tmp_path / "ev/fail.json"), [sys.executable, "-c", "raise SystemExit(3)"])
+    assert "EVD-003" in ids(bad)
+    rec = json.loads(out.read_text()); rec.pop("worktree_digest"); out.write_text(json.dumps(rec))
+    assert "EVD-001" in ids(evidence.run(str(out), str(svc)))
+
+
+# --- JUnit regression -----------------------------------------------------------------------------------------
+def _surefire(path, cases):
+    path.mkdir(parents=True, exist_ok=True)
+    body = "".join(f'<testcase classname="x.SvcTest" name="{n}">' + ("<failure/>" if s == "FAIL" else "") + "</testcase>"
+                   for n, s in cases.items())
+    (path / "TEST-x.SvcTest.xml").write_text(f'<testsuite name="x.SvcTest">{body}</testsuite>')
+    return str(path)
+
+
+def test_junit_regression(tmp_path):
+    base = _surefire(tmp_path / "b/target/surefire-reports", {"a": "PASS", "b": "PASS", "c": "FAIL"})
+    cand = _surefire(tmp_path / "c/target/surefire-reports", {"a": "PASS", "b": "FAIL", "c": "PASS", "d": "PASS"})
+    res = regression.run(str(tmp_path / "b"), str(tmp_path / "c"))
+    assert res.status == "FAIL" and "REG-001" in ids(res) and "REG-006" in ids(res)   # b broke, c fixed
+    assert regression.run(str(tmp_path / "b"), str(tmp_path / "c"), ["x.SvcTest#b"]).status == "PASS"
+
+
+# --- token usage per stage and step -------------------------------------------------------------------------------
+def test_usage_by_stage_and_step(tmp_path):
+    def rec(ts, mid, i, cw, cr, o):
+        return json.dumps({"timestamp": ts, "message": {"id": mid, "model": "m", "usage": {
+            "input_tokens": i, "cache_creation_input_tokens": cw, "cache_read_input_tokens": cr, "output_tokens": o}}})
+    tr = tmp_path / "s.jsonl"
+    tr.write_text("\n".join([
+        rec("2026-10-28T09:00:00Z", "a", 1, 1, 1, 1),            # before the task: ignored
+        rec("2026-10-28T10:01:00Z", "b", 2, 10, 100, 5),         # INTAKE, step 1
+        rec("2026-10-28T10:01:00Z", "b", 2, 10, 100, 5),         # duplicate streaming record: counted once
+        rec("2026-10-28T10:06:00Z", "c", 1, 20, 200, 7),         # REQUIREMENT_ANALYSIS, step 2
+        "not json"]))
+    sub = tmp_path / "s" / "subagents"; sub.mkdir(parents=True)
+    (sub / "agent-1.jsonl").write_text(rec("2026-10-28T10:07:00Z", "d", 0, 5, 50, 3))
+    d = doc(started_at="2026-10-28T10:00:00Z", initial_state="INTAKE",
+            state_history=[{"from": "INTAKE", "to": "REQUIREMENT_ANALYSIS", "at": "2026-10-28T10:05:00Z"}],
+            usage_marks=[{"label": "read story", "at": "2026-10-28T10:00:30Z"}, {"label": "write ACs", "at": "2026-10-28T10:05:30Z"}])
+    m = write(tmp_path, d)
+    res = usage.report(m, [str(tr)])
+    data = json.loads((tmp_path / "usage.json").read_text())
+    assert res.status == "PASS" and data["overall"]["calls"] == 3
+    assert data["by_stage"]["INTAKE"]["fresh"] == 17 and data["by_stage"]["REQUIREMENT_ANALYSIS"]["calls"] == 2
+    assert data["by_step"]["write ACs"]["total"] == 228 + 58 and "| read story |" in (tmp_path / "usage.md").read_text()
+    assert usage.mark(m, "next step").status == "PASS"
+    assert json.loads(Path(m).read_text())["usage_marks"][-1]["label"] == "next step"
+    assert "USE-002" in ids(usage.report(write(tmp_path, doc(), "m2.json"), [str(tr)]))
+
+
+def test_pr_closeout_needs_monitoring_and_green_ci(tmp_path):
+    d = doc(current_state="PR_CLOSEOUT", gates=READY + [{"gate": "release_readiness", "status": "PASS"}],
+            pr={"valid_comments_open": 0, "unresolved_threads": 1, "ci_status": "PENDING", "monitoring": "none"})
+    msg = " ".join(f.message for f in manifest.transition(write(tmp_path, d), "RELEASE_READINESS").findings)
+    assert "pr.ci_status" in msg and "pr.monitoring" in msg and "pr.unresolved_threads" in msg
+    d["pr"].update(ci_status="FAIL", monitoring="app")
+    path = write(tmp_path, d)
+    assert manifest.transition(path, "RELEASE_READINESS").status == "FAIL"
+    assert manifest.transition(path, "FAILURE_TRIAGE").status == "PASS"         # red CI is triaged
+    d.update(current_state="FAILURE_TRIAGE", repair={"attempt_count": 0, "dev_attempt_count": 0, "attempt_history": [],
+             "classification": "ENVIRONMENT"})
+    assert manifest.transition(write(tmp_path, d), "PR_CLOSEOUT").status == "PASS"   # flaky infra: re-run, no attempt
+    d.update(current_state="PR_CLOSEOUT", repair={"attempt_count": 0, "dev_attempt_count": 0, "attempt_history": [], "classification": ""})
+    d["pr"]["ci_status"] = "PASS"
+    assert manifest.transition(write(tmp_path, d), "RELEASE_READINESS").status == "FAIL"   # a thread is still open
+    d["pr"]["unresolved_threads"] = 0
+    assert manifest.transition(write(tmp_path, d), "RELEASE_READINESS").status == "PASS"
+
+
+# --- diff coverage + component tests ------------------------------------------------------------------------------
+def _jacoco(path, lines):
+    """lines: {line: (missed_instr, covered_instr)} for x/Svc.java"""
+    body = "".join(f'<line nr="{n}" mi="{mi}" ci="{ci}" mb="0" cb="0"/>' for n, (mi, ci) in lines.items())
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "jacoco.xml").write_text(f'<report name="r"><package name="x"><sourcefile name="Svc.java">{body}'
+                                     f'</sourcefile></package></report>')
+    return str(path)
+
+
+def test_diff_coverage(svc, tmp_path):
+    import os, time
+    (svc / "src/main/java/x/Svc.java").write_text(
+        "class Svc {\n int f() { return 1; }\n int g(int a) {\n  if (a < 0) return -1;\n  return a;\n }\n}\n")
+    time.sleep(0.05)
+    rep = _jacoco(tmp_path / "jac", {2: (0, 2), 4: (3, 0), 5: (0, 2)})       # line 4 (the error path) never ran
+    res = diff_coverage.run(str(svc), "HEAD", rep, 80)
+    assert res.status == "FAIL" and {"DCV-001", "DCV-003"} <= ids(res) and res.inputs["diff_coverage"] == 66.7
+    rep = _jacoco(tmp_path / "jac2", {2: (0, 2), 4: (0, 3), 5: (0, 2)})
+    assert diff_coverage.run(str(svc), "HEAD", rep, 80).status == "PASS"
+    later = time.time() + 60
+    os.utime(svc / "src/main/java/x/Svc.java", (later, later))            # source edited after the run
+    assert "DCV-004" in ids(diff_coverage.run(str(svc), "HEAD", rep, 80))
+    (svc / "src/main/java/x/Other.java").write_text("class Other { int h() { return 3; } }\n")
+    assert "DCV-002" in ids(diff_coverage.run(str(svc), "HEAD", rep, 80))
+    assert diff_coverage.run(str(svc), "HEAD", str(tmp_path / "none"), 80).status == "NOT_RUN"
+
+
+def test_component_test_required_when_system_tests_na(tmp_path):
+    ac = {"id": "AC-1", "text": "missing name field -> notification still sent, no 500", "api": True,
+          "code_refs": ["src/main/java/x/Svc.java"], "test_ids": ["x.SvcTest#a"], "system_test_ids": ["TC_x_Notify_01"]}
+    d = doc(requirements={"source_refs": [], "acceptance_criteria": [ac], "open_ambiguities": 0},
+            test_results={"x.SvcTest#a": "PASS", "TC_x_Notify_01": "DEFERRED"},
+            exceptions=[{"action": "gate_exception", "gate": "system_tests", **HUMAN}],      # deferred to the post-merge run
+            gates=[{"gate": "system_tests", "status": "NOT_APPLICABLE"}])
+    assert "TRC-007" in ids(traceability.run(write(tmp_path, d)))
+    ac["component_test_ids"] = ["x.SvcControllerTest#missingName"]
+    d["test_results"]["x.SvcControllerTest#missingName"] = "PASS"
+    assert traceability.run(write(tmp_path, d)).status == "PASS"
+    d["gates"][0]["status"] = "PASS"; ac.pop("component_test_ids"); d["exceptions"] = []   # real system tests ran
+    d["test_results"]["TC_x_Notify_01"] = "PASS"
+    assert "TRC-007" not in ids(traceability.run(write(tmp_path, d)))
+
+
+# --- module onboarding --------------------------------------------------------------------------------------------
+def _module_repo(tmp_path, keep_agent=True):
+    r = tmp_path / "newmod"
+    (r / "svc/src/main/java/x").mkdir(parents=True)
+    (r / "svc/src/test/java/x").mkdir(parents=True)
+    arg = "${argLine} --enable-preview" if keep_agent else "--enable-preview"
+    (r / "pom.xml").write_text(f"""<project xmlns="http://maven.apache.org/POM/4.0.0"><artifactId>parent</artifactId>
+<properties><java.version>21</java.version></properties><modules><module>svc</module></modules>
+<build><plugins><plugin><artifactId>maven-surefire-plugin</artifactId><configuration><argLine>{arg}</argLine></configuration></plugin>
+<plugin><groupId>org.jacoco</groupId><artifactId>jacoco-maven-plugin</artifactId></plugin></plugins></build></project>""")
+    (r / "svc/pom.xml").write_text("<project><artifactId>svc</artifactId><dependencies><dependency><artifactId>junit-jupiter</artifactId>"
+                                   "</dependency><dependency><artifactId>mockito-core</artifactId></dependency></dependencies></project>")
+    (r / "svc/src/main/java/x/ACtrl.java").write_text("class ACtrl {}")
+    (r / "svc/src/test/java/x/AControllerTest.java").write_text("class AControllerTest { MockMvc m; }")
+    (r / ".github/workflows").mkdir(parents=True)
+    (r / ".github/workflows/push.yml").write_text("jobs:\n  b:\n    uses: mosip/kattu/.github/workflows/maven-build.yml@master\n")
+    (r / "db_upgrade_scripts/m/sql").mkdir(parents=True)
+    (r / "db_upgrade_scripts/m/sql/1.0_to_1.1_upgrade.sql").write_text("select 1;")
+    (r / "AGENTS.md").write_text("rules")
+    res = r / "api-test/src/main/resources/newmod"
+    (res / "Create").mkdir(parents=True)
+    (res / "Unused").mkdir(parents=True)
+    (r / "api-test/testNgXmlFiles").mkdir(parents=True)
+    (r / "api-test/testNgXmlFiles/newmodSuite.xml").write_text(
+        '<suite name="s"><test name="Create"><parameter name="ymlFile" value="newmod/Create/Create.yml"/>'
+        '<parameter name="idKeyName" value="id"/><classes><class name="x.SimplePost"/></classes></test></suite>')
+    (res / "Create/Create.yml").write_text("Create:\n   Newmod_Create_Valid_Smoke_sid:\n      uniqueIdentifier: TC_newmod_Create_01\n"
+                                           "      input: '{}'\n      output: '{}'\n   Newmod_Create_Neg:\n"
+                                           "      uniqueIdentifier: TC_newmod_Create_02\n      input: '{}'\n      output: '{}'\n")
+    (res / "Unused/Unused.yml").write_text("Unused:\n   Newmod_Unused_X:\n      uniqueIdentifier: TC_newmod_Unused_01\n")
+    git(tmp_path, "init", "-q", str(r))
+    commit_all(r, "base")
+    return r
+
+
+def test_discover_drafts_context_and_profile(tmp_path):
+    r = _module_repo(tmp_path, keep_agent=False)
+    before = git(r, "status", "--porcelain")
+    out = tmp_path / "ctx"
+    res = discover.run(str(r), "newmod", str(out))
+    assert res.status == "PASS" and {"DSC-001", "DSC-003", "DSC-005", "DSC-006"} <= ids(res)
+    assert git(r, "status", "--porcelain") == before                         # read-only on the module repo
+    facts = json.loads((out / ".crewline/development/discovery.json").read_text())
+    assert facts["maven"]["parent"] == "pom.xml" and facts["services"]["svc"]["mockmvc"] == 1
+    import yaml as _y
+    prof = _y.safe_load((out / ".crewline/qa/profile.draft.yaml").read_text())
+    assert prof["testcase_rules"]["case_name_prefix"] == "Newmod_"
+    assert prof["testcase_rules"]["unique_identifier_pattern"] == r"^TC_(?i:newmod)_[A-Za-z0-9]+_\d+$"
+    assert prof["ignore_yaml"] == ["newmod/Unused/Unused.yml"] and prof["module_code"] == "NEWMOD"
+    md = (out / ".crewline/development/local-context.md").read_text()
+    assert "DRAFT" in md and "coverage will not attach" in md and "mosip/kattu" in md
+    assert "DSC-007" in ids(discover.run(str(r), "newmod", str(out)))            # never overwrites without --force
+    r2 = _module_repo(tmp_path / "b", keep_agent=True)
+    assert "DSC-001" not in ids(discover.run(str(r2), "newmod", str(tmp_path / "ctx2")))
+
+
+def test_onboarding_path_needs_owner_review(tmp_path):
+    assert manifest.Ctx({"task_type": "module-onboarding"}).next_states("IMPACT_ANALYSIS") == ["KNOWLEDGE_UPDATE"]
+    d = doc(task_type="module-onboarding", risk_tier="L1", current_state="KNOWLEDGE_UPDATE",
+            gates=[{"gate": g, "status": "PASS"} for g in ("onboarding_discovery", "onboarding_baseline", "secrets")])
+    assert "onboarding_review" in " ".join(f.message for f in manifest.transition(write(tmp_path, d), "FINAL_REPORT").findings)
+    d["approvals"] = [{"action": "onboarding_review", **HUMAN}]
+    assert manifest.transition(write(tmp_path, d), "FINAL_REPORT").status == "PASS"
+
+
+# --- mixed stacks (Java + React/TypeScript), learned from onboarding inji-verify ------------------------------------
+def _js_repo(tmp_path):
+    r = tmp_path / "web"
+    (r / "ui/src/__tests__").mkdir(parents=True)
+    (r / "ui/src/App.ts").write_text("export const f = (a: number) => {\n  if (a < 0) return -1;\n  return a;\n};\n")
+    (r / "ui/src/__tests__/App.spec.ts").write_text(
+        "it('returns a', () => { expect(f(1)).toBe(1); });\nit('negative', () => { expect(f(-1)).toBe(-1); });\n")
+    (r / "ui/package.json").write_text('{"name": "ui", "scripts": {"test": "jest --coverage"}, "devDependencies": {"jest": "29"}}')
+    (r / "ui/jest.config.js").write_text("module.exports = { coverageReporters: ['html'] };")
+    git(tmp_path, "init", "-q", str(r))
+    commit_all(r, "base")
+    return r
+
+
+@pytest.mark.parametrize("body,rule", [
+    ("it('returns a', () => { expect(f(1)).toBe(1); });\n", "TIN-001"),
+    ("it('returns a', () => { expect(f(1)).toBe(1); });\nit.skip('negative', () => { expect(f(-1)).toBe(-1); });\n", "TIN-002"),
+    ("it('returns a', () => { expect(f(1)).toBe(1); });\nit('negative', () => { f(-1); });\n", "TIN-003"),
+    ("it.only('returns a', () => { expect(f(1)).toBe(1); });\nit('negative', () => { expect(f(-1)).toBe(-1); });\n", "TIN-002"),
+])
+def test_js_test_integrity(tmp_path, body, rule):
+    r = _js_repo(tmp_path)
+    (r / "ui/src/__tests__/App.spec.ts").write_text(body)
+    res = test_integrity.run(str(r), "HEAD")
+    assert res.status == "FAIL" and rule in ids(res)
+
+
+def test_lcov_diff_coverage(tmp_path):
+    import time
+    r = _js_repo(tmp_path)
+    (r / "ui/src/App.ts").write_text("export const f = (a: number) => {\n  if (a < 0) return -1;\n  if (a > 9) return 9;\n  return a;\n};\n")
+    time.sleep(0.05)
+    cov = r / "ui/coverage"; cov.mkdir()
+    (cov / "lcov.info").write_text("TN:\nSF:src/App.ts\nDA:1,3\nDA:2,3\nDA:3,0\nDA:4,3\nend_of_record\n")
+    res = diff_coverage.run(str(r), "HEAD", str(cov), 80, "*ui/src/*")
+    assert res.status == "FAIL" and res.inputs["diff_coverage"] == 0.0 and "DCV-003" in ids(res)   # only line 3 changed, not run
+    (cov / "lcov.info").write_text("TN:\nSF:src/App.ts\nDA:1,3\nDA:2,3\nDA:3,1\nDA:4,3\nend_of_record\n")
+    assert diff_coverage.run(str(r), "HEAD", str(cov), 80, "*ui/src/*").status == "PASS"
+
+
+def test_discover_mixed_stack_and_conventions(tmp_path):
+    r = _module_repo(tmp_path)
+    ui = r / "ui-test"; ui.mkdir()
+    (ui / "pom.xml").write_text("<project><artifactId>uitest</artifactId><properties><selenium.version>4</selenium.version>"
+                                "</properties></project>")
+    (r / "web/src/__tests__").mkdir(parents=True)
+    (r / "web/package.json").write_text('{"name": "web", "scripts": {"test:ci": "jest --ci"}, "devDependencies": {"jest": "29"}}')
+    (r / "web/jest.config.js").write_text("module.exports = { coverageReporters: ['html'] };")
+    (r / "web/src/__tests__/a.spec.tsx").write_text("it('x', () => expect(1).toBe(1));")
+    y = r / "api-test/src/main/resources/newmod/Create/Create.yml"
+    y.write_text(y.read_text() + "".join(
+        f"   DC_{i:02d}_dcapi_request:\n      uniqueIdentifier: TC_newmod_Dc_Api_Request_{i:02d}\n" for i in range(1, 5)))
+    commit_all(r, "mixed")
+    out = tmp_path / "ctx"
+    res = discover.run(str(r), "newmod", str(out))
+    facts = json.loads((out / ".crewline/development/discovery.json").read_text())
+    assert facts["ui_test_projects"] == ["ui-test"] and "ui-test" not in facts["services"]
+    assert facts["node"][0]["path"] == "web" and facts["node"][0]["lcov"] is False and "DSC-008" in ids(res)
+    import yaml as _y
+    rules = _y.safe_load((out / ".crewline/qa/profile.draft.yaml").read_text())["testcase_rules"]
+    assert rules["unique_identifier_pattern"] == r"^TC_(?i:newmod)_[A-Za-z0-9_]+_\d+$"     # underscores inside the subject
+    assert sorted(rules["case_name_prefix"]) == ["DC_", "Newmod_"]                          # two case families
+    assert facts["baseline"]["by_rule"].get("NAME-001", 0) == 0 and facts["baseline"]["by_rule"].get("NAME-002", 0) == 0
+    assert "Node / front-end projects" in (out / ".crewline/development/local-context.md").read_text()
+
+
+def test_ungated_id_capture_from_module_script_class(tmp_path):
+    """inji-verify: a module script class that stores IDs without a _sid check produces $ID keys for every case."""
+    r = _module_repo(tmp_path)
+    js = r / "api-test/src/main/java/x/testscripts"; js.mkdir(parents=True)
+    (js / "SimplePost.java").write_text('class SimplePost { void t() { writeAutoGeneratedId(response, "requestId", testCaseName); } }')
+    res = r / "api-test/src/main/resources/newmod"
+    (res / "Get").mkdir()
+    (res / "Get/Get.yml").write_text("Get:\n   Newmod_Get_Valid:\n      uniqueIdentifier: TC_newmod_Get_01\n"
+                                     "      input: '{\"r\": \"$ID:Create_Neg_requestId$\"}'\n      output: '{}'\n")
+    suite = r / "api-test/testNgXmlFiles/newmodSuite.xml"
+    suite.write_text(suite.read_text().replace("</suite>", '<test name="Get"><parameter name="ymlFile" value="newmod/Get/Get.yml"/>'
+                                               '<classes><class name="x.GetWithParam"/></classes></test></suite>'))
+    commit_all(r, "ungated")
+    out = tmp_path / "ctx"
+    discover.run(str(r), "newmod", str(out))
+    facts = json.loads((out / ".crewline/development/discovery.json").read_text())
+    assert facts["api_test"]["id_capture"] == {"extra_id_fields_by_class": {"SimplePost": ["requestId"]},
+                                               "extra_id_fields_gate": {}, "capture_without_sid": ["SimplePost"]}
+    js2 = r / "api-test/src/main/java/x/testscripts/CreateThing.java"            # prereg-style: gated on another token
+    js2.write_text('class CreateThing { void t() {\n if (name.toLowerCase().contains("_pos")) {\n'
+                   '  writeAutoGeneratedId(dto.getTestCaseName(), "EMAIL", email);\n } } }')
+    suite.write_text(suite.read_text().replace('x.SimplePost"', 'x.CreateThing"'))
+    commit_all(r, "gated")
+    discover.run(str(r), "newmod", str(out), force=True)
+    cap = json.loads((out / ".crewline/development/discovery.json").read_text())["api_test"]["id_capture"]
+    assert cap["extra_id_fields_by_class"]["CreateThing"] == ["EMAIL"] and cap["extra_id_fields_gate"] == {"CreateThing": "_pos"}
+    assert facts["baseline"]["by_rule"].get("DEP-001", 0) == 0          # Newmod_Create_Neg (no _sid) now produces the key
+
+
+def test_permission_gated_capabilities_offer_three_choices():
+    import yaml as _y
+    spec = _y.safe_load((Path(__file__).resolve().parents[2] / "core/tools.yaml").read_text(encoding="utf-8"))
+    gated = spec["permission_gated"]
+    assert "package_install" in gated
+    for name, cap in gated.items():
+        assert [o["id"] for o in cap["options"]] == ["user_runs", "allow_rule", "leave_inferred"], name
+        assert all(o["steps"] for o in cap["options"]) and cap["risk"]
+    rule = " ".join(gated["package_install"]["options"][1]["steps"])
+    assert "Bash(npm ci:*)" in rule and "never a rule for the `crewline run` wrapper" in rule
+
+
+# --- SDET in every code flow ---------------------------------------------------------------------------------------
+def test_sdet_required_in_code_flows(tmp_path):
+    # no code before a test environment plan
+    d = doc(current_state="REPO_READY", gates=READY, test_plan={})
+    assert "test_plan.environment" in " ".join(f.message for f in manifest.transition(write(tmp_path, d), "IMPLEMENTATION").findings)
+    # a user-facing AC needs an automated system test, with a result on the branch build
+    ac = {"id": "AC-1", "text": "t", "ui": True, "code_refs": ["src/main/java/x/Svc.java"], "test_ids": ["x.SvcTest#a"]}
+    d = doc(requirements={"source_refs": [], "acceptance_criteria": [ac], "open_ambiguities": 0}, test_results={"x.SvcTest#a": "PASS"})
+    assert "TRC-008" in ids(traceability.run(write(tmp_path, d)))
+    ac["system_test_ids"] = ["TC_x_Ui_01"]
+    assert "TRC-009" in ids(traceability.run(write(tmp_path, d)))
+    d["test_results"]["TC_x_Ui_01"] = "DEFERRED"                                 # deferral without a human exception
+    assert "TRC-009" in ids(traceability.run(write(tmp_path, d)))
+    d["test_results"]["TC_x_Ui_01"] = "PASS"
+    assert traceability.run(write(tmp_path, d)).status == "PASS"
+    # system tests / regression cannot be silently N/A; open in-scope defects block the PR
+    gates = [{"gate": g, "status": "PASS"} for g in ["quality_gate", "full_regression", "secrets"] + manifest.load_template("feature")["required_gates"]]
+    for g in gates:
+        if g["gate"] == "system_tests":
+            g["status"] = "NOT_APPLICABLE"
+    d = doc(current_state="QUALITY_GATE", gates=gates, approvals=[{"action": "commit_pr", **HUMAN}],
+            defects=[{"id": "D1", "class": "CODE_UNDER_CHANGE", "status": "open", "found_by": "TC_x_Ui_01"},
+                     {"id": "D2", "class": "APPLICATION", "status": "open", "found_by": "TC_x_Reg_07"}])
+    found = [f.rule_id for f in manifest.transition(write(tmp_path, d), "COMMIT_PR").findings]
+    assert "MAN-015" in found and found.count("MAN-014") == 2
+    d["defects"][0]["status"] = "fixed"
+    d["defects"][1].update(status="raised", bug="MOSIP-99999")
+    d["exceptions"] = [{"action": "gate_exception", "gate": "system_tests", **HUMAN, "scope": "deferred to dev env 2026-11-02"}]
+    assert manifest.transition(write(tmp_path, d), "COMMIT_PR").status == "PASS"
+
+
+# --- module context lives in the module: <repo>/.crewline/<role>/ ---------------------------------------------------
+def test_crewline_layout_and_default_profile(tmp_path):
+    import yaml as _y
+    from crewline.__main__ import main
+    r = _module_repo(tmp_path)
+    out = tmp_path / "draft"
+    discover.run(str(r), "newmod", str(out))
+    idx = _y.safe_load((out / ".crewline/module.yaml").read_text())
+    assert idx["module"] == "newmod" and idx["roles"]["development"] == "development/local-context.md"
+    assert "qa/profile.yaml" in idx["roles"]["qa"] and (out / ".crewline/README.md").exists()
+    for f in ("development/local-context.md", "qa/module-context.md", "qa/profile.draft.yaml"):
+        assert (out / ".crewline" / f).exists(), f
+    # publishing = the reviewed folder copied into the module repo; validators then find the profile on their own
+    with pytest.raises(SystemExit) if False else _nullcontext():
+        assert main(["testcase", "--module-root", str(r / "api-test"), "--scope", "all"]) == 2      # no profile yet: NOT_RUN
+    dest = r / ".crewline/qa"; dest.mkdir(parents=True)
+    (dest / "profile.yaml").write_text((out / ".crewline/qa/profile.draft.yaml").read_text())
+    assert main(["testcase", "--module-root", str(r / "api-test"), "--scope", "all"]) in (0, 1)       # ran with the module's profile
+
+
+class _nullcontext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
