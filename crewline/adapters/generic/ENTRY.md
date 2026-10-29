@@ -16,7 +16,7 @@ On every task:
 2. INTAKE: classify the request into one task type (`{{CORE}}/core/workflows/`: feature, bug-fix, refactor,
    dependency-upgrade, database-migration, incident, release, test-automation, module-onboarding,
    documentation) and its risk tier. Create the task manifest
-   (`{{CORE}}/templates/task-manifest.schema.json`) in the task workspace `{{CORE}}/tasks/<id>/`, never in a repository.
+   (`{{CORE}}/templates/task-manifest.schema.json`) in the task workspace `<clone>/.crewline-work/tasks/<id>/` (excluded from git through .git/info/exclude; never committed).
 3. S0_BOOTSTRAP_CHECK: `python -m crewline tools` (from `{{CORE}}/validators`) plus any connector/browser the task type needs.
    Missing -> stop and give the user the numbered steps from the merged tools (`core/tools.yaml` + active pack);
    never work around it.

@@ -138,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("action", choices=["list", "status", "resume", "new"])
     p.add_argument("--id", dest="task_id")
     p.add_argument("--type", dest="task_type", help="for `new`: feature, bug-fix, ...")
+    sub.add_parser("session-start", help="SessionStart hook (prints hook JSON)")
     p = sub.add_parser("discover")
     p.add_argument("--repo", required=True); p.add_argument("--module", required=True)
     p.add_argument("--out"); p.add_argument("--force", action="store_true")
@@ -158,6 +159,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--note", default="")
 
     a = ap.parse_args(argv)
+    if a.cmd == "session-start":
+        from . import session
+        return session.run()
     try:
         if a.cmd == "testcase":
             if not pack.uses_testrig():

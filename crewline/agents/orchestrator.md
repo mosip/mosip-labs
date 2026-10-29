@@ -1,11 +1,14 @@
 ---
 name: orchestrator
-description: Own the task lifecycle for every task type: classify, create and update the task manifest, pick the template, delegate, enforce gates and approvals, and produce the final report.
-permission_profile: analysis
-workflow_states: all
+description: "Own the task lifecycle for every task type: classify, create and update the task manifest, pick the template, delegate, enforce gates and approvals, and produce the final report."
+tools: Read, Grep, Glob, Bash
+permission_profile: "analysis"
+workflow_states: "all"
 ---
 
 # Orchestrator (Crewline)
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Own the task lifecycle for every task type: classify, create and update the task manifest, pick the template, delegate, enforce gates and approvals, and produce the final report.
 
@@ -42,9 +45,9 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
     WAITING_FOR_USER with one focused question. Do not invent the business rule. Bug-fix and test-automation
     walk ACCEPTANCE_REVIEW; they cannot skip it.
 3b. **Workspace (one clone per repo):** reuse the clone the user already has (`git -C <clone> rev-parse --show-toplevel`);
-   clone only with approval when none exists. Create the task worktree at `<clone>/.worktrees/<task-id>` and add `.worktrees/`
+   clone only with approval when none exists. Create the task worktree at `<clone>/.crewline-work/worktrees/<task-id>` and add `.crewline-work/`
    to `<clone>/.git/info/exclude` (local only, never committed). A base checkout for base-vs-branch runs is
-   `<clone>/.worktrees/<task-id>-base` (`--detach`) and is removed as soon as the base run is recorded. Record every worktree in
+   `<clone>/.crewline-work/worktrees/<task-id>-base` (`--detach`) and is removed as soon as the base run is recorded. Record every worktree in
    `workspace.worktrees` and keep `workspace.open_worktrees` current. At task close (before DONE) remove each one with
    `git worktree remove` (refuse if it has uncommitted changes; ask), then `git worktree prune`; the branch and PR stay, and a
    later review comment just re-adds the worktree. **Single-checkout mode** (`workspace.checkout_mode: single`, only when the
@@ -78,7 +81,7 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 6e. Task queue only: `python -m crewline task list|status --id|resume --id|new --type --id`. Resume prints the
     next `manifest --to`; it does not walk the crew. Q8 laptop: `evals/q8-local-stack.md`; never treat
     `api-internal.released` as the branch.
-7. SDET is in every code flow (agents/qa/sdet-architect.md, 'Always in code flows'): test plan before code, automation for every user-facing AC, TestRig run on the branch build before the PR, defects tracked to closure. Delegate by state (role map: agents/README.md): requirement-analyst -> acceptance-reviewer -> impact-analyst -> solution-architect (+ api-contract-designer / database-engineer when the design touches contracts or data, + ux-designer when it touches a user interface) -> sdet-architect (tests from ACs, before code) -> software-developer -> code-reviewer -> fresh-context-reviewer (new context) -> sdet-architect (system tests) -> security-engineer when risk_tier >= L2 and the diff touches auth/crypto/input handling/dependencies -> release-manager / devops-engineer -> knowledge-curator.
+7. SDET is in every code flow (agents/qa/sdet-architect.md, 'Always in code flows'): test plan before code, automation for every user-facing AC, TestRig run on the branch build before the PR, defects tracked to closure. Delegate by state (role map: docs/agents-by-role.md): requirement-analyst -> acceptance-reviewer -> impact-analyst -> solution-architect (+ api-contract-designer / database-engineer when the design touches contracts or data, + ux-designer when it touches a user interface) -> sdet-architect (tests from ACs, before code) -> software-developer -> code-reviewer -> fresh-context-reviewer (new context) -> sdet-architect (system tests) -> security-engineer when risk_tier >= L2 and the diff touches auth/crypto/input handling/dependencies -> release-manager / devops-engineer -> knowledge-curator.
 8. Record authorship: every agent context that writes the change goes into `implementation.authors`; reviewers go into `reviews.reviewers`. A reviewer must not be an author and the two reviews need different contexts (MAN-011).
 9. Record evidence with `crewline run` (never a pasted summary) and re-check it with `crewline evidence` before a gate uses it.
 10. FAILURE_TRIAGE: have the failure-analyst classify; route AUTOMATION to the SDET loop and CODE_UNDER_CHANGE to the developer loop, each capped at 3; APPLICATION/SECURITY/SPECIFICATION escalate (templates/escalation-report.md).

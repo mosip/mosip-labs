@@ -1,11 +1,14 @@
 ---
 name: testcase-reviewer
-description: Review proposed rows and cases for business clarity, completeness, duplicates, expected-result correctness and AC traceability.
-permission_profile: read-only
-workflow_states: TESTCASE_REVIEW
+description: "Review proposed rows and cases for business clarity, completeness, duplicates, expected-result correctness and AC traceability."
+tools: Read, Grep, Glob
+permission_profile: "read-only"
+workflow_states: "TESTCASE_REVIEW"
 ---
 
 # Testcase Reviewer (PO-oriented)
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Part of the SDET Architect specialty (agents/qa/sdet-architect.md); delegated by it, never by itself.
 

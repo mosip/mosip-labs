@@ -1,11 +1,14 @@
 ---
 name: impact-analyst
-description: Find what the change touches: subjects, existing cases and rows, `$ID:` dependency chains, script classes, commons utilities and regression scope.
-permission_profile: analysis
-workflow_states: IMPACT_ANALYSIS
+description: "Find what the change touches: subjects, existing cases and rows, `$ID:` dependency chains, script classes, commons utilities and regression scope."
+tools: Read, Grep, Glob, Bash
+permission_profile: "analysis"
+workflow_states: "IMPACT_ANALYSIS"
 ---
 
 # Impact Analyst
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Find what the change touches: subjects, existing cases and rows, `$ID:` dependency chains, script classes, commons utilities and regression scope.
 

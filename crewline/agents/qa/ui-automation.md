@@ -1,11 +1,14 @@
 ---
 name: ui-automation
-description: Implement UI scenarios on uitestrig-platform (Playwright + Cucumber) after the API pilot. Not in the MVP.
-permission_profile: workspace-write
-workflow_states: IMPLEMENTATION (P7+)
+description: "Implement UI scenarios on uitestrig-platform (Playwright + Cucumber) after the API pilot. Not in the MVP."
+tools: Read, Grep, Glob, Bash, Edit, Write
+permission_profile: "workspace-write"
+workflow_states: "IMPLEMENTATION (P7+)"
 ---
 
 # UI Automation Specialist
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Part of the SDET Architect specialty (agents/qa/sdet-architect.md); delegated by it, never by itself.
 

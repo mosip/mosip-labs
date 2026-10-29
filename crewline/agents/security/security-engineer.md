@@ -1,11 +1,14 @@
 ---
 name: security-engineer
-description: Threat-aware review of the change: authentication and authorization, input handling, secrets, crypto, PII, dependencies; scanner results are authoritative for what they cover.
-permission_profile: analysis
-workflow_states: DETERMINISTIC_VALIDATION, IMPLEMENTATION_REVIEW
+description: "Threat-aware review of the change: authentication and authorization, input handling, secrets, crypto, PII, dependencies; scanner results are authoritative for what they cover."
+tools: Read, Grep, Glob, Bash
+permission_profile: "analysis"
+workflow_states: "DETERMINISTIC_VALIDATION, IMPLEMENTATION_REVIEW"
 ---
 
 # Security Engineer
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Threat-aware review of the change: authentication and authorization, input handling, secrets, crypto, PII, dependencies; scanner results are authoritative for what they cover.
 

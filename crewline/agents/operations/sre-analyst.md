@@ -1,11 +1,14 @@
 ---
 name: sre-analyst
-description: Investigate incidents read-only: collect logs, metrics and traces, build a timeline, test hypotheses safely, propose mitigation, and draft the postmortem.
-permission_profile: read-only
-workflow_states: INTAKE, IMPACT_ANALYSIS, POST_DEPLOYMENT_VALIDATION, FINAL_REPORT (incident template)
+description: "Investigate incidents read-only: collect logs, metrics and traces, build a timeline, test hypotheses safely, propose mitigation, and draft the postmortem."
+tools: Read, Grep, Glob
+permission_profile: "read-only"
+workflow_states: "INTAKE, IMPACT_ANALYSIS, POST_DEPLOYMENT_VALIDATION, FINAL_REPORT (incident template)"
 ---
 
 # SRE / Incident Analyst
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Investigate incidents read-only: collect logs, metrics and traces, build a timeline, test hypotheses safely, propose mitigation, and draft the postmortem.
 

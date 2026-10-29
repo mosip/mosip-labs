@@ -1,6 +1,3 @@
-# local task workspaces: manifests, evidence, logs, usage (may contain local paths)
-tasks/*
-!tasks/README.md
 __pycache__/
 .pytest_cache/
 *.pyc

@@ -990,3 +990,17 @@ def test_task_queue_new_status_resume(tmp_path, monkeypatch):
     waiting["current_state"] = "WAITING_FOR_USER"
     (tmp_path / "t1" / "task-manifest.json").write_text(json.dumps(waiting), encoding="utf-8")
     assert "TSK-003" in ids(task.run("resume", "t1"))
+# --- plugin SessionStart hook: active only where .crewline/ exists ---------------------------------------------------
+def test_session_start_activates_only_in_onboarded_repos(tmp_path):
+    from crewline import session
+    r = tmp_path / "mod"
+    r.mkdir()
+    git(tmp_path, "init", "-q", str(r))
+    msg = session.context(str(r), env={})
+    assert msg and "no .crewline/" in msg                                   # enabled, not onboarded: offer onboarding only
+    (r / ".crewline/qa").mkdir(parents=True)
+    (r / ".crewline/module.yaml").write_text("module: mod\nroles:\n  development: development/local-context.md\n  qa: []\n")
+    sub_dir = r / "src"; sub_dir.mkdir()
+    msg = session.context(str(sub_dir), env={})                            # session opened in a subfolder
+    assert "ACTIVE" in msg and "module mod" in msg and "development, qa" in msg
+    assert session.context(str(r), env={"CREWLINE": "off"}) is None          # one-session opt-out

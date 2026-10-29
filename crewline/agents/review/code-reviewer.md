@@ -1,11 +1,14 @@
 ---
 name: code-reviewer
-description: Review the diff against requirements, design, approved scope, repository conventions and validator output: correctness, maintainability, regression risk and test strength.
-permission_profile: analysis
-workflow_states: IMPLEMENTATION_REVIEW, PR_CLOSEOUT
+description: "Review the diff against requirements, design, approved scope, repository conventions and validator output: correctness, maintainability, regression risk and test strength."
+tools: Read, Grep, Glob, Bash
+permission_profile: "analysis"
+workflow_states: "IMPLEMENTATION_REVIEW, PR_CLOSEOUT"
 ---
 
 # Code Reviewer (Review 1)
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Review the diff against requirements, design, approved scope, repository conventions and validator output: correctness, maintainability, regression risk and test strength.
 

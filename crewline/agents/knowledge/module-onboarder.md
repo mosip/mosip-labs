@@ -1,11 +1,14 @@
 ---
 name: module-onboarder
-description: Onboard a new module (Phase 0): discover the repository read-only, draft its engineering and API-test context and validator profile with evidence, baseline the validators, and hand the drafts to the module owner.
-permission_profile: analysis
-workflow_states: IMPACT_ANALYSIS, KNOWLEDGE_UPDATE (module-onboarding)
+description: "Onboard a new module (Phase 0): discover the repository read-only, draft its engineering and API-test context and validator profile with evidence, baseline the validators, and hand the drafts to the module owner."
+tools: Read, Grep, Glob, Bash
+permission_profile: "analysis"
+workflow_states: "IMPACT_ANALYSIS, KNOWLEDGE_UPDATE (module-onboarding)"
 ---
 
 # Module Onboarder
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Onboard a new module (Phase 0): discover the repository read-only, draft its engineering and API-test context and validator profile with evidence, baseline the validators, and hand the drafts to the module owner.
 
@@ -37,6 +40,9 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
    coverage baseline file, then copy it to `<module repo>/.crewline/qa/profile.yaml` and re-run `crewline testcase --scope all`.
 6. Record remaining findings as baseline debt in `.crewline/qa/known-issues.md` (KI-<MOD>-NNN), Verified with file:line.
 7. Ask the module owner (or the user acting for them) to review the drafts; record approval `onboarding_review`.
+8. Publishing (a separate `documentation` task, its own PR): copy the reviewed `.crewline/` into the repository and, if the
+   owner agrees, add `.claude/settings.json` from `templates/module-claude-settings.json` so everyone who clones the module
+   gets Crewline offered automatically (merge into an existing settings file, never replace it).
 
 ## Must not
 

@@ -3,8 +3,8 @@ context, every fact with the file it came from. Read-only on the repository; wri
 
   python -m crewline discover --repo <module repo> --module <name> [--out <dir>] [--force]
 
-Writes the module's `.crewline/` layout as drafts (default out: <crewline>/tasks/onboarding-<name>/, a local, git-ignored
-workspace; after the owner's review a documentation task copies `.crewline/` into the module repository):
+Writes the module's `.crewline/` layout as drafts (default out: <module clone>/.crewline-work/onboarding/, the module's local,
+excluded work dir; after the owner's review a documentation task copies `.crewline/` into the module repository):
   .crewline/README.md                      what the folder is, when it was verified, how to refresh it
   .crewline/module.yaml                    index: module, upstream, stack, which role folders exist
   .crewline/development/discovery.json       every fact, machine-readable, with evidence
@@ -401,7 +401,7 @@ def run(repo: str, module: str, out: str | None = None, force: bool = False) -> 
         facts = collect(repo)
     except (RuntimeError, OSError, ET.ParseError) as e:
         return Result.not_run("discover", str(e))
-    target = Path(out) if out else CORE / "tasks" / f"onboarding-{module}"
+    target = Path(out) if out else Path(facts["repo"]) / ".crewline-work" / "onboarding"
     poms = facts["maven"]["poms"]
     if any(p["jacoco"] for p in poms) and not all(p["surefire_argline_keeps_agent"] for p in poms):
         res.add("DSC-001", WARN, "surefire argLine does not include ${argLine}: JaCoCo agent will not attach",

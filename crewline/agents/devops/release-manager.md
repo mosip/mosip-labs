@@ -1,11 +1,14 @@
 ---
 name: release-manager
-description: Prepare release readiness: notes, version compatibility, upgrade and rollback plan, and the checklist a human signs off.
-permission_profile: read-only
-workflow_states: RELEASE_READINESS
+description: "Prepare release readiness: notes, version compatibility, upgrade and rollback plan, and the checklist a human signs off."
+tools: Read, Grep, Glob
+permission_profile: "read-only"
+workflow_states: "RELEASE_READINESS"
 ---
 
 # Release Manager
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Prepare release readiness: notes, version compatibility, upgrade and rollback plan, and the checklist a human signs off.
 

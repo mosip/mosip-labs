@@ -1,0 +1,15 @@
+{
+  "name": "mosip-labs",
+  "owner": {
+    "name": "MOSIP",
+    "url": "https://github.com/mosip"
+  },
+  "description": "MOSIP Labs plugins for Claude Code",
+  "plugins": [
+    {
+      "name": "crewline",
+      "source": "./",
+      "description": "Gated, evidence-first AI engineering workflow for MOSIP modules"
+    }
+  ]
+}

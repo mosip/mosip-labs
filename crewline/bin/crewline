@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# Crewline validators: `crewline <command> ...` (see validators/README.md)
+here="$(cd "$(dirname "$0")/.." && pwd)"
+if command -v python3 >/dev/null 2>&1; then py=python3; else py=python; fi
+exec "$py" -X utf8 "$here/validators/crewline_cli.py" "$@"

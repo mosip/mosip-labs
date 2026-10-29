@@ -185,7 +185,7 @@ scenarios:
     automated_by: test_sdlc.py::test_sdet_required_in_code_flows
   - id: EV-46
     name: Worktrees pile up next to the user's clone
-    expected: task worktrees live under <clone>/.worktrees/, base checkouts are temporary, DONE is refused while a task worktree is open (single-checkout mode exempt)
+    expected: task worktrees live under <clone>/.crewline-work/worktrees/, base checkouts are temporary, DONE is refused while a task worktree is open (single-checkout mode exempt)
     automated_by: test_sdlc.py::test_task_cannot_close_with_open_worktrees
   - id: EV-47
     name: Agent skips validators and tries to commit / force-push
