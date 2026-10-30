@@ -241,7 +241,7 @@ def test_plugin_hook_leaves_repos_without_crewline_alone(tmp_path, monkeypatch):
     r = _module(tmp_path, onboarded=False)
     assert _plugin("shell", r, "git commit -m x")["permission"] == "allow"
     assert _plugin("shell", r, "git push --force")["permission"] == "allow"        # not our repo: not our rules
-    assert "no .crewline/" in _plugin("session", r)["additional_context"]
+    assert _plugin("session", r) == {"additional_context": ""}                    # silent: prints nothing
 
 
 def test_plugin_hook_enforces_rails_in_onboarded_repo(tmp_path, monkeypatch):
@@ -328,3 +328,9 @@ def test_marketplace_catalog_at_repo_root_points_at_the_plugin():
     src = json.loads((ROOT / "templates/module-claude-settings.json").read_text(encoding="utf-8"))
     src = src["extraKnownMarketplaces"]["mosip-labs"]["source"]
     assert "path" not in src and set(src["sparsePaths"]) == {".claude-plugin", "crewline"}
+
+
+def test_installing_the_plugin_enables_it():
+    """A local-scope install writes the plugin's default into settings.local.json, which overrides the module's opt-in:
+    with defaultEnabled false a new user followed the README and still had Crewline off."""
+    assert json.loads((ROOT / ".claude-plugin/plugin.json").read_text(encoding="utf-8")).get("defaultEnabled", True) is True

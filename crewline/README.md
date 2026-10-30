@@ -94,11 +94,14 @@ only in repositories that carry a `.crewline/` folder.
 1. **Module (once, by its owner):** commit `.claude/settings.json` with the content of
    [`templates/module-claude-settings.json`](templates/module-claude-settings.json) (merge if the file exists), next to the
    module's reviewed `.crewline/` folder.
-2. **Developer:** clone the module, open Claude Code in it and trust the folder: Claude Code adds the `mosip-labs`
-   marketplace from the module's settings. Install the plugin once per machine if it is not offered: `/plugin` -> Discover ->
-   `crewline` -> *Install for you, in this repo only (local scope)*, or `claude plugin install crewline@mosip-labs --scope local`
-   in the clone. Restart Claude Code, then just ask *"Add feature X"* - the session starts with *"Crewline is ACTIVE for this
-   repository"* and follows the workflow.
+2. **Developer:** clone the module and open Claude Code in it (trust the folder). Claude Code does not offer the install
+   by itself, so install once:
+   - `/plugin` -> Discover -> `crewline` -> Install (if `mosip-labs` is not listed under Marketplaces:
+     `/plugin marketplace add mosip/mosip-labs`), or in a terminal `claude plugin install crewline@mosip-labs`;
+   - scope: *user* to have it for every module on this machine (outside repositories with `.crewline/` it says nothing and
+     allows everything), or *local* for this clone only.
+   Restart Claude Code, then just ask *"Add feature X"*: the session starts with *"Crewline is ACTIVE for this repository"*
+   and follows the workflow.
 3. **Any repository by hand:** `/plugin marketplace add mosip/mosip-labs`, then `/plugin install crewline@mosip-labs`. The
    marketplace catalog is `.claude-plugin/marketplace.json` at the root of mosip-labs; the plugin is this folder.
 
@@ -107,7 +110,7 @@ only in repositories that carry a `.crewline/` folder.
 | Want | Do |
 |---|---|
 | Off for me in one module that has it on | `.claude/settings.local.json` in that clone: `{"enabledPlugins": {"crewline@mosip-labs": false}}` (git-ignored, overrides the committed setting) |
-| On for me in a repo that does not commit it | same file with `true` (the plugin is installed but `defaultEnabled` is false, so it stays off elsewhere) |
+| On for me in a repo that does not commit it | nothing to do once installed: it is active wherever `.crewline/` exists |
 | Off for one session only | start Claude Code with `CREWLINE=off` in the environment |
 | Check | the first lines of a session say whether Crewline is ACTIVE; `/plugin` lists it as enabled or disabled |
 
