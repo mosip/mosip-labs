@@ -51,7 +51,8 @@ at each stage change. FAIL the budget -> STOP (continue / split / abort).
 - Use a git worktree per task and repository; never edit the user's main checkout.
 - Credentials: never read their values into context; merge them into the worktree config, mark it skip-worktree, restore after.
 - Long runs (full suites, builds) go in the background; gates read the `crewline run` record, not the console.
-- Fail-closed hooks (plugin `hooks/hooks.json`, or `.claude/settings.json` for a manual install: PreToolUse + SessionStart, plus `permissions.deny`) call
+- Fail-closed hooks (plugin `hooks/hooks.json` in repositories with `.crewline/`, or `.claude/settings.json` plus
+  `permissions.deny` for a manual install; PreToolUse + SessionStart) call
   `crewline guard`. They deny git commit / push / `gh pr create` until COMMIT_PR / PR_CLOSEOUT gates
   pass; they always deny force-push, `--no-verify`, hard reset, stash, branch delete, PR merge and production
   deploy. A hook deny is not a prompt to work around — fix the gate. Subagent tool allow-lists still apply.

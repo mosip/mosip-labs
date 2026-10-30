@@ -11,6 +11,7 @@ import json
 import sys
 from pathlib import Path
 
+from . import session, workspace
 from .guard import check_shell, check_write, find_active_manifest
 from .result import BLOCK
 
@@ -71,8 +72,35 @@ def _cwd_from(payload: dict) -> str | None:
     return cwd
 
 
-def handle(mode: str, payload: dict) -> dict:
-    manifest = str(find_active_manifest() or "") or None
+PLUGIN_RAILS = (
+    "Crewline hooks are active: git commit / push / gh pr create are denied until the active task's COMMIT_PR / "
+    "PR_CLOSEOUT gates pass; force-push, --no-verify, hard reset, stash, branch delete, PR merge and production deploy "
+    "are always denied. Do not work around a deny. Task records: {tasks} (create with `crewline task new`, move with "
+    "`crewline manifest <m> --to STATE --apply`)."
+)
+
+
+def handle_plugin(mode: str, payload: dict) -> dict:
+    """Plugin hooks run in every repository where the plugin is enabled: rails apply only where `.crewline/` exists."""
+    cwd = _cwd_from(payload)
+    if workspace.disabled():
+        return {"additional_context": ""} if mode == "session" else {"permission": "allow"}
+    active = workspace.module_top(cwd) is not None
+    if mode == "session":
+        text = session.context(cwd) or ""
+        if active:
+            text += " " + PLUGIN_RAILS.format(tasks=workspace.tasks_root(cwd))
+            manifest = find_active_manifest(cwd=cwd)
+            if manifest:
+                text += f" Active task: {manifest}."
+        return {"additional_context": text.strip()}
+    if not active:
+        return {"permission": "allow"}
+    return handle(mode, payload, cwd=cwd)
+
+
+def handle(mode: str, payload: dict, cwd: str | None = None) -> dict:
+    manifest = str(find_active_manifest(cwd=cwd) or "") or None
     if mode == "session":
         extra = SESSION_CONTEXT
         if manifest:
@@ -142,6 +170,9 @@ def main(argv: list[str] | None = None) -> int:
     flag_claude = "--claude" in args
     if flag_claude:
         args.remove("--claude")
+    plugin = "--plugin" in args
+    if plugin:
+        args.remove("--plugin")
     mode = args[0] if args else "auto"
     rest = args[1:]
     if mode in ("git-commit", "git-push"):
@@ -155,7 +186,9 @@ def main(argv: list[str] | None = None) -> int:
     protocol = detect_protocol(payload, flag_claude)
     if mode == "auto":
         mode = detect_mode(payload)
-    out = handle(mode, payload)
+    out = handle_plugin(mode, payload) if plugin else handle(mode, payload)
+    if out.get("additional_context") == "":
+        return 0                                   # nothing to say: print nothing
     event = str(payload.get("hook_event_name") or ("SessionStart" if mode == "session" else "PreToolUse"))
     if protocol == "claude":
         out = to_claude(out, event)

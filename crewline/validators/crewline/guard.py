@@ -20,6 +20,7 @@ from pathlib import Path
 from .change_scope import SENSITIVE, _match
 from .manifest import CORE, check, transition
 from .result import BLOCK, Result
+from .workspace import tasks_root
 
 TASKS = CORE / "tasks"
 TERMINAL = {"DONE"}
@@ -41,12 +42,12 @@ DENY_RULE = {
 }
 
 
-def find_active_manifest(tasks_dir: Path | None = None) -> Path | None:
+def find_active_manifest(tasks_dir: Path | None = None, cwd: str | None = None) -> Path | None:
     env = os.environ.get("CREWLINE_TASK_MANIFEST", "").strip()
     if env:
         p = Path(env)
         return p if p.is_file() else None
-    root = Path(tasks_dir or TASKS)
+    root = Path(tasks_dir) if tasks_dir else tasks_root(cwd)
     if not root.is_dir():
         return None
     found: list[tuple[float, Path]] = []
@@ -110,7 +111,7 @@ def _load(manifest_path: str) -> dict:
 
 def _need_task(res: Result, manifest_path: str | None, action: str) -> dict | None:
     if not manifest_path:
-        res.add("GRD-001", BLOCK, f"{action} needs an active Crewline task (tasks/<id>/task-manifest.json)",
+        res.add("GRD-001", BLOCK, f"{action} needs an active Crewline task (<task workspace>/<id>/task-manifest.json: {tasks_root()})",
                 remediation="INTAKE: create the manifest first, or set CREWLINE_TASK_MANIFEST")
         return None
     try:
@@ -174,7 +175,8 @@ def _rel_repo_path(path: str, cwd: str | None = None) -> str:
         p = Path(path)
     text = str(p).replace("\\", "/")
     lower = text.lower()
-    for prefix in ALWAYS_ALLOW_WRITE_PREFIXES:
+    module_tasks = str(tasks_root(cwd)).replace("\\", "/").lower() + "/"
+    for prefix in ALWAYS_ALLOW_WRITE_PREFIXES + (module_tasks,):
         if lower.startswith(prefix) or lower.startswith(prefix.rstrip("/")):
             return ""  # empty => always allowed (task workspace)
     # Prefer a path relative to cwd / git top so approved_paths globs match.

@@ -113,6 +113,11 @@ only in repositories that carry a `.crewline/` folder.
 `<clone>/.crewline-work/worktrees/<task-id>`, excluded from git through `.git/info/exclude`. Validators run as `crewline <command>`
 (the plugin's `bin/` is on the PATH while it is enabled).
 
+**Rails come with the plugin (ADR-0007):** in a repository with `.crewline/`, the plugin's PreToolUse hooks (Bash, PowerShell,
+Write/Edit) run `crewline guard`: `git commit` / `git push` / `gh pr create` are denied until the active task's gates pass,
+and force-push, `--no-verify`, hard reset, stash, branch delete, PR merge and production deploy are always denied. In other
+repositories the hooks allow everything; `CREWLINE=off` turns them off for one session.
+
 ## Quick start for a new user
 
 1. **Get Crewline** (one time): copy or clone this folder, then run the setup script from inside `crewline/`:

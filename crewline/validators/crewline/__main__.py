@@ -139,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--id", dest="task_id")
     p.add_argument("--type", dest="task_type", help="for `new`: feature, bug-fix, ...")
     sub.add_parser("session-start", help="SessionStart hook (prints hook JSON)")
+    sub.add_parser("hook", help="platform hook: crewline hook [--claude] [--plugin] session|shell|write (stdin JSON)")
     p = sub.add_parser("discover")
     p.add_argument("--repo", required=True); p.add_argument("--module", required=True)
     p.add_argument("--out"); p.add_argument("--force", action="store_true")
@@ -158,6 +159,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--apply", action="store_true", help="record the transition if every guard passes")
     p.add_argument("--note", default="")
 
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if raw[:1] == ["hook"]:                       # platform hook protocol: stdin JSON -> stdout JSON (hook.py)
+        from . import hook
+        return hook.main(raw[1:])
     a = ap.parse_args(argv)
     if a.cmd == "session-start":
         from . import session
@@ -241,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
             res = usage.mark(a.manifest, a.mark) if a.mark else usage.report(a.manifest, a.transcript, a.out)
         elif a.cmd == "guard":
             from .guard import find_active_manifest
-            man = a.manifest or (str(find_active_manifest()) if find_active_manifest() else None)
+            man = a.manifest or (str(find_active_manifest(cwd=a.cwd)) if find_active_manifest(cwd=a.cwd) else None)
             if a.shell is not None:
                 res = guard.check_shell(a.shell, man)
             elif a.write_path:

@@ -10,7 +10,8 @@
   TSK-003  resume: WAITING_FOR_USER / S_ESCALATE without resume_state                               BLOCK
   TSK-004  INFO listing / next-step (never walks the crew)                                          INFO
 
-Override the workspace with CREWLINE_TASKS=<dir> (tests). Default: <core>/tasks/.
+Workspace: CREWLINE_TASKS=<dir>, else <clone>/.crewline-work/tasks/ in a repository with .crewline/, else <core>/tasks/
+(see workspace.py).
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import manifest
+from . import manifest, workspace
 from .result import BLOCK, INFO, Result
 
 CORE = Path(__file__).resolve().parents[2]
@@ -32,8 +33,7 @@ KNOWN_TYPES = (
 
 
 def tasks_root() -> Path:
-    env = os.environ.get("CREWLINE_TASKS")
-    return Path(env) if env else CORE / "tasks"
+    return workspace.tasks_root()
 
 
 def now_iso() -> str:
