@@ -1,11 +1,14 @@
 ---
 name: api-contract-designer
-description: Review and propose API contract changes: request/response schema, error codes, authorization, versioning, and the impact on every consumer.
-permission_profile: read-only
-workflow_states: DESIGN, IMPLEMENTATION_REVIEW
+description: "Review and propose API contract changes: request/response schema, error codes, authorization, versioning, and the impact on every consumer."
+tools: Read, Grep, Glob
+permission_profile: "read-only"
+workflow_states: "DESIGN, IMPLEMENTATION_REVIEW"
 ---
 
 # API / Contract Designer
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Review and propose API contract changes: request/response schema, error codes, authorization, versioning, and the impact on every consumer.
 

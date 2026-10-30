@@ -3,9 +3,9 @@ name: crewline
 description: "Use for MOSIP engineering work across the SDLC: features, bug fixes, refactors, dependency upgrades, DB migrations, incidents, release readiness, and API/UI test automation. Classifies the task, drives one gated workflow (requirements -> design -> tests from ACs -> code -> reviews -> system tests -> signed-off PR to upstream -> release readiness) with deterministic validators and human approvals."
 ---
 
-# Crewline (Claude Code adapter)
+# Crewline
 
-Core: `{{CORE}}`. This file is a thin adapter. The workflow, templates, gates, permissions and agent contracts live in the core.
+Core: `${CLAUDE_PLUGIN_ROOT}` (the installed plugin). This file is a thin adapter. The workflow, templates, gates, permissions and agent contracts live in the core.
 
 **Token fire-break:** after INTAKE do not re-read `principles.md` or every agent file. One subagent, smallest packet
 (ACs + FAIL findings). Never paste reports. Never poll. `crewline usage --mark` each step; `crewline usage --transcript`
@@ -13,36 +13,36 @@ at each stage change. FAIL the budget -> STOP (continue / split / abort).
 
 ## How to run a task
 
-1. At **INTAKE only**, read `{{CORE}}/core/principles.md`. Run `python -m crewline pack` and load only that pack's knowledge dirs
+1. At **INTAKE only**, read `${CLAUDE_PLUGIN_ROOT}/core/principles.md`. Run `crewline pack` and load only that pack's knowledge dirs
    (`packs/<id>/pack.yaml`). MOSIP (default) adds `knowledge/mosip` and `knowledge/frameworks`. Then the target
    repository's `.crewline/development/local-context.md` (staging copy: `<module repo>/.crewline/development/`)
    and, for test work, `.crewline/qa/module-context.md`, `coverage/README.md`, `coverage/AGENTS.md`.
    Repository guidance wins where it is more specific.
-2. INTAKE: classify the request into one task type (`{{CORE}}/core/workflows/`: feature, bug-fix, refactor,
+2. INTAKE: classify the request into one task type (`${CLAUDE_PLUGIN_ROOT}/core/workflows/`: feature, bug-fix, refactor,
    dependency-upgrade, database-migration, incident, release, test-automation) and its risk tier. Create the task manifest
-   (`{{CORE}}/templates/task-manifest.schema.json`) in the task workspace `{{CORE}}/tasks/<id>/`, never in a repository.
-3. S0_BOOTSTRAP_CHECK: `python -m crewline tools` (from `{{CORE}}/validators`) plus any connector/browser the task type needs.
+   (`${CLAUDE_PLUGIN_ROOT}/templates/task-manifest.schema.json`) in the task workspace `<clone>/.crewline-work/tasks/<id>/`, never in a repository.
+3. S0_BOOTSTRAP_CHECK: `crewline tools` (from `${CLAUDE_PLUGIN_ROOT}/validators`) plus any connector/browser the task type needs.
    Missing -> stop and give the user the numbered steps from the merged tools (`core/tools.yaml` + active pack);
    never work around it.
    An action the platform refuses at runtime (e.g. `npm ci`) -> stop and offer the `permission_gated` options in
-   `{{CORE}}/core/tools.yaml` (you run it / narrowest project allow rule / leave unverified); record approval `tool_permission`.
-4. Drive `{{CORE}}/core/workflow.yaml` through the template's path. Before each transition:
-   `python -m crewline manifest <manifest> --to <STATE>`; move with `--apply`. Never move on a non-zero exit.
-5. Delegate each state to the agent contract in `{{CORE}}/agents/` (SDET specialty in `agents/qa/`) with a minimal
+   `${CLAUDE_PLUGIN_ROOT}/core/tools.yaml` (you run it / narrowest project allow rule / leave unverified); record approval `tool_permission`.
+4. Drive `${CLAUDE_PLUGIN_ROOT}/core/workflow.yaml` through the template's path. Before each transition:
+   `crewline manifest <manifest> --to <STATE>`; move with `--apply`. Never move on a non-zero exit.
+5. Delegate each state to the agent contract in `${CLAUDE_PLUGIN_ROOT}/agents/` (SDET specialty in `agents/qa/`) with a minimal
    context packet. Acceptance tests are designed from the ACs before the code. Review 2 runs in a fresh context.
    Record authors and reviewers in the manifest.
 6. Fork model: ask the upstream base branch before creating any branch; branch from it; only task changes; push to `origin`;
    (to add work to an existing PR the user names: work on that PR's head branch, allow its existing commits, push to it - orchestrator step 4b);
    PR against the upstream branch (`crewline branch`). Linked repos each get their own branch, gates and PR, dependency first.
-7. Evidence: run builds and tests through `python -m crewline run --repo <dir> --out <record> -- <command>`; gates use
+7. Evidence: run builds and tests through `crewline run --repo <dir> --out <record> -- <command>`; gates use
    `crewline evidence`, `change-scope`, `test-integrity`, `migration`, `trace`, `coding-standards`, `robustness`, `requirement-clarity`, `requirement-fit`, `branch-env`, `defect-reports`, `adapter-check`, `evals`, `regression` (TestRig reports or surefire XML),
    plus (MOSIP pack) the SDET validators (`testcase`, `expected-diff`, `scope`, `coverage`) and `secrets` / `dco`.
    Generic pack: skip TestRig CLIs (they return NOT_RUN); use the module's own suite.
-8. Ask before every action `{{CORE}}/core/permissions.yaml` marks as needing approval; record it (approver, reason, scope,
+8. Ask before every action `${CLAUDE_PLUGIN_ROOT}/core/permissions.yaml` marks as needing approval; record it (approver, reason, scope,
    timestamp). Approvals are human and single-use.
 9. Failure triage: AUTOMATION -> SDET loop, CODE_UNDER_CHANGE -> developer loop (3 each); APPLICATION / SECURITY /
    SPECIFICATION escalate. Bugs carry the secret-scanned run report.
-10. Finish with `{{CORE}}/templates/final-report.md`. SUCCESS only when every gate the template requires has evidence.
+10. Finish with `${CLAUDE_PLUGIN_ROOT}/templates/final-report.md`. SUCCESS only when every gate the template requires has evidence.
 
 ## Claude Code specifics
 
@@ -51,8 +51,9 @@ at each stage change. FAIL the budget -> STOP (continue / split / abort).
 - Use a git worktree per task and repository; never edit the user's main checkout.
 - Credentials: never read their values into context; merge them into the worktree config, mark it skip-worktree, restore after.
 - Long runs (full suites, builds) go in the background; gates read the `crewline run` record, not the console.
-- Fail-closed hooks (`.claude/settings.json` PreToolUse + SessionStart, plus `permissions.deny`) call
-  `python -m crewline guard`. They deny git commit / push / `gh pr create` until COMMIT_PR / PR_CLOSEOUT gates
+- Fail-closed hooks (plugin `hooks/hooks.json` in repositories with `.crewline/`, or `.claude/settings.json` plus
+  `permissions.deny` for a manual install; PreToolUse + SessionStart) call
+  `crewline guard`. They deny git commit / push / `gh pr create` until COMMIT_PR / PR_CLOSEOUT gates
   pass; they always deny force-push, `--no-verify`, hard reset, stash, branch delete, PR merge and production
   deploy. A hook deny is not a prompt to work around — fix the gate. Subagent tool allow-lists still apply.
 
@@ -64,3 +65,15 @@ without a `scope_change` approval; deploy to production; file an application bug
 raw run reports or logs; touch uncommitted work that is not yours; paste a result a command should produce; disable or
 skip Crewline hooks (`disableAllHooks`, `--no-verify`, wrapping Bash); re-read core after INTAKE; dump a full report
 into the chat; poll a long command or PR check; continue past a failed `token_budget`.
+
+## Where Crewline is active and where work goes
+
+- Active only in repositories with a `.crewline/` folder (the SessionStart hook says so at the start of a session), or
+  where the user explicitly asks for Crewline. Elsewhere, behave as usual.
+- Read the module's `.crewline/README.md` and `module.yaml` first, then the role folder for the work (`development/`, `qa/`, ...).
+- Task workspace: `<clone>/.crewline-work/tasks/<task-id>/` (manifest, evidence, usage, reports); worktrees:
+  `<clone>/.crewline-work/worktrees/<task-id>`. Add `.crewline-work/` to `<clone>/.git/info/exclude` on first use; never commit it.
+- Validators: run `crewline <command>` (on PATH while the plugin is enabled), e.g. `crewline manifest <manifest> --to <STATE>`.
+- Record `crewline_version` (`crewline version`) in the manifest at INTAKE (`crewline task new` does it). If MAN-016 or the
+  session context reports a newer Crewline, read CHANGELOG.md between the two versions and tell the user what changes for
+  the task before the next transition.

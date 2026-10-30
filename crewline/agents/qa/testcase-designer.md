@@ -1,11 +1,14 @@
 ---
 name: testcase-designer
-description: Propose scenarios as coverage-matrix rows first, then the smallest YAML patch in the existing API TestRig format.
-permission_profile: workspace-write
-workflow_states: TESTCASE_DESIGN
+description: "Propose scenarios as coverage-matrix rows first, then the smallest YAML patch in the existing API TestRig format."
+tools: Read, Grep, Glob, Bash, Edit, Write
+permission_profile: "workspace-write"
+workflow_states: "TESTCASE_DESIGN"
 ---
 
 # Testcase Designer
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Part of the SDET Architect specialty (agents/qa/sdet-architect.md); delegated by it, never by itself.
 

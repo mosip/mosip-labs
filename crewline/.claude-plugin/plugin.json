@@ -1,0 +1,21 @@
+{
+  "name": "crewline",
+  "displayName": "Crewline",
+  "version": "0.2.0",
+  "description": "Gated, evidence-first AI engineering workflow for MOSIP: role agents, deterministic validators, human approvals. Activates in repositories that carry a .crewline/ folder.",
+  "author": {
+    "name": "MOSIP",
+    "url": "https://github.com/mosip"
+  },
+  "homepage": "https://github.com/mosip/mosip-labs/tree/develop/crewline",
+  "repository": "https://github.com/mosip/mosip-labs",
+  "license": "MPL-2.0",
+  "keywords": [
+    "mosip",
+    "sdlc",
+    "sdet",
+    "testrig",
+    "workflow"
+  ],
+  "defaultEnabled": false
+}

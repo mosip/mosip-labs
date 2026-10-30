@@ -29,6 +29,7 @@ Git / PR
   python -m crewline secrets       <path>... [--base-dir <dir>] [--no-gitleaks]
   python -m crewline dco           --repo <dir> --range <base>..<head>
   python -m crewline branch        --repo <dir> --upstream upstream/<branch> --base <sha> --story <KEY> [--allow <sha>] [--upstream-repo o/r --pr-repo o/r --pr-base <b>]
+  python -m crewline version       [--repo <git root> --base <ref>]   (shipped changes must raise the plugin version)
   python -m crewline guard         --shell "<cmd>" | --write <path> [--manifest <m>] [--cwd <dir>]
                                     (platform hooks call this so commit/push/PR cannot skip the gates)
 SDET (API TestRig — MOSIP pack; NOT_RUN when sdet.testrig/coverage_cli is false)
@@ -138,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("action", choices=["list", "status", "resume", "new"])
     p.add_argument("--id", dest="task_id")
     p.add_argument("--type", dest="task_type", help="for `new`: feature, bug-fix, ...")
+    sub.add_parser("session-start", help="SessionStart hook (prints hook JSON)")
+    sub.add_parser("hook", help="platform hook: crewline hook [--claude] [--plugin] session|shell|write (stdin JSON)")
     p = sub.add_parser("discover")
     p.add_argument("--repo", required=True); p.add_argument("--module", required=True)
     p.add_argument("--out"); p.add_argument("--force", action="store_true")
@@ -147,6 +150,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("usage")
     p.add_argument("--manifest", required=True); p.add_argument("--mark", help="start a named step now")
     p.add_argument("--transcript", action="append", default=[]); p.add_argument("--out")
+    p = sub.add_parser("version", help="print the Crewline version; with --base, check that shipped changes raise it")
+    p.add_argument("--repo", help="git checkout that contains crewline/ (default: this Crewline)")
+    p.add_argument("--base", help="base ref of the pull request, e.g. origin/develop")
     p = sub.add_parser("guard")
     p.add_argument("--shell", help="classify and gate a shell command (git commit/push, gh pr create, ...)")
     p.add_argument("--write", dest="write_path", help="gate a file write against scope.approved_paths")
@@ -157,7 +163,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--apply", action="store_true", help="record the transition if every guard passes")
     p.add_argument("--note", default="")
 
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if raw[:1] == ["hook"]:                       # platform hook protocol: stdin JSON -> stdout JSON (hook.py)
+        from . import hook
+        return hook.main(raw[1:])
     a = ap.parse_args(argv)
+    if a.cmd == "session-start":
+        from . import session
+        return session.run()
     try:
         if a.cmd == "testcase":
             if not pack.uses_testrig():
@@ -235,9 +248,12 @@ def main(argv: list[str] | None = None) -> int:
             res = diff_coverage.run(a.repo, a.base, a.jacoco, a.threshold, a.include)
         elif a.cmd == "usage":
             res = usage.mark(a.manifest, a.mark) if a.mark else usage.report(a.manifest, a.transcript, a.out)
+        elif a.cmd == "version":
+            from . import version
+            res = version.run(a.repo, a.base)
         elif a.cmd == "guard":
             from .guard import find_active_manifest
-            man = a.manifest or (str(find_active_manifest()) if find_active_manifest() else None)
+            man = a.manifest or (str(find_active_manifest(cwd=a.cwd)) if find_active_manifest(cwd=a.cwd) else None)
             if a.shell is not None:
                 res = guard.check_shell(a.shell, man)
             elif a.write_path:

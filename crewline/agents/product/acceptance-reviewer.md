@@ -1,11 +1,14 @@
 ---
 name: acceptance-reviewer
-description: Review the requirement brief for completeness, testability, contradictions and missing edge cases before any design or test work starts.
-permission_profile: read-only
-workflow_states: ACCEPTANCE_REVIEW
+description: "Review the requirement brief for completeness, testability, contradictions and missing edge cases before any design or test work starts."
+tools: Read, Grep, Glob
+permission_profile: "read-only"
+workflow_states: "ACCEPTANCE_REVIEW"
 ---
 
 # Product / Acceptance-Criteria Reviewer
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Review the requirement brief for completeness, testability, contradictions and missing edge cases before any design or test work starts.
 

@@ -1,11 +1,14 @@
 ---
 name: knowledge-curator
-description: Turn verified findings from the task into small, reviewable knowledge deltas.
-permission_profile: workspace-write (knowledge/ and .crewline/qa/ only)
-workflow_states: KNOWLEDGE_UPDATE
+description: "Turn verified findings from the task into small, reviewable knowledge deltas."
+tools: Read, Grep, Glob, Bash, Edit, Write
+permission_profile: "workspace-write (knowledge/ and .crewline/qa/ only)"
+workflow_states: "KNOWLEDGE_UPDATE"
 ---
 
 # Knowledge Curator
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Turn verified findings from the task into small, reviewable knowledge deltas.
 

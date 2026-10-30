@@ -85,6 +85,47 @@ See `knowledge/decisions/ADR-0008-core-vs-product-pack.md`.
 
 ---
 
+## Turn Crewline on for a module (no separate clone of Crewline)
+
+Crewline ships as a **Claude Code plugin** from this repository. A module turns it on by committing one settings file; anyone who
+clones that module and trusts the folder in Claude Code is offered the plugin, and its SessionStart hook activates the workflow
+only in repositories that carry a `.crewline/` folder.
+
+1. **Module (once, by its owner):** commit `.claude/settings.json` with the content of
+   [`templates/module-claude-settings.json`](templates/module-claude-settings.json) (merge if the file exists), next to the
+   module's reviewed `.crewline/` folder.
+2. **Developer:** clone the module, open Claude Code in it, accept the folder trust prompt and the plugin offer. Then just ask:
+   *"Add feature X"* - the session starts with *"Crewline is ACTIVE for this repository"* and follows the workflow.
+3. **Any repository by hand:** `/plugin marketplace add mosip/mosip-labs` is not enough on its own because the marketplace file
+   lives in `crewline/`; add the marketplace with the `extraKnownMarketplaces` entry above (in `~/.claude/settings.json` for
+   yourself), then `/plugin install crewline@mosip-labs`.
+
+**On / off per repository, locally:**
+
+| Want | Do |
+|---|---|
+| Off for me in one module that has it on | `.claude/settings.local.json` in that clone: `{"enabledPlugins": {"crewline@mosip-labs": false}}` (git-ignored, overrides the committed setting) |
+| On for me in a repo that does not commit it | same file with `true` (the plugin is installed but `defaultEnabled` is false, so it stays off elsewhere) |
+| Off for one session only | start Claude Code with `CREWLINE=off` in the environment |
+| Check | the first lines of a session say whether Crewline is ACTIVE; `/plugin` lists it as enabled or disabled |
+
+**Work stays with the module:** task records go to `<clone>/.crewline-work/tasks/<task-id>/` and worktrees to
+`<clone>/.crewline-work/worktrees/<task-id>`, excluded from git through `.git/info/exclude`. Validators run as `crewline <command>`
+(the plugin's `bin/` is on the PATH while it is enabled).
+
+**Updates:** Claude Code keeps an installed copy of Crewline and replaces it only when the plugin version changes.
+- Turn on auto-update for the `mosip-labs` marketplace in `/plugin` (Marketplaces), or update by hand:
+  `/plugin marketplace update mosip-labs`, then update `crewline` in `/plugin`. A running session keeps its version;
+  the next session uses the new one (the session context names it: "Crewline x.y.z").
+- Every shipped change raises the version (CI runs `crewline version --base`); [CHANGELOG.md](CHANGELOG.md) says what changed.
+- A task records the version it started on (`crewline_version`). On a newer Crewline, `crewline manifest` warns (MAN-016)
+  and the session context points at the CHANGELOG entries in between; the task's records are untouched.
+
+**Rails come with the plugin (ADR-0007):** in a repository with `.crewline/`, the plugin's PreToolUse hooks (Bash, PowerShell,
+Write/Edit) run `crewline guard`: `git commit` / `git push` / `gh pr create` are denied until the active task's gates pass,
+and force-push, `--no-verify`, hard reset, stash, branch delete, PR merge and production deploy are always denied. In other
+repositories the hooks allow everything; `CREWLINE=off` turns them off for one session.
+
 ## Quick start for a new user
 
 1. **Get Crewline** (one time): copy or clone this folder, then run the setup script from inside `crewline/`:
@@ -109,7 +150,7 @@ See `knowledge/decisions/ADR-0008-core-vs-product-pack.md`.
    message (templates below). If the module has no `<module repo>/.crewline/` yet, the agent onboards it first
    (`module-onboarding`). See [How you start it](#how-you-start-it-cursor-claude-or-terminal).
 4. **Answer what it asks**: open questions, the upstream base branch, design approval, and each commit / push / PR / Jira action.
-   Watch `tasks/<id>/` for the manifest, evidence, `usage.md` and the final report.
+   Watch `.crewline-work/tasks/<id>/` (in the module clone) for the manifest, evidence, `usage.md` and the final report.
 
 **Request templates**
 - New change: `Feature for inji-verify: <story key> <what the user should be able to do>. Acceptance: <...>.`
@@ -365,7 +406,7 @@ Contracts live in `agents/` (each has inputs, outputs, procedure, must-not rules
 - `evidence_refs`, `assumptions`, `unresolved_questions`;
 - `proposed_changes`, `risks`, `recommended_next_state`.
 
-Agents are grouped by the role they play in a team (`agents/<role>/`; full map with states in `agents/README.md`).
+Agents are grouped by the role they play in a team (`agents/<role>/`; full map with states in `docs/agents-by-role.md`).
 Folders are for people: the workflow and the installer find agents by `name:`.
 
 | Role (folder) | Agent | States | Produces |
@@ -624,8 +665,8 @@ Run from `validators/`: `python -m crewline [--json] <command> ...`. Exit codes:
 **Evidence the model cannot fabricate.** Builds and tests run through the recorder:
 
 ```bash
-python -m crewline run --repo <worktree> --out tasks/<id>/evidence/unit.json -- mvn -B -pl <module> -am test
-python -m crewline evidence --record tasks/<id>/evidence/unit.json --repo <worktree>   # PASS only if still current
+python -m crewline run --repo <worktree> --out .crewline-work/tasks/<id>/evidence/unit.json -- mvn -B -pl <module> -am test
+python -m crewline evidence --record .crewline-work/tasks/<id>/evidence/unit.json --repo <worktree>   # PASS only if still current
 ```
 
 **Token budget is a stop, not a report** (`core/usage-budget.yaml`, gate `token_budget`, principle 36). PILOT-001 spent
@@ -642,8 +683,8 @@ attributes each call:
 - including subagent transcripts, de-duplicated by message id.
 
 ```bash
-python -m crewline usage --manifest tasks/<id>/task-manifest.json --mark "IMPLEMENTATION: minimal fix"   # start a step
-python -m crewline usage --manifest tasks/<id>/task-manifest.json --transcript <session>.jsonl            # tasks/<id>/usage.md
+python -m crewline usage --manifest .crewline-work/tasks/<id>/task-manifest.json --mark "IMPLEMENTATION: minimal fix"   # start a step
+python -m crewline usage --manifest .crewline-work/tasks/<id>/task-manifest.json --transcript <session>.jsonl            # .crewline-work/tasks/<id>/usage.md
 ```
 
 | Column | Meaning |
@@ -658,7 +699,7 @@ A task that spans sessions lists every transcript in `usage_transcripts`.
 
 ## 13. Task manifest
 
-Each task has its own workspace, `tasks/<id>/`, never inside a repository. It holds `task-manifest.json`, `evidence/`, `usage.md`,
+Each task has its own workspace, `<clone>/.crewline-work/tasks/<id>/`, inside the module clone but excluded from git and never committed. It holds `task-manifest.json`, `evidence/`, `usage.md`,
 `final-report.md` and `pr-body.md`. The schema is in `templates/task-manifest.schema.json`. Main fields:
 
 | Field | Purpose |
@@ -708,7 +749,8 @@ never does; generic is for any other AI tool plus git hooks.
 
 | Tool | File | Installs to |
 |---|---|---|
-| Claude Code | `adapters/claude/SKILL.md` + `crewline-*` subagents + fail-closed hooks | `<workspace>/.claude/skills/`, `.claude/agents/`, `.claude/settings.json`, `.claude/hooks/` |
+| Claude Code (plugin, preferred) | `.claude-plugin/`, `skills/`, `agents/`, `hooks/` (SessionStart + guard), `bin/` | enabled per module, see "Turn Crewline on for a module" |
+| Claude Code (manual) | `skills/crewline/SKILL.md` + `crewline-*` subagents + fail-closed hooks | `<workspace>/.claude/skills/`, `.claude/agents/`, `.claude/settings.json`, `.claude/hooks/` |
 | Cursor | `adapters/cursor/crewline.mdc` + fail-closed hooks (`crewline guard`) | `<workspace>/.cursor/rules/` and `<workspace>/.cursor/hooks.json` |
 | Any other | `adapters/generic/ENTRY.md` + git `pre-commit` / `commit-msg` / `pre-push` | `<workspace>/.crewline/` and `<workspace>/.git/hooks/` |
 
@@ -739,7 +781,7 @@ python adapters/install.py --platform cursor --target <workspace> --sync --check
 Start this in **Cursor or Claude Code**, not with a terminal command ([How you start it](#how-you-start-it-cursor-claude-or-terminal)).
 
 1. **Ask:** "fix MOSIP-12345", "add API tests for story X", "upgrade kernel-core to 1.3.0".
-2. **Intake:** the orchestrator checks tools, classifies the task, creates `tasks/<id>/task-manifest.json` and starts the usage marks.
+2. **Intake:** the orchestrator checks tools, classifies the task, creates `.crewline-work/tasks/<id>/task-manifest.json` and starts the usage marks.
 3. **Questions:** it asks for anything ambiguous and for the **upstream base branch**.
 4. **Design** (feature, migration): you approve material design choices.
 5. **Tests first:** tests are designed from the ACs. A bug fix gets a failing reproduction.
@@ -801,19 +843,24 @@ crewline/
 │   ├── escalation-policy.yaml   two repair loops, failure classes
 │   └── tools.yaml               core capabilities (git, python, gh, docker, …); pack overlays the rest
 ├── packs/                       ACTIVE (default mosip) · mosip/ · generic/   product plugin (tools + knowledge refs)
-├── agents/                      orchestrator + 24 specialists in role folders (see agents/README.md):
+├── agents/                      orchestrator + 24 specialists in role folders (see docs/agents-by-role.md):
 │   ├── product/ ui-ux/ architecture/ development/ qa/ (SDET lead + 7)
 │   └── review/ security/ devops/ operations/ knowledge/
 ├── validators/
 │   ├── crewline/                validator modules (see section 11)
 │   └── tests/                   test_validators.py · test_sdlc.py · test_guard.py · test_pack.py · test_setup_scripts.py
 ├── templates/                   task-manifest + agent-response schemas, PR, issue, subtask, escalation, final report
-├── adapters/                    claude/ (skill + settings hooks) · cursor/ (rule + hooks) · generic/ (ENTRY + git hooks) · hooks/crewline_hook.py · install.py
+├── .claude-plugin/              plugin.json + marketplace.json (Claude Code plugin)
+├── skills/crewline/SKILL.md     the Crewline skill
+├── hooks/hooks.json             plugin hooks: SessionStart (module detection) + PreToolUse guard
+├── bin/                         crewline, crewline.cmd (validators on PATH)
+├── docs/agents-by-role.md       role map
+├── adapters/                    claude/ (settings hooks for manual installs) · cursor/ (rule + hooks) · generic/ (ENTRY + git hooks) · hooks/crewline_hook.py · install.py
 ├── scripts/                     setup.bat · setup.sh  (one-time prereqs + optional adapter install)
 ├── knowledge/                   decisions/ (ADR-0001..0008) · frameworks/ · mosip/ · known-issues/
 ├── evals/                       task-scenarios/scenarios.yaml (EV-01..59) · frozen-pack.yaml · cold-start.md · q8-local-stack.md · expected-outcomes/
 ├── ci/                          copy of the GitHub workflow (live file: repo-root `.github/workflows/crewline.yml`)
-└── tasks/                       local task workspaces (git-ignored): manifest, evidence, usage, reports
+└── tasks/                       task workspaces for a Crewline clone (git-ignored); plugin users: <clone>/.crewline-work/tasks/
 ```
 
 ---

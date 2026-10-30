@@ -1,11 +1,14 @@
 ---
 name: api-automation
-description: Implement approved cases with existing script classes, templates and commons utilities, then run them.
-permission_profile: workspace-write
-workflow_states: IMPLEMENTATION
+description: "Implement approved cases with existing script classes, templates and commons utilities, then run them."
+tools: Read, Grep, Glob, Bash, Edit, Write
+permission_profile: "workspace-write"
+workflow_states: "IMPLEMENTATION"
 ---
 
 # API Automation Specialist
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Part of the SDET Architect specialty (agents/qa/sdet-architect.md); delegated by it, never by itself.
 

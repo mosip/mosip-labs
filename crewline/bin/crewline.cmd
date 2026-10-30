@@ -1,0 +1,3 @@
+@echo off
+rem Crewline validators: crewline <command> ...
+python -X utf8 "%~dp0..\validators\crewline_cli.py" %*

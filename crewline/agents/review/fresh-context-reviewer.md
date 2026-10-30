@@ -1,11 +1,14 @@
 ---
 name: fresh-context-reviewer
-description: Independently look for missed scenarios, false positives, weak assertions, flakiness and regressions.
-permission_profile: analysis
-workflow_states: FRESH_CONTEXT_REVIEW
+description: "Independently look for missed scenarios, false positives, weak assertions, flakiness and regressions."
+tools: Read, Grep, Glob, Bash
+permission_profile: "analysis"
+workflow_states: "FRESH_CONTEXT_REVIEW"
 ---
 
 # Fresh-context Adversarial Reviewer (Review 2)
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Independently look for missed scenarios, false positives, weak assertions, flakiness and regressions.
 

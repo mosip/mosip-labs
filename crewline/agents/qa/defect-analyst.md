@@ -1,11 +1,14 @@
 ---
 name: defect-analyst
-description: Draft an evidence-based application defect report and ask for explicit confirmation.
-permission_profile: read-only
-workflow_states: FAILURE_TRIAGE / S_ESCALATE
+description: "Draft an evidence-based application defect report and ask for explicit confirmation."
+tools: Read, Grep, Glob
+permission_profile: "read-only"
+workflow_states: "FAILURE_TRIAGE / S_ESCALATE"
 ---
 
 # Defect Analyst
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Part of the SDET Architect specialty (agents/qa/sdet-architect.md); delegated by it, never by itself.
 

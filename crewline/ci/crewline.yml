@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0              # version check compares with the base branch
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -21,6 +23,10 @@ jobs:
       - name: pytest
         working-directory: crewline/validators
         run: python -m pytest -q tests
+      - name: version raised for shipped changes
+        if: github.event_name == 'pull_request'
+        working-directory: crewline/validators
+        run: python -m crewline version --repo ../.. --base origin/${{ github.base_ref }}
       - name: frozen pack
         working-directory: crewline/validators
         run: python -m crewline evals --pack frozen --run

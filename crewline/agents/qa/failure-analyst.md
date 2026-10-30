@@ -1,11 +1,14 @@
 ---
 name: failure-analyst
-description: Collect evidence, fingerprint and classify each failure, and propose one evidence-based repair per attempt.
-permission_profile: analysis
-workflow_states: FAILURE_TRIAGE
+description: "Collect evidence, fingerprint and classify each failure, and propose one evidence-based repair per attempt."
+tools: Read, Grep, Glob, Bash
+permission_profile: "analysis"
+workflow_states: "FAILURE_TRIAGE"
 ---
 
 # Failure Analyst
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Part of the SDET Architect specialty (agents/qa/sdet-architect.md); delegated by it, never by itself.
 

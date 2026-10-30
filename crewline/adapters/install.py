@@ -1,4 +1,5 @@
-"""Render the thin platform adapters into a target workspace.
+"""Render the thin platform adapters into a target workspace (for tools without plugin support; Claude Code users
+should prefer the plugin: see README "Turn Crewline on for a module").
 
   python adapters/install.py --platform claude|cursor|generic --target <workspace dir>
   python adapters/install.py --platform claude --target <dir> --write
@@ -29,7 +30,7 @@ CLAUDE_TOOLS = {  # core/permissions.yaml profile -> Claude Code tool allow-list
 
 
 def render(text: str) -> str:
-    return text.replace("{{CORE}}", CORE.as_posix())
+    return text.replace("{{CORE}}", CORE.as_posix()).replace("${CLAUDE_PLUGIN_ROOT}", CORE.as_posix())
 
 
 def python_cmd(*, posix: bool = False) -> str:
@@ -95,21 +96,20 @@ def git_hook(name: str, hook_py: Path) -> str:
 def agent_files():
     for p in sorted((CORE / "agents").rglob("*.md")):
         text = p.read_text(encoding="utf-8")
-        if not text.startswith("---"):
+        if not text.startswith("---"):                     # docs/agents-by-role.md (role map) is not a contract
             continue
         fm = dict(re.findall(r"^(\w+):\s*(.+)$", text.split("---")[1], re.M))
         profile = fm.get("permission_profile", "read-only").split()[0]
         body = text.split("---", 2)[2].lstrip()
         header = (f"---\nname: crewline-{fm['name']}\ndescription: {json.dumps(fm['description'], ensure_ascii=False)}\n"
                   f"tools: {CLAUDE_TOOLS.get(profile, CLAUDE_TOOLS['read-only'])}\n---\n\n")
-        note = f"Core: `{CORE.as_posix()}` (contracts, workflow, validators).\n\n"
-        yield f"crewline-{fm['name']}.md", header + note + body
+        yield f"crewline-{fm['name']}.md", header + render(body)
 
 
 def plan(platform: str, target: Path):
     trampoline = render(HOOK_PY.read_text(encoding="utf-8"))
     if platform == "claude":
-        yield target / ".claude/skills/crewline/SKILL.md", render((CORE / "adapters/claude/SKILL.md").read_text(encoding="utf-8"))
+        yield target / ".claude/skills/crewline/SKILL.md", render((CORE / "skills/crewline/SKILL.md").read_text(encoding="utf-8"))
         for name, text in agent_files():
             yield target / ".claude/agents" / name, text
         yield target / ".claude/hooks/crewline_hook.py", trampoline

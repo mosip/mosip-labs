@@ -1,11 +1,14 @@
 ---
 name: requirement-analyst
-description: Turn the story, design document and OpenAPI contract into numbered acceptance criteria, an ambiguity register and a readiness verdict.
-permission_profile: read-only
-workflow_states: INPUT_VALIDATION, REQUIREMENT_ANALYSIS
+description: "Turn the story, design document and OpenAPI contract into numbered acceptance criteria, an ambiguity register and a readiness verdict."
+tools: Read, Grep, Glob
+permission_profile: "read-only"
+workflow_states: "INPUT_VALIDATION, REQUIREMENT_ANALYSIS"
 ---
 
 # Requirement Analyst
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Turn the story, design document and OpenAPI contract into numbered acceptance criteria, an ambiguity register and a readiness verdict.
 

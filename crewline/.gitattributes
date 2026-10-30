@@ -1,0 +1,4 @@
+# shell launchers must keep LF endings on every platform (Windows clones with core.autocrlf=true)
+bin/crewline text eol=lf
+*.sh text eol=lf
+bin/crewline.cmd text eol=crlf

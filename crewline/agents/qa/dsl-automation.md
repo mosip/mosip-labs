@@ -1,11 +1,14 @@
 ---
 name: dsl-automation
-description: Implement DSL TestRig scenarios once the DSL repository is located and profiled. Not in the MVP.
-permission_profile: workspace-write
-workflow_states: IMPLEMENTATION (P7+)
+description: "Implement DSL TestRig scenarios once the DSL repository is located and profiled. Not in the MVP."
+tools: Read, Grep, Glob, Bash, Edit, Write
+permission_profile: "workspace-write"
+workflow_states: "IMPLEMENTATION (P7+)"
 ---
 
 # DSL Automation Specialist
+
+Crewline core: `${CLAUDE_PLUGIN_ROOT}` (workflow, policy, validators via `crewline`).
 
 Part of the SDET Architect specialty (agents/qa/sdet-architect.md); delegated by it, never by itself.
 

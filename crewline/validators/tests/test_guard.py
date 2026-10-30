@@ -164,7 +164,7 @@ def test_install_claude_writes_hooks_and_deny_rules(tmp_path):
     deny = settings["permissions"]["deny"]
     assert "Bash(git push --force *)" in deny
     matchers = [g.get("matcher") for g in settings["hooks"]["PreToolUse"]]
-    assert "Bash" in matchers and "Write|Edit" in matchers
+    assert "Bash|PowerShell" in matchers and "Write|Edit" in matchers      # Windows sessions run PowerShell
     skill = (tmp_path / ".claude" / "skills" / "crewline" / "SKILL.md").read_text(encoding="utf-8")
     assert "{{CORE}}" not in skill
     assert "crewline guard" in skill
@@ -210,3 +210,109 @@ def test_install_generic_writes_git_hooks(tmp_path):
     assert "git-commit" in pre
     assert "{{HOOK}}" not in pre
     assert (tmp_path / ".crewline" / "hooks" / "crewline_hook.py").is_file()
+
+
+# --- plugin mode: rails only where .crewline/ exists, tasks in the module clone -------------------------------------
+def _git(cwd, *args):
+    subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True)
+
+
+def _module(tmp_path, onboarded=True):
+    r = tmp_path / "mod"
+    r.mkdir()
+    _git(tmp_path, "init", "-q", str(r))
+    _git(r, "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "init")
+    if onboarded:
+        (r / ".crewline").mkdir()
+        (r / ".crewline/module.yaml").write_text("module: mod\nroles:\n  development: []\n", encoding="utf-8")
+    return r
+
+
+def _plugin(mode, cwd, command=""):
+    payload = {"hook_event_name": "SessionStart" if mode == "session" else "PreToolUse", "cwd": str(cwd)}
+    if command:
+        payload.update(tool_name="Bash", tool_input={"command": command})
+    return hook.handle_plugin(mode, payload)
+
+
+def test_plugin_hook_leaves_repos_without_crewline_alone(tmp_path, monkeypatch):
+    monkeypatch.delenv("CREWLINE_TASKS", raising=False)
+    monkeypatch.delenv("CREWLINE_TASK_MANIFEST", raising=False)
+    r = _module(tmp_path, onboarded=False)
+    assert _plugin("shell", r, "git commit -m x")["permission"] == "allow"
+    assert _plugin("shell", r, "git push --force")["permission"] == "allow"        # not our repo: not our rules
+    assert "no .crewline/" in _plugin("session", r)["additional_context"]
+
+
+def test_plugin_hook_enforces_rails_in_onboarded_repo(tmp_path, monkeypatch):
+    monkeypatch.delenv("CREWLINE_TASKS", raising=False)
+    monkeypatch.delenv("CREWLINE_TASK_MANIFEST", raising=False)
+    r = _module(tmp_path)
+    out = _plugin("shell", r, "git commit -s -m x")
+    assert out["permission"] == "deny" and "GRD-001" in out["agent_message"]
+    assert _plugin("shell", r, "git push --force")["permission"] == "deny"
+    assert _plugin("shell", r, "git status")["permission"] == "allow"
+    ctx = _plugin("session", r)["additional_context"]
+    assert "Crewline is ACTIVE" in ctx and "Crewline hooks are active" in ctx and ".crewline-work" in ctx
+
+
+def test_plugin_hook_off_switch(tmp_path, monkeypatch):
+    monkeypatch.setenv("CREWLINE", "off")
+    r = _module(tmp_path)
+    assert _plugin("shell", r, "git commit -s -m x")["permission"] == "allow"
+    assert _plugin("session", r) == {"additional_context": ""}
+
+
+def test_tasks_live_in_the_main_clone_also_from_a_worktree(tmp_path, monkeypatch):
+    from crewline import workspace
+    monkeypatch.delenv("CREWLINE_TASKS", raising=False)
+    r = _module(tmp_path)
+    (r / ".crewline/module.yaml").write_text("module: mod\n", encoding="utf-8")
+    _git(r, "add", ".crewline")
+    _git(r, "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "onboard")
+    wt = r / ".crewline-work/worktrees/T-1"
+    _git(r, "worktree", "add", "-q", "-b", "t1", str(wt))
+    expected = (r / ".crewline-work/tasks").resolve()
+    assert workspace.tasks_root(r).resolve() == expected
+    assert workspace.tasks_root(wt).resolve() == expected          # one clone, one task list
+    man = expected / "T-1/task-manifest.json"
+    man.parent.mkdir(parents=True)
+    man.write_text(json.dumps({"task_id": "T-1", "current_state": "IMPLEMENTATION"}), encoding="utf-8")
+    assert guard.find_active_manifest(cwd=str(wt)).resolve() == man.resolve()
+    assert guard.check_write(str(man), None, str(wt)).status == "PASS"   # the task workspace is always writable
+    assert workspace.tasks_root(tmp_path).resolve() == (workspace.CORE / "tasks").resolve()   # no .crewline/: core
+
+
+def test_cli_hook_passthrough_prints_claude_json(tmp_path):
+    r = _module(tmp_path)
+    p = subprocess.run([sys.executable, "-m", "crewline", "hook", "--claude", "--plugin", "shell"],
+                       input=json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(r),
+                                         "tool_input": {"command": "git push --force"}}),
+                       capture_output=True, text=True, cwd=str(ROOT / "validators"),
+                       env={**__import__("os").environ, "CREWLINE": ""})
+    out = json.loads(p.stdout)
+    assert p.returncode == 0 and out["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_plugin_hooks_cover_bash_powershell_and_writes():
+    spec = json.loads((ROOT / "hooks/hooks.json").read_text(encoding="utf-8"))["hooks"]
+    pre = {g["matcher"]: g["hooks"][0]["command"] for g in spec["PreToolUse"]}
+    assert pre["Bash|PowerShell"].endswith("hook --claude --plugin shell")
+    assert pre["Write|Edit"].endswith("hook --claude --plugin write")
+    assert spec["SessionStart"][0]["hooks"][0]["command"].endswith("hook --claude --plugin session")
+
+
+def test_session_names_version_and_flags_a_task_started_on_another(tmp_path, monkeypatch):
+    from crewline import version
+    monkeypatch.delenv("CREWLINE", raising=False)
+    monkeypatch.delenv("CREWLINE_TASK_MANIFEST", raising=False)
+    monkeypatch.setenv("CREWLINE_TASKS", str(tmp_path / "tasks"))
+    r = _module(tmp_path)
+    ctx = _plugin("session", r)["additional_context"]
+    assert f"Crewline {version.current()}." in ctx and "started on" not in ctx
+    man = tmp_path / "tasks/T-1/task-manifest.json"
+    man.parent.mkdir(parents=True)
+    man.write_text(json.dumps({"task_id": "T-1", "current_state": "IMPLEMENTATION", "crewline_version": "0.0.1"}),
+                   encoding="utf-8")
+    ctx = _plugin("session", r)["additional_context"]
+    assert "started on Crewline 0.0.1" in ctx and "CHANGELOG.md" in ctx
