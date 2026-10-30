@@ -9,6 +9,13 @@ because Claude Code updates an installed plugin only when that version changes. 
   changed for them.
 - **MAJOR**: a change that can break a task in progress (state machine, manifest schema). Finish or restart open tasks.
 
+## 0.3.0
+- Cursor without a Crewline clone: a module commits `templates/module-cursor/` as `.cursor/crewline.py`,
+  `.cursor/hooks.json` and `.cursor/rules/crewline.mdc`. The bootstrap caches Crewline under `~/.crewline/` (refreshed
+  at most daily from mosip-labs `develop`), runs the same plugin-mode hooks (`crewline hook --cursor --plugin`), and
+  serves the live rule (`python .cursor/crewline.py rule`). Offline: it never blocks; a broken core asks the user.
+- `crewline hook --cursor`: Cursor payloads also carry `hook_event_name`, so the protocol is no longer guessed.
+
 ## 0.2.1
 - Fix: the plugin did not load when installed from GitHub ("Failed to load marketplace ... cache-miss"). The marketplace
   catalog moves to the mosip-labs root (`.claude-plugin/marketplace.json`, plugin source `./crewline`); a relative source

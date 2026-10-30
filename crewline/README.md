@@ -131,6 +131,31 @@ Write/Edit) run `crewline guard`: `git commit` / `git push` / `gh pr create` are
 and force-push, `--no-verify`, hard reset, stash, branch delete, PR merge and production deploy are always denied. In other
 repositories the hooks allow everything; `CREWLINE=off` turns them off for one session.
 
+## Turn Crewline on for a module in Cursor
+
+Cursor has no plugin marketplace, so the module carries a small bootstrap that does the plugin's job. Commit the three
+files of [`templates/module-cursor/`](templates/module-cursor/) into the module:
+
+| Template | Goes to | What it does |
+|---|---|---|
+| `crewline.py` | `.cursor/crewline.py` | caches Crewline under `~/.crewline/` (sparse fetch of mosip-labs `develop`, refreshed at most once a day), runs the hooks and validators, prints the live rule |
+| `hooks.json` | `.cursor/hooks.json` (merge with existing hooks) | sessionStart, beforeShellExecution and preToolUse (Write/Edit) through `python .cursor/crewline.py hook ...`, fail-closed |
+| `crewline.mdc` | `.cursor/rules/crewline.mdc` | always-on rule: run `python .cursor/crewline.py rule` and follow it |
+
+A developer clones the module and opens it in Cursor; the first session fetches Crewline (needs `git` and Python with
+PyYAML) and says *"Crewline is ACTIVE for this repository"*. The rails are the same as in Claude Code, and so are the task
+records in `.crewline-work/`.
+
+| Want | Do |
+|---|---|
+| Off for one session | `CREWLINE=off` |
+| Off for this clone | `.cursor/crewline.local.json`: `{"enabled": false}` (kept out of git through `.git/info/exclude`) |
+| Test a Crewline branch | same file: `{"source": "https://github.com/<fork>/mosip-labs.git", "ref": "<branch>"}` |
+| Update now | `CREWLINE_REFRESH_SECONDS=0 python .cursor/crewline.py where` |
+
+Offline or without git the hooks allow everything and the session says Crewline is unavailable. If the cached Crewline
+fails to run (e.g. PyYAML missing), shell and write actions ask the user instead of being blocked.
+
 ## Quick start for a new user
 
 1. **Get Crewline** (one time): copy or clone this folder, then run the setup script from inside `crewline/`:
@@ -756,7 +781,8 @@ never does; generic is for any other AI tool plus git hooks.
 |---|---|---|
 | Claude Code (plugin, preferred) | `.claude-plugin/`, `skills/`, `agents/`, `hooks/` (SessionStart + guard), `bin/` | enabled per module, see "Turn Crewline on for a module" |
 | Claude Code (manual) | `skills/crewline/SKILL.md` + `crewline-*` subagents + fail-closed hooks | `<workspace>/.claude/skills/`, `.claude/agents/`, `.claude/settings.json`, `.claude/hooks/` |
-| Cursor | `adapters/cursor/crewline.mdc` + fail-closed hooks (`crewline guard`) | `<workspace>/.cursor/rules/` and `<workspace>/.cursor/hooks.json` |
+| Cursor (module bootstrap, preferred) | `templates/module-cursor/` | committed in the module's `.cursor/`, see "Turn Crewline on for a module in Cursor" |
+| Cursor (manual) | `adapters/cursor/crewline.mdc` + fail-closed hooks (`crewline guard`) | `<workspace>/.cursor/rules/` and `<workspace>/.cursor/hooks.json` |
 | Any other | `adapters/generic/ENTRY.md` + git `pre-commit` / `commit-msg` / `pre-push` | `<workspace>/.crewline/` and `<workspace>/.git/hooks/` |
 
 ```bash

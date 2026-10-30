@@ -42,7 +42,9 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 7. Ask the module owner (or the user acting for them) to review the drafts; record approval `onboarding_review`.
 8. Publishing (a separate `documentation` task, its own PR): copy the reviewed `.crewline/` into the repository and, if the
    owner agrees, add `.claude/settings.json` from `templates/module-claude-settings.json` so everyone who clones the module
-   gets Crewline offered automatically (merge into an existing settings file, never replace it).
+   gets Crewline offered automatically (merge into an existing settings file, never replace it). For Cursor users add
+   `templates/module-cursor/` as `.cursor/crewline.py`, `.cursor/hooks.json` (merge with existing hooks) and
+   `.cursor/rules/crewline.mdc`.
 
 ## Must not
 
