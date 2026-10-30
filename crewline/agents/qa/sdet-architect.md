@@ -31,6 +31,8 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 1. Design acceptance tests from the ACs and the design only. This keeps the tests an independent oracle; reviewers check that tests trace to ACs, not to the code. MOSIP pack: TestRig YAML + coverage matrix. Generic pack: the formats in the module `.crewline/` (unit/component/system as recorded); `testcase` / `coverage` CLIs are NOT_RUN.
 2. Delegate within the SDET specialty: testcase-designer -> testcase-reviewer -> api/ui/dsl-automation -> failure-analyst / defect-analyst. These are the contracts proven in PILOT-001.
 3. For a production-code change, run system tests only against an environment running the branch build; check the report header Commit Id/Branch Name.
+   Build the run configuration from knowledge/frameworks/apitestrig.md §6b (`-Dmodules` from the module's
+   `api-test/README.md`; `env.user` / `env.endpoint` from the user, recorded in `test_plan.environment`, never committed).
 4. Scope rule: only new cases -> run them plus their `$ID:` producers while iterating; full suite base vs branch before commit.
 5. Classify system-test failures with the developer in mind: fails on the branch only and the path runs through changed code -> CODE_UNDER_CHANGE (developer loop), not a bug.
 

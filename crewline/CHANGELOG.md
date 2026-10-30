@@ -18,6 +18,8 @@ because Claude Code updates an installed plugin only when that version changes. 
 - Fix: an install is an enabled install (no `defaultEnabled: false`). A local-scope install wrote that default as
   `false` into `.claude/settings.local.json`, which overrides the module's opt-in, so Crewline stayed off.
 - Silent outside repositories with `.crewline/` (no session note); the rails there already allowed everything.
+- Knowledge: API TestRig run-configuration template (apitestrig.md §6b, used by the SDET at SYSTEM_TEST_EXECUTION);
+  `-Dmodules` for partner-management-services is `partner` (the map said `pmp`).
 - README: a machine installs the plugin once (`/plugin` or `claude plugin install crewline@mosip-labs`); Claude Code
   does not offer the install by itself.
 
