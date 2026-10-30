@@ -49,6 +49,8 @@ def _git(*args: str, cwd: Path | None = None, timeout: int = 60) -> subprocess.C
 def exclude_local_files() -> None:
     try:
         common = _git("rev-parse", "--path-format=absolute", "--git-common-dir", cwd=REPO, timeout=10).stdout.strip()
+        if not common:                                  # not a git repository: nothing to exclude from
+            return
         ex = Path(common) / "info" / "exclude"
         have = ex.read_text(encoding="utf-8").splitlines() if ex.is_file() else []
         add = [p for p in (".cursor/crewline.local.json", ".crewline-work/") if p not in have]

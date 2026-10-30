@@ -143,3 +143,12 @@ def test_module_templates_are_portable():
     assert "alwaysApply: true" in rule and "{{CORE}}" not in rule and ":/" not in rule
     boot = (TPL / "crewline.py").read_text(encoding="utf-8")
     assert "import yaml" not in boot and 'SOURCE = "https://github.com/mosip/mosip-labs.git"' in boot
+
+
+def test_outside_git_writes_nothing(tmp_path):
+    m = tmp_path / "plain"
+    (m / ".cursor").mkdir(parents=True)
+    shutil.copy(TPL / "crewline.py", m / ".cursor" / "crewline.py")
+    out = run(m, ["hook", "shell"], {"CREWLINE_CORE": str(ROOT)}, json.dumps({"command": "ls", "cwd": str(m)}))
+    assert json.loads(out.stdout) == {"permission": "allow"}
+    assert sorted(p.name for p in m.iterdir()) == [".cursor"]          # no stray info/exclude
