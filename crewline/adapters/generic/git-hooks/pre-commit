@@ -1,0 +1,3 @@
+#!/bin/sh
+# Crewline: refuse git commit unless COMMIT_PR gates pass. Installed by adapters/install.py.
+exec {{PYTHON}} "{{HOOK}}" git-commit

@@ -1,0 +1,1 @@
+{"id": "EV-02", "expected": "FAIL until ACs are testable", "must_block": ["REQ-001", "REQ-002", "REQ-003", "REQ-004"], "pytest": ["tests/test_sdlc.py::test_requirement_clarity_blocks_empty_and_unidentified", "tests/test_sdlc.py::test_requirement_clarity_blocks_vague_ac_and_open_questions", "tests/test_sdlc.py::test_impact_refused_until_requirement_clarity"]}

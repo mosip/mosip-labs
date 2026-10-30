@@ -20,19 +20,23 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 ## Produces
 
 - gate `acceptance_readiness` verdict
+- confirmation that `crewline requirement-clarity` PASSed (REQ-001..004); do not set `acceptance_readiness` PASS if it failed
 - findings: untestable AC, contradiction, missing negative/boundary/authorization case, missing NFR, each with a question for the product owner
 
 ## Procedure
 
-1. Check every AC states an observable outcome (status code, field value, persisted state, message) and the actor/role.
-2. List the negative space: invalid input, missing auth, wrong role, boundary values, concurrency/idempotency, error contract.
-3. Look for NFRs the story implies (performance budget, audit, PII handling, backward compatibility) and ask when unstated.
-4. Return `open_ambiguities` count; IMPACT_ANALYSIS and TESTCASE_DESIGN are blocked until it is 0 or the user accepts an assumption.
+1. Run `python -m crewline requirement-clarity --manifest <m>`. FAIL -> FINDINGS / NEEDS_INPUT; do not approve.
+2. Check every AC states an observable outcome (status code, field value, persisted state, message) and the actor/role.
+3. List the negative space: invalid input, missing auth, wrong role, boundary values, concurrency/idempotency, error contract.
+4. Look for NFRs the story implies (performance budget, audit, PII handling, backward compatibility) and ask when unstated.
+5. Return `open_ambiguities` count; IMPACT_ANALYSIS and TESTCASE_DESIGN are blocked until it is 0 **and** gates
+   `requirement_clarity` and `acceptance_readiness` are PASS. Setting the count to 0 is not enough.
 
 ## Must not
 
 - invent business rules or fill gaps silently
 - approve ACs that cannot be checked by a test
+- mark `acceptance_readiness` PASS when `requirement-clarity` failed or an AC still says "should work" / "as expected" / "TBD"
 
 ## Output contract
 

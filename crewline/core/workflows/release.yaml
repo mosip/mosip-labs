@@ -6,5 +6,5 @@ path: [S0_BOOTSTRAP_CHECK, INTAKE, INPUT_VALIDATION, IMPACT_ANALYSIS, RELEASE_RE
 entry_guards:
   AUTHORIZED_DEPLOYMENT:
     - {path: release.rollback_plan_ref, ne: ""}
-required_gates: [release_readiness, post_deployment]
+required_gates: [release_readiness, post_deployment, token_budget]
 notes: Production deployment is denied by policy (permissions.yaml deploy_production). A release drill uses a non-production environment named by the user.

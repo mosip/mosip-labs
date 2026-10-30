@@ -1,0 +1,16 @@
+# Official 8-story frozen pack. Both Cursor and Claude keep this green:
+#   python -m crewline evals --pack frozen --run
+# That is the two-model contract. It does not invoke the LLMs; it freezes the rails
+# both models must not break. Agent-walk expected-outcomes for EV-36 are filled after a
+# human cold-start P5 (evals/cold-start.md).
+id: crewline-frozen-v1
+models: [cursor, claude]
+stories:
+  - EV-02    # unclear AC
+  - EV-23    # bug without reproduction
+  - EV-25    # agent self-approval
+  - EV-48    # coding standards before review
+  - EV-50    # unclear story/bug
+  - EV-51    # requirement-fit
+  - EV-54    # Q8 branch env
+  - EV-56    # token budget

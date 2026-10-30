@@ -26,6 +26,9 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 
 ## Procedure
 
+0. If gate `coding_standards`, `robustness` or `requirement_fit` is not PASS, do not review: send it back to
+   IMPLEMENTATION. Style, empty catch, swallowed Exception, raw `throws Exception`, sleep on the hot path, missing
+   API error-path tests, and "the diff is not the story" are those gates' job, not comment rounds.
 1. Correctness: does the change do what each AC says, including the negative cases? Trace the real call path.
 2. Scope: nothing outside the approved paths; no drive-by refactors; no debug code.
 3. Tests: do the unit and acceptance tests fail without the change? Are assertions specific (values, not just status)? Read the diff-coverage result: are the uncovered changed lines (DCV-003) error paths that matter? Is each API-facing AC covered at the HTTP boundary?
@@ -37,6 +40,12 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 
 - approve because it compiles or because validators passed
 - review a change you authored
+- open review comments for format, import order or Checkstyle/ESLint/Prettier when `coding_standards` already PASSed
+  (if the checker is wrong, that is a module-onboarding fix, not a per-PR nit)
+- open review comments for empty catch / swallowed Exception / missing error-path tests when `robustness` already PASSed
+  (if the module handler itself is wrong, that is a separate task, not a style nit)
+- open review comments that the change does not match a named AC status/error/route when `requirement_fit` already PASSed
+  (if the AC itself is wrong, that is REQUIREMENT_ANALYSIS, not a nit)
 
 ## Output contract
 

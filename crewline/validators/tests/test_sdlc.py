@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from crewline import change_scope, diff_coverage, discover, evidence, manifest, migration, regression, test_integrity, traceability, usage
+from crewline import branch_env, change_scope, coding_standards, defect_reports, diff_coverage, discover, evals_run, evidence, manifest, migration, regression, requirement_clarity, requirement_fit, robustness, test_integrity, traceability, usage
 
 READY = [{"gate": g, "status": "PASS"} for g in ("plan_readiness", "repo_ready")]
 HUMAN = {"approver": "mohan", "reason": "r", "scope": "s", "timestamp": "2026-10-28T00:00:00Z"}
@@ -68,6 +68,8 @@ def ids(res):
 # --- one orchestrator, templated paths ------------------------------------------------------------
 @pytest.mark.parametrize("task_type,src,expected", [
     ("feature", "IMPACT_ANALYSIS", ["DESIGN"]),
+    ("test-automation", "REQUIREMENT_ANALYSIS", ["ACCEPTANCE_REVIEW"]),        # unclear story cannot skip AC review
+    ("bug-fix", "REQUIREMENT_ANALYSIS", ["ACCEPTANCE_REVIEW"]),
     ("test-automation", "IMPACT_ANALYSIS", ["TESTCASE_DESIGN"]),               # the SDET path skips DESIGN
     ("release", "IMPACT_ANALYSIS", ["RELEASE_READINESS"]),
     ("incident", "IMPACT_ANALYSIS", ["KNOWLEDGE_UPDATE"]),                     # read-only: no code states at all
@@ -143,7 +145,8 @@ def test_out_of_scope_failures_escalate(tmp_path, cls):
 
 
 def test_environment_retry_is_not_a_repair(tmp_path):
-    d = doc(current_state="FAILURE_TRIAGE", repair={"attempt_count": 0, "dev_attempt_count": 0, "attempt_history": [], "classification": "ENVIRONMENT"})
+    d = doc(current_state="FAILURE_TRIAGE", repair={"attempt_count": 0, "dev_attempt_count": 0, "attempt_history": [], "classification": "ENVIRONMENT"},
+            gates=[{"gate": "branch_environment", "status": "PASS"}])
     path = write(tmp_path, d)
     assert manifest.transition(path, "SYSTEM_TEST_EXECUTION").status == "PASS"
     assert manifest.transition(path, "IMPLEMENTATION").status == "FAIL"
@@ -177,7 +180,10 @@ def test_commit_needs_every_template_gate(tmp_path):
     missing = {f.message.split()[2] for f in res.findings if f.rule_id == "MAN-012"}
     assert {"design_readiness", "unit_tests", "test_integrity", "traceability", "change_scope"} <= missing
     d["gates"] = [{"gate": g, "status": "PASS"} for g in base + manifest.load_template("feature")["required_gates"]]
-    d["gates"][-1]["status"] = "FAIL"                                  # change_scope failed ...
+    for g in d["gates"]:
+        if g["gate"] == "change_scope":
+            g["status"] = "FAIL"
+            break
     d["exceptions"] = [{"action": "gate_exception", "gate": "change_scope", **HUMAN}]
     assert manifest.transition(write(tmp_path, d), "COMMIT_PR").status == "PASS"   # ... with an attributed exception
     d["gates"][base.index("secrets")]["status"] = "FAIL"
@@ -201,6 +207,7 @@ def test_documentation_path_has_no_regression_or_second_review(tmp_path):
     assert "full_regression" not in " ".join(f.message for f in res.findings)    # not_applicable_gates, with rationale
     assert "secrets" in " ".join(f.message for f in res.findings)                # never waivable, never skipped
     d["gates"].append({"gate": "secrets", "status": "PASS"})
+    d["gates"].append({"gate": "token_budget", "status": "PASS"})
     assert manifest.transition(write(tmp_path, d), "COMMIT_PR").status == "PASS"
     d["task_type"] = "feature"                                                   # other types still need regression
     assert "full_regression" in " ".join(f.message for f in manifest.transition(write(tmp_path, d), "COMMIT_PR").findings)
@@ -363,6 +370,26 @@ def test_usage_by_stage_and_step(tmp_path):
     assert usage.mark(m, "next step").status == "PASS"
     assert json.loads(Path(m).read_text())["usage_marks"][-1]["label"] == "next step"
     assert "USE-002" in ids(usage.report(write(tmp_path, doc(), "m2.json"), [str(tr)]))
+
+
+def test_usage_budget_blocks_when_over_cap(tmp_path):
+    rec = json.dumps({"timestamp": "2026-10-28T10:01:00Z", "message": {"id": "b", "model": "m", "usage": {
+        "input_tokens": 100, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 9000, "output_tokens": 50}}})
+    tr = tmp_path / "s.jsonl"
+    tr.write_text(rec, encoding="utf-8")
+    d = doc(started_at="2026-10-28T10:00:00Z", initial_state="IMPLEMENTATION_REVIEW",
+            usage={"budget": {"per_task": 100, "per_state": 50}})
+    found = ids(usage.report(write(tmp_path, d), [str(tr)]))
+    assert {"USE-003", "USE-004"} <= found
+
+
+def test_usage_packet_dump_blocks(tmp_path):
+    d = doc(started_at="2026-10-28T10:00:00Z")
+    m = write(tmp_path, d)
+    pkt = tmp_path / "packets"
+    pkt.mkdir()
+    (pkt / "IMPLEMENTATION.md").write_text("Carried over from the SDET Architect\n" + ("x" * 500), encoding="utf-8")
+    assert "USE-008" in ids(usage.report(m, []))
 
 
 def test_pr_closeout_needs_monitoring_and_green_ci(tmp_path):
@@ -668,3 +695,298 @@ def test_task_cannot_close_with_open_worktrees(tmp_path):
     assert manifest.transition(write(tmp_path, d), "DONE").status == "PASS"
     d["workspace"] = {"checkout_mode": "single"}                                   # user chose branch switching
     assert manifest.transition(write(tmp_path, d), "DONE").status == "PASS"
+
+
+# --- coding standards before review (not the reviewer's job) -------------------------------------------------------
+def _std_record(svc, tmp_path, command, exit_code=0):
+    out = tmp_path / "ev/std.json"
+    evidence.capture(str(svc), str(out), [sys.executable, "-c", "print('ok')"])
+    rec = json.loads(out.read_text(encoding="utf-8"))
+    rec["command"] = command
+    rec["exit_code"] = exit_code
+    out.write_text(json.dumps(rec), encoding="utf-8")
+    return str(out)
+
+
+def _spotless_pom(svc):
+    (svc / "pom.xml").write_text(
+        "<project><artifactId>x</artifactId><build><plugins>"
+        "<plugin><groupId>com.diffplug.spotless</groupId>"
+        "<artifactId>spotless-maven-plugin</artifactId></plugin>"
+        "</plugins></build></project>", encoding="utf-8")
+
+
+def test_coding_standards_no_checker_passes(svc, tmp_path):
+    res = coding_standards.run(str(svc), "HEAD", write(tmp_path, doc()))
+    assert res.status == "PASS" and "STD-004" in ids(res)
+
+
+def test_coding_standards_debug_in_production_blocks(svc, tmp_path):
+    (svc / "src/main/java/x/Svc.java").write_text(
+        "class Svc { int f() { System.out.println(1); return 1; } }\n", encoding="utf-8")
+    res = coding_standards.run(str(svc), "HEAD", write(tmp_path, doc()))
+    assert res.status == "FAIL" and "STD-003" in ids(res)
+
+
+def test_coding_standards_debug_in_tests_is_allowed(svc, tmp_path):
+    p = svc / "src/test/java/x/SvcTest.java"
+    p.write_text(p.read_text(encoding="utf-8").replace(
+        "assertEquals", "System.out.println(1); assertEquals", 1), encoding="utf-8")
+    res = coding_standards.run(str(svc), "HEAD", write(tmp_path, doc()))
+    assert "STD-003" not in ids(res)
+
+
+def test_coding_standards_checker_requires_evidence(svc, tmp_path):
+    _spotless_pom(svc)
+    res = coding_standards.run(str(svc), "HEAD", write(tmp_path, doc()))
+    assert res.status == "FAIL" and "STD-001" in ids(res)
+
+
+def test_coding_standards_checker_with_fresh_record_passes(svc, tmp_path):
+    _spotless_pom(svc)
+    rec = _std_record(svc, tmp_path, "mvn -B -f pom.xml spotless:check")
+    d = doc(implementation={"standards_evidence": [rec]})
+    res = coding_standards.run(str(svc), "HEAD", write(tmp_path, d))
+    assert res.status == "PASS" and "STD-001" not in ids(res) and "STD-002" not in ids(res)
+
+
+def test_coding_standards_failed_record_blocks(svc, tmp_path):
+    _spotless_pom(svc)
+    rec = _std_record(svc, tmp_path, "mvn -B -f pom.xml spotless:check", exit_code=1)
+    d = doc(implementation={"standards_evidence": [rec]})
+    assert "STD-002" in ids(coding_standards.run(str(svc), "HEAD", write(tmp_path, d)))
+
+
+def test_review_refused_until_coding_standards(tmp_path):
+    d = doc(current_state="UNIT_INTEGRATION_TEST",
+            gates=[{"gate": "deterministic_validation", "status": "PASS"}])
+    res = manifest.transition(write(tmp_path, d), "IMPLEMENTATION_REVIEW")
+    msg = " ".join(f.message for f in res.findings)
+    assert res.status == "FAIL" and "coding_standards" in msg and "robustness" in msg
+    d["gates"].append({"gate": "coding_standards", "status": "PASS"})
+    assert "robustness" in " ".join(f.message for f in manifest.transition(write(tmp_path, d), "IMPLEMENTATION_REVIEW").findings)
+    d["gates"].append({"gate": "robustness", "status": "PASS"})
+    assert "requirement_fit" in " ".join(f.message for f in manifest.transition(write(tmp_path, d), "IMPLEMENTATION_REVIEW").findings)
+    d["gates"].append({"gate": "requirement_fit", "status": "PASS"})
+    assert manifest.transition(write(tmp_path, d), "IMPLEMENTATION_REVIEW").status == "PASS"
+
+
+def test_discover_records_spotless_command(tmp_path):
+    r = _module_repo(tmp_path)
+    pom = r / "pom.xml"
+    pom.write_text(pom.read_text(encoding="utf-8").replace(
+        "</plugins>", "<plugin><artifactId>spotless-maven-plugin</artifactId></plugin></plugins>"), encoding="utf-8")
+    out = tmp_path / "ctx-std"
+    res = discover.run(str(r), "newmod", str(out), force=True)
+    assert "DSC-009" in ids(res)
+    facts = json.loads((out / ".crewline/development/discovery.json").read_text(encoding="utf-8"))
+    assert any(t["id"] == "spotless-maven-plugin" for t in facts["standards"]["tools"])
+    assert "spotless:check" in (out / ".crewline/development/local-context.md").read_text(encoding="utf-8")
+
+
+# --- robustness: exceptions, error paths, hot-path (before review) -----------------------------------------------
+ROB = {"exception_reuse": "src/main/java/x/Handler.java:12",
+       "hot_path_notes": "reuses Svc.f(); no extra repository round-trip"}
+
+
+def test_robustness_empty_catch_blocks(svc, tmp_path):
+    (svc / "src/main/java/x/Svc.java").write_text(
+        "class Svc { int f() { try { return 1; } catch (Exception e) { } } }\n", encoding="utf-8")
+    d = doc(implementation={"robustness": ROB})
+    assert "ROB-001" in ids(robustness.run(str(svc), "HEAD", write(tmp_path, d)))
+
+
+def test_robustness_swallowed_exception_blocks(svc, tmp_path):
+    (svc / "src/main/java/x/Svc.java").write_text(
+        "class Svc { int f() { try { return 1; } catch (Exception e) { log.warn(e); } } }\n", encoding="utf-8")
+    d = doc(implementation={"robustness": ROB})
+    assert "ROB-002" in ids(robustness.run(str(svc), "HEAD", write(tmp_path, d)))
+
+
+def test_robustness_specific_exception_rethrow_passes_scan(svc, tmp_path):
+    (svc / "src/main/java/x/Svc.java").write_text(
+        "class Svc { int f() throws SvcException {\n"
+        "  try { return 1; } catch (IOException e) { throw new SvcException(e); } } }\n", encoding="utf-8")
+    d = doc(implementation={"robustness": ROB})
+    res = robustness.run(str(svc), "HEAD", write(tmp_path, d))
+    assert {"ROB-001", "ROB-002", "ROB-003", "ROB-004"}.isdisjoint(ids(res))
+    assert res.status == "PASS"
+
+
+def test_robustness_sleep_and_raw_throws_block(svc, tmp_path):
+    (svc / "src/main/java/x/Svc.java").write_text(
+        "class Svc { int f() throws Exception { Thread.sleep(50); return 1; } }\n", encoding="utf-8")
+    d = doc(implementation={"robustness": ROB})
+    found = ids(robustness.run(str(svc), "HEAD", write(tmp_path, d)))
+    assert {"ROB-003", "ROB-004"} <= found
+
+
+def test_robustness_record_required_before_review(svc, tmp_path):
+    res = robustness.run(str(svc), "HEAD", write(tmp_path, doc()))
+    assert "ROB-006" in ids(res)
+
+
+def test_robustness_api_error_path_must_pass(svc, tmp_path):
+    ac = {"id": "AC-1", "text": "missing name -> 400 MOSIP-X", "api": True,
+          "code_refs": ["src/main/java/x/Svc.java"], "test_ids": ["x.SvcTest#returnsOne"],
+          "component_test_ids": ["x.SvcControllerTest#missingName"]}
+    rob = {**ROB, "error_paths": [{"ac_id": "AC-1", "status": 400, "error_code": "MOSIP-X",
+                                   "test_id": "x.SvcControllerTest#missingName"}]}
+    d = doc(requirements={"source_refs": ["MOSIP-1"], "acceptance_criteria": [ac], "open_ambiguities": 0},
+            implementation={"robustness": rob}, test_results={"x.SvcTest#returnsOne": "PASS"})
+    assert "ROB-005" in ids(robustness.run(str(svc), "HEAD", write(tmp_path, d)))
+    d["test_results"]["x.SvcControllerTest#missingName"] = "PASS"
+    assert "ROB-005" not in ids(robustness.run(str(svc), "HEAD", write(tmp_path, d)))
+
+
+# --- requirement-clarity: no design/tests on a vague story or bug --------------------------------
+CLEAR_AC = {"id": "AC-1", "text": "POST /x with a missing name returns 400 and error MOSIP-X"}
+
+
+def test_requirement_clarity_blocks_empty_and_unidentified(tmp_path):
+    d = doc()
+    found = ids(requirement_clarity.run(write(tmp_path, d)))
+    assert {"REQ-001", "REQ-004"} <= found
+    d["requirements"] = {"source_refs": ["MOSIP-1"], "acceptance_criteria": [CLEAR_AC], "open_ambiguities": 0}
+    assert requirement_clarity.run(write(tmp_path, d, "ok.json")).status == "PASS"
+
+
+def test_requirement_clarity_blocks_vague_ac_and_open_questions(tmp_path):
+    vague = {"id": "AC-1", "text": "the change should work as expected for the operator"}
+    d = doc(requirements={"story_keys": ["MOSIP-1"], "acceptance_criteria": [vague], "open_ambiguities": 2})
+    found = ids(requirement_clarity.run(write(tmp_path, d)))
+    assert {"REQ-002", "REQ-003"} <= found
+
+
+def test_requirement_clarity_skips_non_story_types(tmp_path):
+    d = doc(task_type="refactor")
+    assert requirement_clarity.run(write(tmp_path, d)).status == "PASS"
+
+
+def test_impact_refused_until_requirement_clarity(tmp_path):
+    d = doc(current_state="ACCEPTANCE_REVIEW", gates=[{"gate": "input_readiness", "status": "PASS"}])
+    res = manifest.transition(write(tmp_path, d), "IMPACT_ANALYSIS")
+    msg = " ".join(f.message for f in res.findings)
+    assert res.status == "FAIL" and "requirement_clarity" in msg and "acceptance_readiness" in msg
+    d["gates"] += [{"gate": "requirement_clarity", "status": "PASS"},
+                   {"gate": "acceptance_readiness", "status": "PASS"}]
+    assert manifest.transition(write(tmp_path, d), "IMPACT_ANALYSIS").status == "PASS"
+
+
+def test_docs_and_incidents_do_not_need_clarity_gate(tmp_path):
+    d = doc(task_type="documentation", current_state="INPUT_VALIDATION",
+            gates=[{"gate": "input_readiness", "status": "PASS"}])
+    assert manifest.transition(write(tmp_path, d), "IMPACT_ANALYSIS").status == "PASS"
+    d = doc(task_type="incident", risk_tier="L0", current_state="INPUT_VALIDATION")
+    assert manifest.transition(write(tmp_path, d), "IMPACT_ANALYSIS").status == "PASS"
+
+
+def test_requirement_clarity_cannot_be_excepted(tmp_path):
+    names = list(dict.fromkeys(["quality_gate", "full_regression", "secrets"]
+                               + manifest.load_template("feature")["required_gates"]))
+    d = doc(current_state="QUALITY_GATE",
+            gates=[{"gate": g, "status": "FAIL" if g == "requirement_clarity" else "PASS"} for g in names],
+            approvals=[{"action": "commit_pr", **HUMAN}],
+            exceptions=[{"action": "gate_exception", "gate": "requirement_clarity", **HUMAN}])
+    msg = " ".join(f.message for f in manifest.transition(write(tmp_path, d), "COMMIT_PR").findings)
+    assert "requirement_clarity" in msg
+
+
+# --- requirement-fit: the diff must contain what the AC named -------------------------------------
+def test_requirement_fit_blocks_when_diff_misses_ac_tokens(svc, tmp_path):
+    ac = {**CLEAR_AC, "code_refs": ["src/main/java/x/Svc.java"]}
+    d = doc(requirements={"source_refs": ["MOSIP-1"], "acceptance_criteria": [ac], "open_ambiguities": 0})
+    assert "RFT-001" in ids(requirement_fit.run(str(svc), "HEAD", write(tmp_path, d)))
+    (svc / "src/main/java/x/Svc.java").write_text(
+        "class Svc { int f() { return 400; /* MOSIP-X POST /x */ } }\n", encoding="utf-8")
+    (svc / "src/test/java/x/SvcTest.java").write_text(
+        "class SvcTest { @Test void missingName() { assertEquals(400, 400); /* MOSIP-X POST /x */ } }\n",
+        encoding="utf-8")
+    assert requirement_fit.run(str(svc), "HEAD", write(tmp_path, d, "fit-ok.json")).status == "PASS"
+
+
+def test_requirement_fit_blocks_when_tests_miss_ac_tokens(svc, tmp_path):
+    ac = {**CLEAR_AC, "code_refs": ["src/main/java/x/Svc.java"]}
+    (svc / "src/main/java/x/Svc.java").write_text(
+        "class Svc { int f() { return 400; /* MOSIP-X POST /x */ } }\n", encoding="utf-8")
+    d = doc(requirements={"source_refs": ["MOSIP-1"], "acceptance_criteria": [ac], "open_ambiguities": 0})
+    assert "RFT-005" in ids(requirement_fit.run(str(svc), "HEAD", write(tmp_path, d)))
+
+
+def test_requirement_fit_blocks_untouched_code_ref(svc, tmp_path):
+    ac = {**CLEAR_AC, "code_refs": ["src/main/java/x/Missing.java"]}
+    (svc / "src/main/java/x/Svc.java").write_text(
+        "class Svc { int f() { return 400; /* MOSIP-X POST /x */ } }\n", encoding="utf-8")
+    d = doc(requirements={"source_refs": ["MOSIP-1"], "acceptance_criteria": [ac], "open_ambiguities": 0})
+    assert "RFT-002" in ids(requirement_fit.run(str(svc), "HEAD", write(tmp_path, d)))
+
+
+def test_requirement_fit_skips_refactor(svc, tmp_path):
+    assert requirement_fit.run(str(svc), "HEAD", write(tmp_path, doc(task_type="refactor"))).status == "PASS"
+
+
+# --- branch env (Q8) and secret-scanned defect reports --------------------------------------------
+def test_branch_env_refuses_released_as_branch(tmp_path):
+    d = doc(test_plan={"environment": "api-internal.released"})
+    assert "BEV-001" in ids(branch_env.run(write(tmp_path, d)))
+    d["test_plan"] = {"environment": "https://api-internal.released/v1", "environment_kind": "local-stack"}
+    assert "BEV-004" in ids(branch_env.run(write(tmp_path, d, "released-as-branch.json")))
+    d["test_plan"] = {"environment": "local docker-compose", "environment_kind": "local-stack"}
+    assert branch_env.run(write(tmp_path, d, "env-ok.json")).status == "PASS"
+
+
+def test_branch_env_deferral_needs_exception(tmp_path):
+    d = doc(test_plan={"environment": "later", "environment_kind": "post-merge-deferred"})
+    assert "BEV-002" in ids(branch_env.run(write(tmp_path, d)))
+    d["exceptions"] = [{"gate": "system_tests", **HUMAN}]
+    assert "BEV-002" not in ids(branch_env.run(write(tmp_path, d, "defer.json")))
+
+
+def test_application_defect_needs_clean_report(tmp_path):
+    d = doc(defects=[{"id": "D1", "class": "APPLICATION", "status": "open"}])
+    assert "DEF-001" in ids(defect_reports.run(write(tmp_path, d)))
+    leak = tmp_path / "full-dump.txt"
+    leak.write_text("admin_" + "password" + "=" + "Sup3rS3cretValue!\n", encoding="utf-8")
+    d["defects"][0]["report_path"] = str(leak)
+    assert "DEF-003" in ids(defect_reports.run(write(tmp_path, d, "leak.json")))
+    clean = tmp_path / "error.txt"
+    clean.write_text("status=500 MOSIP-X; no config dump\n", encoding="utf-8")
+    d["defects"][0]["report_path"] = str(clean)
+    assert defect_reports.run(write(tmp_path, d, "clean.json")).status == "PASS"
+
+
+def test_frozen_eval_pack_nodeids_exist():
+    res = evals_run.run(execute=False)
+    assert "EVAL-001" not in ids(res), res.to_text()
+
+
+def test_frozen_pack_has_eight_stories_with_outcomes():
+    res = evals_run.run(execute=False, pack="frozen")
+    assert res.status == "PASS", res.to_text()
+    assert len(res.inputs["frozen_stories"]) == 8
+    assert {"EVAL-004", "EVAL-005"}.isdisjoint(ids(res))
+
+
+def test_cold_start_kit_passes():
+    from crewline import cold_start
+    res = cold_start.run()
+    assert res.status == "PASS", res.to_text()
+    assert "CS-004" in ids(res)
+
+
+def test_task_queue_new_status_resume(tmp_path, monkeypatch):
+    from crewline import task
+    monkeypatch.setenv("CREWLINE_TASKS", str(tmp_path))
+    assert "TSK-002" in ids(task.run("new", "bad id", "feature"))
+    assert task.run("new", "t1", "feature").status == "PASS"
+    assert "TSK-002" in ids(task.run("new", "t1", "feature"))
+    st = task.run("status", "t1")
+    assert st.status == "PASS" and "INTAKE" in st.to_text()
+    nxt = task.run("resume", "t1")
+    assert nxt.status == "PASS" and "INPUT_VALIDATION" in nxt.to_text()
+    listed = task.run("list")
+    assert listed.status == "PASS" and "t1" in listed.to_text()
+    waiting = json.loads((tmp_path / "t1" / "task-manifest.json").read_text(encoding="utf-8"))
+    waiting["current_state"] = "WAITING_FOR_USER"
+    (tmp_path / "t1" / "task-manifest.json").write_text(json.dumps(waiting), encoding="utf-8")
+    assert "TSK-003" in ids(task.run("resume", "t1"))

@@ -563,6 +563,39 @@
           "items": {
             "type": "string"
           }
+        },
+        "standards_evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "crewline run records for the module's lint/format checkers (coding_standards gate)"
+        },
+        "robustness": {
+          "type": "object",
+          "description": "exception reuse and error paths (robustness gate); required for feature/bug-fix/migration/upgrade before review",
+          "properties": {
+            "exception_reuse": {
+              "type": "string",
+              "description": "file:line of the module exception handler / error constant reused; do not invent a new type"
+            },
+            "hot_path_notes": {
+              "type": "string",
+              "description": "why this is not an extra round-trip or N+1; name the existing service/repo call"
+            },
+            "error_paths": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ac_id": { "type": "string" },
+                  "status": { "type": ["integer", "string"] },
+                  "error_code": { "type": "string" },
+                  "test_id": { "type": "string" }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -695,6 +728,21 @@
       "type": "string",
       "description": "path of usage.md produced by crewline usage"
     },
+    "usage": {
+      "type": "object",
+      "description": "optional overlay of core/usage-budget.yaml for this task",
+      "properties": {
+        "budget": {
+          "type": "object",
+          "properties": {
+            "per_task": { "type": "integer", "minimum": 1 },
+            "per_state": { "type": "integer", "minimum": 1 },
+            "warn_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+            "packet_max_chars": { "type": "integer", "minimum": 1000 }
+          }
+        }
+      }
+    },
     "test_plan": {
       "type": "object",
       "properties": {
@@ -770,6 +818,10 @@
           },
           "reason": {
             "type": "string"
+          },
+          "report_path": {
+            "type": "string",
+            "description": "secret-scanned error report (never a raw full dump); required for APPLICATION/SECURITY (defect-reports gate)"
           }
         }
       }

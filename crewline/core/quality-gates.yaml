@@ -3,6 +3,9 @@
 # `enforced_by: deterministic` means a command decides; an agent may not set the status by opinion.
 # `state` is where the gate is produced. A gate whose state is not on the task type's path is not applicable
 # (crewline manifest skips guards on it). Which gates a task type REQUIRES is in core/workflows/<type>.yaml.
+# MOSIP TestRig / CoverageCli commands (`testcase`, `expected-diff`, `coverage`, `scope`) apply when the active
+# pack has sdet.testrig / coverage_cli (default: mosip). Generic pack: those CLIs return NOT_RUN; fill the same
+# gates with the module's own suite via `crewline run` / `regression` / `trace`.
 version: 2
 
 gates:
@@ -31,6 +34,16 @@ gates:
     enforced_by: review
     agent: acceptance-reviewer
     requires: [every AC testable (observable outcome, no "should work"), contradictions resolved, NFRs stated where relevant]
+
+  requirement_clarity:
+    state: ACCEPTANCE_REVIEW
+    enforced_by: deterministic
+    commands: ["requirement-clarity --manifest <task-manifest.json>"]
+    requires: [story/bug key recorded, numbered ACs with an observable outcome, open_ambiguities == 0, no TBD/should-work/as-expected phrasing]
+    on_fail: WAITING_FOR_USER
+    note: >-
+      Closes the hole where open_ambiguities is set to 0 without testable ACs, and where bug-fix skipped a human
+      acceptance review. The model must not invent the missing business rule.
 
   design_readiness:
     state: DESIGN
@@ -116,6 +129,34 @@ gates:
     requires: [when system_tests is NOT_APPLICABLE, every API-facing AC (api true) has a passing component test at the HTTP boundary (MockMvc / @WebMvcTest / @SpringBootTest) asserting the status code and error code the caller sees]
     note: this is the developer-level stand-in for system tests when no environment runs the branch build; it never replaces system tests when one exists.
 
+  coding_standards:
+    state: DETERMINISTIC_VALIDATION
+    enforced_by: deterministic
+    commands: ["coding-standards --repo <dir> --base <base_ref> --manifest <task-manifest.json> [--evidence <record>]"]
+    requires: [every checker the module already has (spotless/checkstyle/eslint/prettier) has a fresh crewline run record at exit 0; production diff has no debug leftovers]
+    note: >-
+      Does not invent a style guide. Commands come from the repo (pom plugins, npm scripts) and .crewline/development.
+      IMPLEMENTATION_REVIEW is refused until this PASSes so reviewers do not spend rounds on format.
+
+  robustness:
+    state: DETERMINISTIC_VALIDATION
+    enforced_by: deterministic
+    commands: ["robustness --repo <dir> --base <base_ref> --manifest <task-manifest.json>"]
+    requires: [no empty/swallowed catch in the production diff, no raw throws Exception, no sleep on the hot path, implementation.robustness recorded, every api AC has a passing error-path test]
+    note: >-
+      Reuse the module's exception handler and error constants (commons-first). Do not invent a parallel hierarchy.
+      IMPLEMENTATION_REVIEW is refused until this PASSes so reviewers do not spend rounds on try/catch and N+1.
+
+  requirement_fit:
+    state: DETERMINISTIC_VALIDATION
+    enforced_by: deterministic
+    commands: ["requirement-fit --repo <dir> --base <base_ref> --manifest <task-manifest.json>"]
+    requires: [every AC observable (status, MOSIP-* error, route, quoted value) appears in the diff or code_ref files, code_refs were actually touched, those observables also appear in a changed test file (RFT-005)]
+    note: >-
+      Traceability checks links. This checks content. A production string is not proof a test asserts the story.
+      IMPLEMENTATION_REVIEW is refused until it PASSes so reviewers do not spend rounds on "that is not what the
+      story said". Never waivable.
+
   # --- reviews ---------------------------------------------------------------------------------------
   implementation_review:
     state: IMPLEMENTATION_REVIEW
@@ -130,6 +171,17 @@ gates:
     independence: [new context, source-only packet, no implementer reasoning, different context id from review 1]
 
   # --- system tests, regression, quality gate --------------------------------------------------------
+  branch_environment:
+    state: SYSTEM_TEST_EXECUTION
+    enforced_by: deterministic
+    commands: ["branch-env --manifest <task-manifest.json>"]
+    requires: [test_plan.environment_kind is branch-deployed-env or local-stack (or post-merge-deferred with an attributed exception), test_plan.environment names where the BRANCH build runs]
+    on_fail: WAITING_FOR_USER
+    note: >-
+      Does not provision Q8. It refuses a missing kind (BEV-001), a deferral without an exception (BEV-002),
+      an empty URL (BEV-003), and a released-only host named as the branch (BEV-004). Laptop recipe:
+      evals/q8-local-stack.md. The user names the env.
+
   system_tests:
     state: SYSTEM_TEST_EXECUTION
     enforced_by: deterministic
@@ -149,6 +201,13 @@ gates:
     commands: ["regression --baseline <base report> --candidate <branch report> --allow-fail <id with attributed exception>"]
     blocks_on: [PASS->FAIL on branch, new test failing without exception]
     scope_rule: "crewline scope (TestRig) / changed modules (unit): only new tests added -> those tests (+ producers); anything else -> FULL"
+
+  defect_reports:
+    state: QUALITY_GATE
+    enforced_by: deterministic
+    commands: ["defect-reports --manifest <task-manifest.json>"]
+    requires: [APPLICATION/SECURITY defects have a report_path, that file exists, secrets scan of it PASSes (values never printed)]
+    note: PILOT-001 attached an actuator dump. Procedure is not enough.
 
   defect_closure:
     state: QUALITY_GATE
@@ -172,6 +231,16 @@ gates:
     state: QUALITY_GATE
     enforced_by: deterministic
     commands: [secrets <changed files>]
+
+  token_budget:
+    state: QUALITY_GATE
+    enforced_by: deterministic
+    commands: ["usage --manifest <task-manifest.json> --transcript <session.jsonl>"]
+    requires: [task total and per-state totals under core/usage-budget.yaml, specialist packets under packet_max_chars]
+    on_fail: WAITING_FOR_USER
+    note: >-
+      Accounting is not protection. Exceeding the budget stops the task. Cursor often has no transcript: the adapter
+      token fire-break is then the control (USE-006). Raise the cap only with an attributed exception.
 
   quality_gate:
     state: QUALITY_GATE
@@ -220,4 +289,4 @@ gates:
 
 exceptions:
   required_fields: [gate, approver, reason, scope, timestamp]
-  never_waivable: [secrets, test_integrity without approval, repair caps, production deployment]
+  never_waivable: [secrets, requirement_clarity, requirement_fit, test_integrity without approval, repair caps, production deployment]

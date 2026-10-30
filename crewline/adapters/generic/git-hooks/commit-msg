@@ -1,0 +1,3 @@
+#!/bin/sh
+# Crewline: require Signed-off-by and COMMIT_PR gates. Installed by adapters/install.py.
+exec {{PYTHON}} "{{HOOK}}" git-commit "$1"

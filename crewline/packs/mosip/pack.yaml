@@ -1,0 +1,13 @@
+# MOSIP product pack (default). Core stays language-agnostic; this pack is the MOSIP plugin.
+id: mosip
+title: MOSIP
+sdet:
+  testrig: true
+  coverage_cli: true
+knowledge:
+  - knowledge/mosip
+  - knowledge/frameworks
+tools: tools.yaml
+notes: >
+  Application map, TestRig, CoverageCli, Java 21/Maven, MOSIP Jira and DB pairing.
+  Switch away with: python -m crewline pack --set generic

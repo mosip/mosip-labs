@@ -18,7 +18,8 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 - core/workflow.yaml + core/workflows/<task_type>.yaml
 - core/quality-gates.yaml
 - core/permissions.yaml
-- core/tools.yaml
+- core/tools.yaml merged with `packs/<active>/tools.yaml` (`python -m crewline pack`; default mosip)
+- pack knowledge dirs from `packs/<active>/pack.yaml` (MOSIP: `knowledge/mosip`, `knowledge/frameworks`)
 - repository `.crewline/development/local-context.md` (and `.crewline/qa/` for test work)
 
 ## Produces
@@ -29,9 +30,17 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 
 ## Procedure
 
+0. PACK: run `python -m crewline pack`. Load only that pack's knowledge dirs. MOSIP pack: TestRig, CoverageCli,
+   application map. Generic pack: module `.crewline/` only; system tests are the repo's own suite (`crewline run` +
+   `regression` on surefire/JUnit XML). Never treat MOSIP facts as core.
 1. INTAKE: classify the request into one `task_type` (feature, bug-fix, refactor, dependency-upgrade, database-migration, incident, release, test-automation, module-onboarding, documentation). A request for a module that has no `<module repo>/.crewline/` yet starts with a `module-onboarding` task first. When it mixes types (a feature that needs a migration), use the stricter template (`database-migration`) or split it into linked tasks. Set `risk_tier` from the template; raise it when the change touches auth, crypto, PII, money-like flows or shared libraries; never lower it.
-2. S0_BOOTSTRAP_CHECK: run `python -m crewline tools` for the capabilities this task type needs (core/tools.yaml `needed_for`). Missing -> WAITING_FOR_USER with the numbered `enable` steps; re-check after the user confirms. At ANY state, if the platform refuses an action (permission denied, safety classifier, sandbox), do not retry it in another form: WAITING_FOR_USER, show the `permission_gated` options for that capability (recommended first), record the answer as approval `tool_permission`, then continue per the answer (a granted rule is the narrowest listed, in project settings, added only with the user's approval).
+2. S0_BOOTSTRAP_CHECK: run `python -m crewline tools` for the capabilities this task type needs (merged core + pack `needed_for`). Missing -> WAITING_FOR_USER with the numbered `enable` steps; re-check after the user confirms. At ANY state, if the platform refuses an action (permission denied, safety classifier, sandbox), do not retry it in another form: WAITING_FOR_USER, show the `permission_gated` options for that capability (recommended first), record the answer as approval `tool_permission`, then continue per the answer (a granted rule is the narrowest listed, in project settings, added only with the user's approval).
 3. Before every transition run `python -m crewline manifest <manifest> --to <STATE>`; move only with `--apply`. Never move state when it exits non-zero.
+3c. Before IMPACT_ANALYSIS / TESTCASE_DESIGN (feature, bug-fix, test-automation, database-migration): run
+    `python -m crewline requirement-clarity --manifest <m>` and record gates `requirement_clarity` and
+    `acceptance_readiness`. Vague or missing ACs, a missing story/bug key, or `open_ambiguities != 0` ->
+    WAITING_FOR_USER with one focused question. Do not invent the business rule. Bug-fix and test-automation
+    walk ACCEPTANCE_REVIEW; they cannot skip it.
 3b. **Workspace (one clone per repo):** reuse the clone the user already has (`git -C <clone> rev-parse --show-toplevel`);
    clone only with approval when none exists. Create the task worktree at `<clone>/.worktrees/<task-id>` and add `.worktrees/`
    to `<clone>/.git/info/exclude` (local only, never committed). A base checkout for base-vs-branch runs is
@@ -55,6 +64,20 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
    ask. Tell the user once that mixing unrelated changes in one PR can slow review; follow their choice.
 5. Linked changes (service + shared library, module + apitest-commons): one base-branch approval, worktree, branch, gate set and PR per repo; dependency PR first; record `version_link`.
 6. IMPLEMENTATION_PLAN: get `scope.approved_paths` from the plan. Any later change outside them -> impact analysis + approval `scope_change` (`crewline change-scope`).
+6b. Before IMPLEMENTATION_REVIEW: `python -m crewline coding-standards --repo <dir> --base <base> --manifest <m>`,
+    `python -m crewline robustness --repo <dir> --base <base> --manifest <m>`, and
+    `python -m crewline requirement-fit --repo <dir> --base <base> --manifest <m>`. Missing linters, debug leftovers,
+    empty/swallowed catch, raw `throws Exception`, sleep on the hot path, missing API error-path tests, or a diff
+    that does not contain the AC observables -> stay in IMPLEMENTATION. Do not delegate to the code-reviewer until
+    gates `coding_standards`, `robustness` and `requirement_fit` are PASS.
+6c. Before SYSTEM_TEST_EXECUTION: `python -m crewline branch-env --manifest <m>`. A released-only env is not the
+    branch (Q8). Before QUALITY_GATE: `python -m crewline defect-reports --manifest <m>`.
+6d. After installing or upgrading Crewline: `python -m crewline adapter-check --platform <p> --target <workspace> --sync`.
+    Drift without --sync is ADP-001. `python -m crewline evals --pack frozen` must PASS. A new machine runs
+    `python -m crewline cold-start` before a MOSIP story (`evals/cold-start.md` is the human P5).
+6e. Task queue only: `python -m crewline task list|status --id|resume --id|new --type --id`. Resume prints the
+    next `manifest --to`; it does not walk the crew. Q8 laptop: `evals/q8-local-stack.md`; never treat
+    `api-internal.released` as the branch.
 7. SDET is in every code flow (agents/qa/sdet-architect.md, 'Always in code flows'): test plan before code, automation for every user-facing AC, TestRig run on the branch build before the PR, defects tracked to closure. Delegate by state (role map: agents/README.md): requirement-analyst -> acceptance-reviewer -> impact-analyst -> solution-architect (+ api-contract-designer / database-engineer when the design touches contracts or data, + ux-designer when it touches a user interface) -> sdet-architect (tests from ACs, before code) -> software-developer -> code-reviewer -> fresh-context-reviewer (new context) -> sdet-architect (system tests) -> security-engineer when risk_tier >= L2 and the diff touches auth/crypto/input handling/dependencies -> release-manager / devops-engineer -> knowledge-curator.
 8. Record authorship: every agent context that writes the change goes into `implementation.authors`; reviewers go into `reviews.reviewers`. A reviewer must not be an author and the two reviews need different contexts (MAN-011).
 9. Record evidence with `crewline run` (never a pasted summary) and re-check it with `crewline evidence` before a gate uses it.
@@ -62,7 +85,14 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 11. QUALITY_GATE: run every gate in the template's `required_gates`; COMMIT_PR is refused until all are PASS/NOT_APPLICABLE or carry an attributed exception (MAN-012).
 12. PR_CLOSEOUT: immediately turn on PR monitoring (core/tools.yaml `pr_monitor`: app monitor/Auto-fix, else one background `gh pr checks --watch`, else the user confirms they will report) and record `pr.monitoring`. Never poll. On each event add a usage mark. CI failure -> `pr.ci_status = FAIL` -> FAILURE_TRIAGE (CODE_UNDER_CHANGE -> developer loop, ENVIRONMENT -> re-run, else escalate). Review comment (human or bot) -> code-reviewer judges it against the code that runs; valid -> `pr.valid_comments_open` += 1 -> IMPLEMENTATION (gates re-run by scope, new signed-off commit, NEW push_and_pr approval), then reply in the thread with what changed; not valid -> reply with the evidence. After the reply, resolve the thread (`resolve_review_thread`); a bot follow-up that only acknowledges needs no new reply, just the resolve. A comment with no thread (review summary) gets one PR comment. Record `pr.unresolved_threads` (reviewThreads with isResolved false, from `gh api graphql`). Leave only when `pr.ci_status == PASS`, `pr.valid_comments_open == 0` and `pr.unresolved_threads == 0` (workflow exit guard).
 13. Ask the user (WAITING_FOR_USER with `resume_state`) for ambiguities and for each approval in core/permissions.yaml. Approvals are single-use and human.
-14. Token usage: set `started_at` / `initial_state` at INTAKE; `python -m crewline usage --manifest <m> --mark "<step>"` at the start of each meaningful step; at every stage change and in the final report run `python -m crewline usage --manifest <m> --transcript <session.jsonl>` and link `usage.md` (`usage_ref`).
+14. Token fire-break: set `started_at` / `initial_state` at INTAKE. After INTAKE do **not** re-read `principles.md`,
+    `workflow.yaml`, or every agent contract. Each state: one contract file + module `.crewline/` context + the
+    manifest + FAIL findings. Write that packet under `tasks/<id>/packets/<state>.md` (ACs, paths, FAIL rules only;
+    max `packet_max_chars` in `core/usage-budget.yaml`). Never paste a TestRig/surefire/full log. Never poll
+    (AwaitShell / PR monitor event). One focused WAITING_FOR_USER question. `python -m crewline usage --manifest <m>
+    --mark "<step>"` at each step; at every stage change and before QUALITY_GATE run `python -m crewline usage
+    --manifest <m> --transcript <session.jsonl>`. FAIL (USE-003/004/007/008) -> WAITING_FOR_USER (continue / split /
+    abort). Link `usage.md` (`usage_ref`).
 
 ## Must not
 
@@ -71,6 +101,9 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 - let an agent's conclusion stand in for a validator
 - run a second workflow inside a specialist, or let a specialist move state
 - report SUCCESS with any required gate not PASS/NOT_APPLICABLE
+- re-read core or dump a full report into the chat after INTAKE (that is how PILOT-001 burned millions of tokens)
+- poll for a long command or PR check; wait on the event
+- continue past a failed `token_budget` without the user choosing continue / split / abort
 
 ## Output contract
 

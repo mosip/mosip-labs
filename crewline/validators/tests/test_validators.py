@@ -410,10 +410,10 @@ def test_scope_targeted_for_added_cases_full_otherwise(repo):
     assert scope.run(module(repo), "HEAD").inputs["required_scope"] == "FULL"
 
 
-def test_tools_manifest_has_enable_steps_and_checker_runs():
-    from crewline import tools
-    import yaml as _y
-    spec = _y.safe_load((Path(__file__).resolve().parents[2] / "core/tools.yaml").read_text(encoding="utf-8"))["capabilities"]
+def test_tools_manifest_has_enable_steps_and_checker_runs(monkeypatch):
+    monkeypatch.delenv("CREWLINE_PACK", raising=False)
+    from crewline import pack, tools
+    spec = pack.merged_tools()["capabilities"]
     assert all(c.get("enable") and c.get("check") for c in spec.values())
     res = tools.run(["git", "browser_upload"])
     assert res.status in ("PASS", "FAIL") and {f.rule_id for f in res.findings} <= {"TOOL-000", "TOOL-001", "TOOL-002"}

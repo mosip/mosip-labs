@@ -8,30 +8,107 @@ It is run by one orchestrator with specialist agents, deterministic gates and hu
 
 > **The model proposes; repositories preserve verified knowledge; deterministic controls enforce rules; humans approve.**
 
+Cursor and Claude already write code. Crewline is not a better coder — it is the MOSIP flight checklist and the locks on
+commit/push, so a chat cannot pass for a done SDLC. [Why Crewline on Cursor or Claude](#why-crewline-on-cursor-or-claude).
+
+**How you start it:** describe the work in **Cursor** or **Claude Code**. Use the **terminal** for setup, validators and git — there is no `crewline start` command that runs the crew by itself. Details: [How you start it](#how-you-start-it-cursor-claude-or-terminal).
+
 | | |
 |---|---|
 | Version | `0.1.0` (see `VERSION`) |
 | Design | `../AI_Engineering_Agent_Full_SDLC_Implementation_Blueprint_v2.1.html` (authoritative) and `../AI_Engineering_Agent_Full_SDLC_Updated_Plan_v1.3.html` |
 | Lineage | Copied from the SDET Architect Assistant 0.2.0. Its proven workflow is the `test-automation` task type and the `agents/qa/` specialty |
 | Pilots | **PILOT-001** (test automation): [mosip/pre-registration#1088](https://github.com/mosip/pre-registration/pull/1088) · **PILOT-002** (bug fix MOSIP-38854): [mosip/pre-registration#1089](https://github.com/mosip/pre-registration/pull/1089) |
-| Health | 77 validator acceptance tests, 41 evaluation scenarios |
+| Health | 163 validator acceptance tests; evaluation scenarios EV-01..59 (`python -m crewline evals --pack frozen`) |
+
+---
+
+## Why Crewline on Cursor or Claude
+
+You do not need Crewline to *generate* a patch. You need it if the patch has to survive MOSIP review: tests designed from
+the story, a fork from upstream, DCO, coverage, and a PR you can defend.
+
+Without it, the same model in Cursor or Claude will typically write code first, invent tests that match that code, commit
+from local `develop`, skip a full suite, review its own diff in the same chat, and call it a PR. That is fast. It is also
+how PILOT-001’s first branch failed (wrong base, extra commits, DCO, no regression).
+
+| Cursor / Claude alone | Cursor / Claude **with Crewline** |
+|---|---|
+| One generalist that invents a process each session | One fixed MOSIP path: story → ACs → design → **tests before code** → implementation → two reviews → system tests → gated PR |
+| The model says “tests passed” | `crewline run` / `evidence`: a check that did not run is `NOT_RUN`, never `PASS` |
+| Tests written after (or from) the code | Independent oracle: SDET designs from ACs; weakening, skipping or deleting a test is blocked |
+| Commit / push when the agent feels ready | Hooks deny commit / push / PR until QUALITY_GATE, DCO, scope and secrets pass |
+| Same chat reviews its own work | No self-review, no self-approval; second review in a **new** context |
+| Branch from whatever is local | Fork from **upstream** after you name the base branch |
+| Own breakage filed as a product bug, or a test deleted to go green | `CODE_UNDER_CHANGE` vs `APPLICATION`; repair cap 3; then escalate |
+| MOSIP TestRig, CoverageCli and DCO optional | Those are the artifacts. Crewline does not invent a parallel format |
+
+**What it does not claim:** a stronger model, a faster first draft, or a replacement for GitHub CI. It is slower on
+purpose. You still answer questions and approve design, commit, push and PR.
+
+**Bottom line:** Cursor and Claude are the engine. Crewline is the MOSIP process plus locks on shipping. If “the agent
+opened a PR and it looks fine” is enough, this is overhead. If the goal is *story → test design → automation → bug
+raise/fix → a signed-off PR*, it is the difference between a chat and an engineering workflow.
+
+---
+
+## Core vs MOSIP pack
+
+Crewline is a **gated SDLC** (workflow, gates, hooks) with a **MOSIP plugin** as the default pack — not a
+language-agnostic coding agent. Keep that default if the selling point is MOSIP engineering. To use the same rails on
+another product, swap the pack; do not fork the workflow.
+
+| Layer | What it is | Lives in |
+|---|---|---|
+| **Core** | State machine, quality gates, permissions, `crewline guard` hooks, adapters, evidence | `core/`, `agents/`, `validators/`, `adapters/` |
+| **MOSIP pack** (default) | TestRig, CoverageCli, application map, Java 21 / Maven / Jira / branch-env tools | `packs/mosip/` + `knowledge/mosip`, `knowledge/frameworks` |
+| **Generic pack** | No TestRig, no MOSIP map; module `.crewline/` names the stack | `packs/generic/` |
+| **Module context** | Build, tests, CI, default paths for *this* repo | `<module repo>/.crewline/` |
+
+```bat
+python -m crewline pack              REM show active (committed default: mosip)
+python -m crewline pack --list
+python -m crewline pack --set generic
+set CREWLINE_PACK=generic            REM process override; tests use this, never rewrite ACTIVE
+```
+
+```bash
+python -m crewline pack --set generic
+CREWLINE_PACK=generic python -m crewline tools
+```
+
+A new product pack is a copy of `packs/generic/`: set `id`, point `knowledge:` at that product’s map, overlay stack
+tools in `tools.yaml`. MOSIP knowledge dirs are **referenced**, not moved (links stay valid). TestRig CLIs
+(`testcase`, `expected-diff`, `scope`, `coverage`) return `NOT_RUN` when the pack has `sdet.testrig` /
+`coverage_cli` false; fill the same gates with the repo’s own suite (`crewline run`, `regression`, `trace`).
+See `knowledge/decisions/ADR-0008-core-vs-product-pack.md`.
 
 ---
 
 ## Quick start for a new user
 
-1. **Get the agent** (one time): copy or clone `crewline` to your machine, then
-   `pip install -r validators/requirements.txt` and `cd validators && python -m pytest -q tests` (all must pass).
-2. **Check your tools:** `python -m crewline tools` (from `validators/`). Follow the numbered steps for anything missing
-   (Java 21, Maven, Node for UI modules, GitHub CLI logged in with your fork, Jira connector).
-3. **Install the adapter into the folder where you keep your module clones**
-   (e.g. `D:/work/mosip`): `python adapters/install.py --platform claude --target D:/work/mosip --write`
-   (Cursor: `--platform cursor`). This writes the skill and the `crewline-*` subagents, pointing at your copy of the agent.
-4. **Have the module cloned with two remotes:** `origin` = your fork, `upstream` = the official repo
+1. **Get Crewline** (one time): copy or clone this folder, then run the setup script from inside `crewline/`:
+
+   ```bat
+   scripts\setup.bat cursor D:\work\mosip
+   ```
+
+   ```bash
+   chmod +x scripts/setup.sh
+   ./scripts/setup.sh claude ~/work/mosip
+   ```
+
+   That installs Python deps, runs the validator tests, prints missing tools (Git, JDK 21, Maven, `gh`, …) with
+   numbered enable steps from `core/tools.yaml` plus the active pack (default MOSIP: JDK 21, Maven, …), and writes
+   the Cursor or Claude adapter into the folder where you keep MOSIP module clones. Use `generic` instead of
+   `cursor`/`claude` for git hooks only.
+   `scripts\setup.bat` with no arguments does the Python + tests + tool check and stops (adapter later).
+2. **Have the module cloned with two remotes:** `origin` = your fork, `upstream` = the official repo
    (`git remote add upstream https://github.com/<org>/<repo>.git`).
-5. **Open Claude Code (or Cursor) in that folder** and describe the work in one message (templates below).
-   If the module has no `<module repo>/.crewline/` yet, the agent onboards it first (`module-onboarding`).
-6. **Answer what it asks**: open questions, the upstream base branch, design approval, and each commit / push / PR / Jira action.
+3. **Start the crew in Cursor or Claude Code** (not in the terminal): open that folder and describe the work in one
+   message (templates below). If the module has no `<module repo>/.crewline/` yet, the agent onboards it first
+   (`module-onboarding`). See [How you start it](#how-you-start-it-cursor-claude-or-terminal).
+4. **Answer what it asks**: open questions, the upstream base branch, design approval, and each commit / push / PR / Jira action.
    Watch `tasks/<id>/` for the manifest, evidence, `usage.md` and the final report.
 
 **Request templates**
@@ -41,6 +118,8 @@ It is run by one orchestrator with specialist agents, deterministic gates and hu
   inji/inji-verify#2460 (do not open a new PR).` - the agent then works on that PR's branch (orchestrator step 4b).
 
 ## Contents
+- [Why Crewline on Cursor or Claude](#why-crewline-on-cursor-or-claude)
+- [How you start it (Cursor, Claude or terminal)](#how-you-start-it-cursor-claude-or-terminal)
 1. [What it is (and is not)](#1-what-it-is-and-is-not)
 2. [Architecture](#2-architecture)
 3. [The workflow](#3-the-workflow)
@@ -63,6 +142,47 @@ It is run by one orchestrator with specialist agents, deterministic gates and hu
 
 ---
 
+## How you start it (Cursor, Claude or terminal)
+
+Crewline is two layers. They are not started the same way.
+
+| Layer | What it is | Where it runs |
+|---|---|---|
+| **The crew** | Orchestrator + specialist agents (requirements, design, tests, code, reviews, PR) | Inside an **AI coding tool** that loads the adapter |
+| **The rails** | `python -m crewline …` validators, `crewline guard`, git hooks | **Terminal** and hooks that fire on commit / push / PR |
+
+There is **no** `crewline start "fix MOSIP-123"` (or any other command) that walks Story → tests → PR by itself. You start the crew by talking to Cursor or Claude Code. The terminal sets up the machine and enforces the gates.
+
+```mermaid
+flowchart LR
+  T["1 · Terminal once<br/>pip · pytest · crewline tools<br/>install.py --platform …"]
+  A["2 · Cursor or Claude Code<br/>describe the story or bug"]
+  H["3 · You approve<br/>base branch · design · commit · push · PR"]
+  R["4 · Rails<br/>guard + git hooks refuse a skip"]
+  T --> A --> H --> R
+```
+
+| You open | Starts the crew? | What you do | What is enforced |
+|---|---|---|---|
+| **Cursor** | **Yes** | Open the folder that has the module clones. One message with the story or bug (templates in Quick start). The installed rule (`.cursor/rules/crewline.mdc`) is the orchestrator. Cursor has no subagents: each specialist contract is played in turn; fresh-context review is a **new chat**. | Fail-closed hooks: commit / push / `gh pr create` denied until COMMIT_PR gates pass. Force-push, `--no-verify`, hard reset, stash, branch delete, PR merge, production deploy always denied. |
+| **Claude Code** | **Yes** | Same request in that folder. The skill (`.claude/skills/crewline/`) is the orchestrator; specialists are `crewline-*` subagents. Fresh-context review is a **new subagent**. | Same `crewline guard` policy via `.claude/settings.json` `PreToolUse` + `permissions.deny`. Subagent tool allow-lists still apply. |
+| **Another AI tool** | **Yes, if it loads the entry** | Install `--platform generic` (or paste `.crewline/ENTRY.md`). Describe the work the same way. | Git `pre-commit` / `commit-msg` / `pre-push` call `crewline guard`. They cannot see `--no-verify` (git skips hooks); never use it. Prefer Cursor or Claude hooks as well when the tool has them. |
+| **Terminal** | **No** | One-time setup and on-demand checks: `pip install`, `pytest`, `python -m crewline tools`, `cold-start`, `task list/status/resume/new`, `manifest`, `guard`, `run` / `evidence`. You can also `git commit` yourself. | Validators and git hooks still run. `crewline task` is a queue over `tasks/*/task-manifest.json`; it does not walk the crew. |
+
+**Typical path for a MOSIP story**
+
+
+1. **Terminal (once per machine / workspace):** from `crewline/`, run `scripts\setup.bat cursor D:\work\mosip`
+   or `./scripts/setup.sh claude ~/work/mosip` (Python deps, validator tests, `crewline tools`, adapter).
+   Then `python -m crewline cold-start` must PASS. The script does not start the crew.
+2. **Cursor or Claude Code:** `Fix MOSIP-38854 in pre-registration: <symptom>.` (or a feature / test-automation template).
+3. **You:** answer ambiguities; name the upstream base branch; approve design, commit, push and PR when asked.
+4. **Rails:** if the model skips `crewline manifest`, the hook or git hook still refuses the commit or push.
+
+Install **one** platform adapter on the workspace you actually use (Cursor *or* Claude). Add `--platform generic` as well if you want git hooks in the module repo so a commit from any tool (or a human) hits the same rails.
+
+---
+
 ## 1. What it is (and is not)
 
 **It is** a repository of rules, contracts and scripts that any AI coding tool (Claude Code, Cursor, others) follows. A task
@@ -72,7 +192,8 @@ It is run by one orchestrator with specialist agents, deterministic gates and hu
 - asks a human for every consequential action;
 - records evidence that cannot be typed in by the model.
 
-**It is not** a code generator that commits on its own, a second testcase format, or a replacement for the team's CI.
+**It is not** a stronger Cursor/Claude, a faster first draft, a code generator that commits on its own, a second
+testcase format, or a replacement for the team's CI. See [Why Crewline on Cursor or Claude](#why-crewline-on-cursor-or-claude).
 It drives the tools the team already has:
 - API TestRig YAML and the coverage matrix (`CoverageCli`);
 - Maven, JUnit and JaCoCo;
@@ -201,7 +322,9 @@ Dashed arrows are loop-backs. From any state the orchestrator can also go to:
 | `{any_of: [...]}`, `{all_of: [...]}` | combinations, e.g. the two repair loops |
 
 **Important guards:**
-- **Ambiguities:** `IMPACT_ANALYSIS` and `TESTCASE_DESIGN` need `open_ambiguities == 0`.
+- **Ambiguities:** `IMPACT_ANALYSIS` and `TESTCASE_DESIGN` need `open_ambiguities == 0` **and** gates `requirement_clarity` + `acceptance_readiness` PASS (TBD / should-work ACs fail REQ-002).
+- **Requirement fit:** `IMPLEMENTATION_REVIEW` needs `requirement_fit` PASS (AC observables in the diff).
+- **Branch env:** `SYSTEM_TEST_EXECUTION` needs `branch_environment` PASS (Q8: the env runs this branch, not released).
 - **Base branch:** `REPO_READY` needs approval `base_branch`, asked before any branch exists.
 - **Commit:** `COMMIT_PR` needs `quality_gate`, `full_regression`, `secrets`, approval `commit_pr`, and every `required_gates` entry of the template (MAN-012).
 - **Push and PR:** `COMMIT_PR -> PR_CLOSEOUT` (where push and PR happen) needs `dco`, `branch_scope`, `change_scope` and approval `push_and_pr`.
@@ -218,9 +341,9 @@ state is dropped. Templates add guards and list `required_gates`.
 
 | Type | Tier | States | What is special | Required gates |
 |---|---|---:|---|---|
-| `feature` | L2 | 26 | AC review; design + approval `design`; tests from ACs before code; release readiness | design, testcase, build, unit, diff coverage, component, deterministic, test integrity, traceability, system tests, full regression, secrets, dependency security, change scope |
-| `bug-fix` | L2 | 23 | a test that **fails on the base** first (`reproduction`); minimal fix | reproduction, build, unit, diff coverage, component, deterministic, test integrity, traceability, full regression, secrets, change scope |
-| `refactor` | L2 | 21 | strict test integrity: no test may change | design, build, unit, diff coverage, component, deterministic, test integrity, full regression, secrets, change scope |
+| `feature` | L2 | 26 | AC review; design + approval `design`; tests from ACs before code; release readiness | design, testcase, build, unit, diff coverage, component, deterministic, coding standards, robustness, test integrity, traceability, system tests, full regression, secrets, dependency security, change scope |
+| `bug-fix` | L2 | 23 | a test that **fails on the base** first (`reproduction`); minimal fix | reproduction, build, unit, diff coverage, component, deterministic, coding standards, test integrity, traceability, full regression, secrets, change scope |
+| `refactor` | L2 | 21 | strict test integrity: no test may change | design, build, unit, diff coverage, component, deterministic, coding standards, test integrity, full regression, secrets, change scope |
 | `dependency-upgrade` | L2 | 21 | analysis of the **resolved** version; dependency security | design, build, unit, deterministic, test integrity, dependency security, full regression, secrets, change scope |
 | `database-migration` | L3 | 26 | paired upgrade/rollback; approval `migration_review`; disposable-DB staged validation | design, testcase, migration pairing, build, unit, diff coverage, component, deterministic, test integrity, system tests, full regression, secrets, change scope, release readiness |
 | `incident` | L0 | 7 | read-only: telemetry, timeline, hypotheses, postmortem; a fix becomes a new bug-fix task | secrets |
@@ -273,17 +396,17 @@ Folders are for people: the workflow and the installer find agents by `name:`.
 
 ## 6. Quality gates
 
-`core/quality-gates.yaml` defines 32 gates. Each gate's status goes in the manifest as `PASS | FAIL | BLOCKED | NOT_RUN | NOT_APPLICABLE`,
+`core/quality-gates.yaml` defines the gates. Each gate's status goes in the manifest as `PASS | FAIL | BLOCKED | NOT_RUN | NOT_APPLICABLE`,
 with rationale, evidence and the commit it was checked at. `enforced_by: deterministic` means a command decides, not an agent.
 
 | Stage | Gates |
 |---|---|
 | Onboarding | `onboarding_discovery`, `onboarding_baseline` |
-| Requirements / design | `input_readiness`, `acceptance_readiness`, `design_readiness`, `testcase_readiness`, `reproduction`, `plan_readiness`, `repo_ready` |
-| Build / static | `build`, `deterministic_validation`, `test_integrity`, `migration_pairing`, `dependency_security` |
+| Requirements / design | `input_readiness`, `acceptance_readiness`, `requirement_clarity`, `design_readiness`, `testcase_readiness`, `reproduction`, `plan_readiness`, `repo_ready` |
+| Build / static | `build`, `deterministic_validation`, `coding_standards`, `robustness`, `requirement_fit`, `test_integrity`, `migration_pairing`, `dependency_security` |
 | Developer testing | `unit_tests`, `diff_coverage`, `component_tests` |
 | Reviews | `implementation_review`, `fresh_context_review` |
-| System / pre-commit | `system_tests`, `full_regression`, `traceability`, `change_scope`, `secrets`, `quality_gate` |
+| System / pre-commit | `system_tests`, `branch_environment`, `full_regression`, `traceability`, `change_scope`, `secrets`, `defect_reports`, `quality_gate` |
 | Git / PR | `dco`, `branch_scope`, `pr_ci`, `pr_comments` |
 | Release / ops | `release_readiness`, `post_deployment`, `knowledge_update` |
 
@@ -327,6 +450,11 @@ flowchart TB
 | System (API/UI/DSL) | SDET | `system_tests` | only counts when the environment runs the branch build; report header must show the branch commit |
 | Regression | all | `full_regression` | full suite on base and branch, same environment, sequential; any PASS to FAIL blocks |
 | Traceability | orchestrator | `traceability`, `crewline trace` | every AC maps to code refs and tests with a recorded result |
+| Coding standards | developer | `coding_standards`, `crewline coding-standards` | repo's own lint/format checkers with a fresh `crewline run` record; no debug leftovers in the production diff; **before** review |
+| Robustness | developer | `robustness`, `crewline robustness` | no empty/swallowed catch, no raw `throws Exception`, no sleep on the hot path; reuse the module handler; every api AC has a passing error-path test; **before** review |
+| Requirement fit | developer | `requirement_fit`, `crewline requirement-fit` | AC status/error/route/quoted value appears in the diff **and** a changed test; `code_refs` were touched; **before** review |
+| Branch env | SDET | `branch_environment`, `crewline branch-env` | system tests against an env that runs **this** branch (`local-stack` or `branch-deployed-env`); `api-internal.released` is BEV-004 |
+| Defect reports | SDET | `defect_reports`, `crewline defect-reports` | APPLICATION/SECURITY defects carry a secret-scanned `report_path` |
 
 **Scope rule:** run targeted tests while iterating. Before committing, run the full suite on base and branch. If only new tests
 were added, those tests plus their producers are enough (`crewline scope` for TestRig).
@@ -377,7 +505,7 @@ flowchart TB
 - **Every user-facing criterion is automated:** an `api` or `ui` acceptance criterion without a system-level automated test is blocked (TRC-008). One without a result on the branch build is blocked too (TRC-009).
 - **System tests and regression can't be quietly skipped:** they can't be marked "not applicable" in code flows (MAN-015). The only way to skip them is a human-approved deferral to a named environment and date; the post-merge run then becomes a follow-up task.
 - **No PR with an open defect:** the PR is refused while a defect caused by the change is open, or while a pre-existing one hasn't been raised (MAN-014).
-- **Where it can run:** an environment where CI deploys the PR image, or a local stack (the module's docker-compose or a local service run). Options and steps are in `core/tools.yaml` under `branch_test_env`.
+- **Where it can run:** an environment where CI deploys the PR image, or a local stack (the module's docker-compose or a local service run). MOSIP pack: options in `packs/mosip/tools.yaml` `branch_test_env`. Generic pack: the environment named in `test_plan.environment` and the module's own suite.
 
 ## 8. Failures, repairs and escalation
 
@@ -468,13 +596,25 @@ Run from `validators/`: `python -m crewline [--json] <command> ...`. Exit codes:
 | `test-integrity` | TIN-001..006 | JUnit/TestNG and Jest/Vitest/Mocha: removed, disabled or focused tests, fewer assertions, deleted files; `--strict` for refactors |
 | `diff-coverage` | DCV-001..004 | JaCoCo XML or lcov.info + git diff: share of changed lines tested, missing files, stale reports |
 | `trace` | TRC-001..007 | AC to code to test to result; component test for API-facing ACs when system tests are not applicable |
+| `coding-standards` | STD-001..005 | repo's own spotless/checkstyle/eslint/prettier must have a fresh `crewline run` record; production diff must not add debug leftovers; blocks review |
+| `robustness` | ROB-001..006 | empty/swallowed catch, raw throws Exception, sleep on the hot path; `implementation.robustness` (handler reuse + hot-path notes); api AC error-path test PASS |
+| `requirement-clarity` | REQ-001..004 | story/bug key, observable ACs, no TBD/should-work; blocks design/tests |
+| `requirement-fit` | RFT-001..005 | AC observables in the diff **and** a changed test; blocks review |
+| `branch-env` | BEV-001..004 | branch-build env named; released host refused (Q8) |
+| `defect-reports` | DEF-001..003 | secret-scanned defect attachments |
+| `adapter-check` | ADP-001 | installed adapter matches `adapters/` (`--sync` re-renders) |
+| `evals` | EVAL-001..005 | frozen `automated_by` nodeids; `--pack frozen` needs `expected-outcomes/` |
+| `cold-start` | CS-001..004 | new-machine kit (frozen pack, adapters, synthetic `--apply`) |
+| `task` | TSK-001..004 | queue over `tasks/*/`; not a daemon |
 | `migration` | MIG-001..004 | upgrade/rollback and release/revoke pairs; released scripts immutable; destructive statements flagged |
 | `regression` | REG-001..006 | base vs branch from TestRig full reports or surefire XML; pass-to-fail and failing new tests block |
 | `branch` · `dco` | BR-001..005 · DCO-001..002 | fork model; signed-off commits |
 | `secrets` | SEC-001..005 | gitleaks when present; values never printed |
-| `tools` | TOOL-000..002 | capabilities from `core/tools.yaml` with numbered enable steps |
-| `usage` | USE-001..002 | token usage per task, stage and step (section 12) |
-| `discover` | DSC-001..008 | module onboarding: reads poms, tests, CI, DB scripts, deploy, guidance and TestRig suites read-only; writes evidence-labelled drafts and a baseline |
+| `tools` | TOOL-000..002 | capabilities from `core/tools.yaml` + active pack overlay; numbered enable steps |
+| `pack` | PCK-001..002 | show / list / `--set` product pack (`mosip` default, `generic` for a non-MOSIP repo) |
+| `usage` | USE-001..008 | token usage per task/stage/step **and** budget stop (`token_budget` gate); packet size |
+| `discover` | DSC-001..009 | module onboarding: reads poms, tests, CI, DB scripts, deploy, guidance, TestRig suites and coding-standard checkers read-only; writes evidence-labelled drafts and a baseline |
+| `guard` | GRD-001..006 | Cursor (and any adapter) hooks: no commit/push/PR without a live task and COMMIT_PR gates; force-push / `--no-verify` / prod deploy always denied |
 | `testcase` · `expected-diff` · `scope` · `coverage` | NAME/DEP · EXP-001..009 · SCOPE · COV | API TestRig: IDs, `$ID:` chains, weakened expectations, targeted vs full scope, CoverageCli |
 
 ---
@@ -488,7 +628,14 @@ python -m crewline run --repo <worktree> --out tasks/<id>/evidence/unit.json -- 
 python -m crewline evidence --record tasks/<id>/evidence/unit.json --repo <worktree>   # PASS only if still current
 ```
 
-**Token usage, per stage and per step.** The transcript records the API-reported usage of every model call. `crewline usage`
+**Token budget is a stop, not a report** (`core/usage-budget.yaml`, gate `token_budget`, principle 36). PILOT-001 spent
+about 3M tokens per review round and 6.7M waiting on background runs. `crewline usage` FAILs when the **task** or a
+**state** exceeds the cap (USE-003/004). That is WAITING_FOR_USER: continue with an attributed exception, split the
+task, or abort. Specialist packets under `tasks/<id>/packets/` over `packet_max_chars` or that dump core/reports also
+FAIL (USE-007/008). Cursor often has no API transcript: USE-006, and the adapter **token fire-break** is the control
+(do not re-read core after INTAKE, do not paste reports, do not poll).
+
+The transcript records the API-reported usage of every model call. `crewline usage`
 attributes each call:
 - to a **stage**, using the manifest's `started_at` and `state_history`;
 - to a **step**, using `usage_marks`;
@@ -533,8 +680,8 @@ Each task has its own workspace, `tasks/<id>/`, never inside a repository. It ho
 
 ## 14. Knowledge and module context
 
-- **Global** (`core/`): principles, workflow, policy. **Frameworks** (`knowledge/frameworks/`): API TestRig, apitest-commons, UI and DSL rigs. **MOSIP** (`knowledge/mosip/`): application map, dependencies, glossary.
-- **Decisions** (`knowledge/decisions/`): ADR-0001..0006, an ADR template, and the open Phase 0 questions.
+- **Global** (`core/`): principles, workflow, policy — product-neutral. **Pack** (`packs/<id>/`): which knowledge dirs and extra tools load. MOSIP pack points at **Frameworks** (`knowledge/frameworks/`: API TestRig, apitest-commons, UI and DSL rigs) and **MOSIP** (`knowledge/mosip/`: application map, dependencies, glossary). Generic pack loads neither.
+- **Decisions** (`knowledge/decisions/`): ADR-0001..0008, an ADR template, and the open Phase 0 questions.
 - **Module context lives in each module repository**, never in Crewline: `<module repo>/.crewline/`, one folder per role:
 
   ```
@@ -555,30 +702,41 @@ Each task has its own workspace, `tasks/<id>/`, never inside a repository. It ho
 
 ## 15. Adapters and installation
 
+The adapter is only tool syntax. Policy stays in this repository. **Which adapter you install decides how you start the crew**
+([How you start it](#how-you-start-it-cursor-claude-or-terminal)): Cursor and Claude Code start it from a chat; the terminal
+never does; generic is for any other AI tool plus git hooks.
+
 | Tool | File | Installs to |
 |---|---|---|
-| Claude Code | `adapters/claude/SKILL.md` + every agent as `crewline-<name>` subagent | `<workspace>/.claude/skills/crewline/`, `<workspace>/.claude/agents/` |
-| Cursor | `adapters/cursor/crewline.mdc` | `<workspace>/.cursor/rules/` |
-| Any other | `adapters/generic/ENTRY.md` | paste or reference |
+| Claude Code | `adapters/claude/SKILL.md` + `crewline-*` subagents + fail-closed hooks | `<workspace>/.claude/skills/`, `.claude/agents/`, `.claude/settings.json`, `.claude/hooks/` |
+| Cursor | `adapters/cursor/crewline.mdc` + fail-closed hooks (`crewline guard`) | `<workspace>/.cursor/rules/` and `<workspace>/.cursor/hooks.json` |
+| Any other | `adapters/generic/ENTRY.md` + git `pre-commit` / `commit-msg` / `pre-push` | `<workspace>/.crewline/` and `<workspace>/.git/hooks/` |
 
 ```bash
-pip install -r validators/requirements.txt                                     # PyYAML, jsonschema, pytest
-cd validators && python -m pytest -q tests                                     # 77 acceptance tests
-python -m crewline tools                                                       # capability check with enable steps
-python ../adapters/install.py --platform claude --target <workspace>           # dry run
-python ../adapters/install.py --platform claude --target <workspace> --write    # install (never overwrites without --force)
+# Preferred: one script (deps + tests + tool check + adapter)
+scripts\setup.bat cursor D:\work\mosip          # Windows
+./scripts/setup.sh claude ~/work/mosip          # Linux / macOS / Git Bash
+./scripts/setup.sh generic /path/to/module-repo
+
+# The same steps by hand
+pip install -r validators/requirements.txt
+cd validators && python -m pytest -q tests
+python -m crewline tools
+python ../adapters/install.py --platform cursor --target <workspace> --write
+python ../adapters/install.py --platform claude --target <workspace> --write
+python ../adapters/install.py --platform generic --target <workspace> --write
+python adapters/install.py --platform cursor --target <workspace> --sync --check   # after an upgrade
 ```
 
-**Prerequisites** (`core/tools.yaml`, 17 capabilities, each with numbered enable steps):
-- Git, Java 21, Maven 3.9, Python 3.11+, GitHub CLI;
-- Jira connector and the Claude in Chrome extension (for attaching reports);
-- CoverageCli;
-- Docker and Helm (release work);
-- a dependency scanner, a disposable DB, a non-production environment, PR monitoring.
+**Prerequisites** (`python -m crewline tools` — core + active pack, each capability has numbered enable steps):
+- **Core:** Git, Python 3.11+, GitHub CLI, Docker/Helm (release), a dependency scanner, a disposable DB, a non-production environment, PR monitoring.
+- **MOSIP pack (default):** Java 21, Maven 3.9, Jira connector and Claude in Chrome (report attach), CoverageCli, branch TestRig env.
 
 ---
 
 ## 16. Running a task, step by step
+
+Start this in **Cursor or Claude Code**, not with a terminal command ([How you start it](#how-you-start-it-cursor-claude-or-terminal)).
 
 1. **Ask:** "fix MOSIP-12345", "add API tests for story X", "upgrade kernel-core to 1.3.0".
 2. **Intake:** the orchestrator checks tools, classifies the task, creates `tasks/<id>/task-manifest.json` and starts the usage marks.
@@ -593,8 +751,10 @@ python ../adapters/install.py --platform claude --target <workspace> --write    
 
 ### Use it for your module
 
-Everything in `core/`, `agents/` and most validators is module-independent. What a module needs is its **context**
-(`<module repo>/.crewline/`) and, for API tests, its **validator profile** (`<module repo>/.crewline/qa/profile.yaml`).
+Everything in `core/`, `agents/` and most validators is **module**-independent. MOSIP TestRig / CoverageCli / the
+application map are the **pack**, not core — switch with `python -m crewline pack --set generic` for a non-MOSIP
+repo ([Core vs MOSIP pack](#core-vs-mosip-pack)). What a module needs is its **context**
+(`<module repo>/.crewline/`) and, for MOSIP API tests, its **validator profile** (`<module repo>/.crewline/qa/profile.yaml`).
 The `module-onboarding` task creates both:
 
 ```bash
@@ -633,23 +793,26 @@ separate task with its own branch and PR.
 crewline/
 ├── README.md · VERSION
 ├── core/
-│   ├── principles.md            26 rules (18 from the SDET pilot, 8 for the full SDLC)
+│   ├── principles.md            39 rules (18 from the SDET pilot, 21 for the full SDLC)
 │   ├── workflow.yaml            the state machine, guards, forced escalation, linked changes
 │   ├── workflows/               feature · bug-fix · refactor · dependency-upgrade · database-migration · incident · release · test-automation · module-onboarding · documentation
-│   ├── quality-gates.yaml       32 gates
+│   ├── quality-gates.yaml       gates (clarity, fit, branch-env, defect-reports included)
 │   ├── permissions.yaml         tiers L0-L3, profiles, 23 actions, agent profiles
 │   ├── escalation-policy.yaml   two repair loops, failure classes
-│   └── tools.yaml               17 capabilities with enable steps
+│   └── tools.yaml               core capabilities (git, python, gh, docker, …); pack overlays the rest
+├── packs/                       ACTIVE (default mosip) · mosip/ · generic/   product plugin (tools + knowledge refs)
 ├── agents/                      orchestrator + 24 specialists in role folders (see agents/README.md):
 │   ├── product/ ui-ux/ architecture/ development/ qa/ (SDET lead + 7)
 │   └── review/ security/ devops/ operations/ knowledge/
 ├── validators/
-│   ├── crewline/                24 modules (see section 11)
-│   └── tests/                   test_validators.py (SDET, 36) · test_sdlc.py (SDLC, 41)
+│   ├── crewline/                validator modules (see section 11)
+│   └── tests/                   test_validators.py · test_sdlc.py · test_guard.py · test_pack.py · test_setup_scripts.py
 ├── templates/                   task-manifest + agent-response schemas, PR, issue, subtask, escalation, final report
-├── adapters/                    claude/ · cursor/ · generic/ · install.py
-├── knowledge/                   decisions/ (ADR-0001..0006) · frameworks/ · mosip/ · known-issues/
-├── evals/                       task-scenarios/scenarios.yaml (EV-01..41) · regression-suite/ · expected-outcomes/
+├── adapters/                    claude/ (skill + settings hooks) · cursor/ (rule + hooks) · generic/ (ENTRY + git hooks) · hooks/crewline_hook.py · install.py
+├── scripts/                     setup.bat · setup.sh  (one-time prereqs + optional adapter install)
+├── knowledge/                   decisions/ (ADR-0001..0008) · frameworks/ · mosip/ · known-issues/
+├── evals/                       task-scenarios/scenarios.yaml (EV-01..59) · frozen-pack.yaml · cold-start.md · q8-local-stack.md · expected-outcomes/
+├── ci/                          copy of the GitHub workflow (live file: repo-root `.github/workflows/crewline.yml`)
 └── tasks/                       local task workspaces (git-ignored): manifest, evidence, usage, reports
 ```
 
@@ -683,16 +846,18 @@ crewline/
 |---|---|
 | P0 discovery, P1 shared core, P2 SDET slice | done |
 | P3 requirements/design, P4 development | contracts and gates built; P4 piloted (PILOT-002), P3 design path not yet piloted |
-| P5 integrated feature, P6 security/DevOps, P7 release/SRE, P8 scale | not yet piloted |
+| P5 integrated feature, P6 security/DevOps, P7 release/SRE, P8 scale | P5 kit: `python -m crewline cold-start`; human feature walk not yet piloted |
 
 **Open questions** (`knowledge/decisions/open-questions.md`):
 - **Q4:** existing ADR conventions in the MOSIP repositories.
 - **Q5:** which local security scanners are approved.
-- **Q8:** a non-production environment that runs the branch build, needed for system tests of code changes and the release drill.
+- **Q8:** a non-production **cluster** that runs the branch build (laptop local-stack recipe is `evals/q8-local-stack.md`; `branch-env` refuses `api-internal.released`).
 - **Q9:** where to host this repository so every clone gets the same rules.
 
 **Known limits:**
 - Production actions are disabled.
-- System tests of production-code changes need Q8.
+- System tests of production-code changes need Q8 (laptop: local-stack; cluster still a platform-team question).
+- `crewline task` lists/resumes manifests; there is still no `crewline start` that walks the crew.
+- `evals --pack frozen --run` is the two-model contract on the **rails**, not a bake-off that invokes two LLMs.
 - Coverage and test-integrity cover Java (JaCoCo, JUnit/TestNG) and JavaScript/TypeScript (lcov, Jest/Vitest/Mocha); other languages need parsers.
 - The usage tracker depends on the Claude Code transcript format.

@@ -12,5 +12,9 @@ entry_guards:
   IMPLEMENTATION_PLAN:
     - {gate: testcase_readiness, eq: PASS}       # tests designed from ACs before code exists
     - {approval: design}                         # material design and contract choices belong to a human
-required_gates: [design_readiness, testcase_readiness, build, unit_tests, diff_coverage, component_tests, deterministic_validation, test_integrity, traceability, system_tests, full_regression, secrets, dependency_security, change_scope]
+  IMPLEMENTATION_REVIEW:
+    - {gate: coding_standards, eq: PASS}         # repo linters + no debug leftovers; not the reviewer's job
+    - {gate: robustness, eq: PASS}               # exceptions, error paths, no sleep/N+1 notes; not the reviewer's job
+    - {gate: requirement_fit, eq: PASS}          # diff contains the AC observables; not the reviewer's job
+required_gates: [requirement_clarity, acceptance_readiness, design_readiness, testcase_readiness, build, unit_tests, diff_coverage, component_tests, deterministic_validation, coding_standards, robustness, requirement_fit, test_integrity, traceability, system_tests, branch_environment, defect_reports, full_regression, secrets, dependency_security, change_scope, token_budget]
 no_silent_na: [system_tests, full_regression]      # SDET always runs them; skipping needs an attributed exception (MAN-015)

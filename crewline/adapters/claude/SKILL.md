@@ -7,16 +7,23 @@ description: "Use for MOSIP engineering work across the SDLC: features, bug fixe
 
 Core: `{{CORE}}`. This file is a thin adapter. The workflow, templates, gates, permissions and agent contracts live in the core.
 
+**Token fire-break:** after INTAKE do not re-read `principles.md` or every agent file. One subagent, smallest packet
+(ACs + FAIL findings). Never paste reports. Never poll. `crewline usage --mark` each step; `crewline usage --transcript`
+at each stage change. FAIL the budget -> STOP (continue / split / abort).
+
 ## How to run a task
 
-1. Read `{{CORE}}/core/principles.md`, then the target repository's `.crewline/development/local-context.md` (staging copy:
-   `<module repo>/.crewline/development/`) and, for test work, `.crewline/qa/module-context.md`, `coverage/README.md`,
-   `coverage/AGENTS.md`. Repository guidance wins where it is more specific.
+1. At **INTAKE only**, read `{{CORE}}/core/principles.md`. Run `python -m crewline pack` and load only that pack's knowledge dirs
+   (`packs/<id>/pack.yaml`). MOSIP (default) adds `knowledge/mosip` and `knowledge/frameworks`. Then the target
+   repository's `.crewline/development/local-context.md` (staging copy: `<module repo>/.crewline/development/`)
+   and, for test work, `.crewline/qa/module-context.md`, `coverage/README.md`, `coverage/AGENTS.md`.
+   Repository guidance wins where it is more specific.
 2. INTAKE: classify the request into one task type (`{{CORE}}/core/workflows/`: feature, bug-fix, refactor,
    dependency-upgrade, database-migration, incident, release, test-automation) and its risk tier. Create the task manifest
    (`{{CORE}}/templates/task-manifest.schema.json`) in the task workspace `{{CORE}}/tasks/<id>/`, never in a repository.
 3. S0_BOOTSTRAP_CHECK: `python -m crewline tools` (from `{{CORE}}/validators`) plus any connector/browser the task type needs.
-   Missing -> stop and give the user the numbered steps from `{{CORE}}/core/tools.yaml`; never work around it.
+   Missing -> stop and give the user the numbered steps from the merged tools (`core/tools.yaml` + active pack);
+   never work around it.
    An action the platform refuses at runtime (e.g. `npm ci`) -> stop and offer the `permission_gated` options in
    `{{CORE}}/core/tools.yaml` (you run it / narrowest project allow rule / leave unverified); record approval `tool_permission`.
 4. Drive `{{CORE}}/core/workflow.yaml` through the template's path. Before each transition:
@@ -28,8 +35,9 @@ Core: `{{CORE}}`. This file is a thin adapter. The workflow, templates, gates, p
    (to add work to an existing PR the user names: work on that PR's head branch, allow its existing commits, push to it - orchestrator step 4b);
    PR against the upstream branch (`crewline branch`). Linked repos each get their own branch, gates and PR, dependency first.
 7. Evidence: run builds and tests through `python -m crewline run --repo <dir> --out <record> -- <command>`; gates use
-   `crewline evidence`, `change-scope`, `test-integrity`, `migration`, `trace`, `regression` (TestRig reports or surefire XML),
-   plus the SDET validators (`testcase`, `expected-diff`, `scope`, `coverage`) and `secrets` / `dco`.
+   `crewline evidence`, `change-scope`, `test-integrity`, `migration`, `trace`, `coding-standards`, `robustness`, `requirement-clarity`, `requirement-fit`, `branch-env`, `defect-reports`, `adapter-check`, `evals`, `regression` (TestRig reports or surefire XML),
+   plus (MOSIP pack) the SDET validators (`testcase`, `expected-diff`, `scope`, `coverage`) and `secrets` / `dco`.
+   Generic pack: skip TestRig CLIs (they return NOT_RUN); use the module's own suite.
 8. Ask before every action `{{CORE}}/core/permissions.yaml` marks as needing approval; record it (approver, reason, scope,
    timestamp). Approvals are human and single-use.
 9. Failure triage: AUTOMATION -> SDET loop, CODE_UNDER_CHANGE -> developer loop (3 each); APPLICATION / SECURITY /
@@ -43,10 +51,16 @@ Core: `{{CORE}}`. This file is a thin adapter. The workflow, templates, gates, p
 - Use a git worktree per task and repository; never edit the user's main checkout.
 - Credentials: never read their values into context; merge them into the worktree config, mark it skip-worktree, restore after.
 - Long runs (full suites, builds) go in the background; gates read the `crewline run` record, not the console.
+- Fail-closed hooks (`.claude/settings.json` PreToolUse + SessionStart, plus `permissions.deny`) call
+  `python -m crewline guard`. They deny git commit / push / `gh pr create` until COMMIT_PR / PR_CLOSEOUT gates
+  pass; they always deny force-push, `--no-verify`, hard reset, stash, branch delete, PR merge and production
+  deploy. A hook deny is not a prompt to work around — fix the gate. Subagent tool allow-lists still apply.
 
 ## Rules
 
 Never: run a second workflow or let a specialist move state; approve or review your own change; weaken, disable or delete
 a test or expected result to pass; exceed three repair attempts per track; change files outside `scope.approved_paths`
 without a `scope_change` approval; deploy to production; file an application bug without explicit confirmation; publish
-raw run reports or logs; touch uncommitted work that is not yours; paste a result a command should produce.
+raw run reports or logs; touch uncommitted work that is not yours; paste a result a command should produce; disable or
+skip Crewline hooks (`disableAllHooks`, `--no-verify`, wrapping Bash); re-read core after INTAKE; dump a full report
+into the chat; poll a long command or PR check; continue past a failed `token_budget`.
