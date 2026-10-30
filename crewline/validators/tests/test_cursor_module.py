@@ -152,3 +152,10 @@ def test_outside_git_writes_nothing(tmp_path):
     out = run(m, ["hook", "shell"], {"CREWLINE_CORE": str(ROOT)}, json.dumps({"command": "ls", "cwd": str(m)}))
     assert json.loads(out.stdout) == {"permission": "allow"}
     assert sorted(p.name for p in m.iterdir()) == [".cursor"]          # no stray info/exclude
+
+
+def test_cursor_session_names_cursor_switches_not_claude(tmp_path):
+    m = module(tmp_path)
+    ctx = json.loads(run(m, ["hook", "session"], {"CREWLINE_CORE": str(ROOT)},
+                         json.dumps({"hook_event_name": "sessionStart", "cwd": str(m)})).stdout)["additional_context"]
+    assert ".cursor/crewline.local.json" in ctx and ".claude/settings.local.json" not in ctx and "crewline skill" not in ctx

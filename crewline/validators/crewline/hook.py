@@ -204,6 +204,12 @@ def main(argv: list[str] | None = None) -> int:
     if out.get("additional_context") == "":
         return 0                                   # nothing to say: print nothing
     if protocol == "cursor" and plugin and out.get("additional_context") and "ACTIVE" in out["additional_context"]:
+        out["additional_context"] = (out["additional_context"]
+            .replace("use the crewline skill workflow", "use the Crewline workflow (`python .cursor/crewline.py rule`)")
+            .replace("in .claude/settings.local.json (\"enabledPlugins\": {\"crewline@mosip-labs\": false})",
+                     "in .cursor/crewline.local.json ({\"enabled\": false})")
+            .replace("`crewline task new`", "`python .cursor/crewline.py task new`")
+            .replace("`crewline manifest ", "`python .cursor/crewline.py manifest "))
         out["additional_context"] += (" Cursor: run `python .cursor/crewline.py rule` before the first change and follow it; "
                                      "validators run as `python .cursor/crewline.py <command>`.")
     event = str(payload.get("hook_event_name") or ("SessionStart" if mode == "session" else "PreToolUse"))
