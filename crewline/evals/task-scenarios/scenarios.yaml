@@ -7,8 +7,8 @@ scenarios:
     automated_by: manual (P3 pilot)
   - id: EV-02
     name: Ambiguous acceptance criterion
-    expected: WAITING_FOR_USER with one focused question; S5 entry guard (open_ambiguities == 0) blocks design
-    automated_by: manual; guard in core/workflow.yaml entry_guards.S5_TESTCASE_DESIGN
+    expected: WAITING_FOR_USER with one focused question; IMPACT_ANALYSIS / TESTCASE_DESIGN refused until requirement_clarity and acceptance_readiness PASS (open_ambiguities == 0 is not enough)
+    automated_by: test_sdlc.py::test_requirement_clarity_blocks_empty_and_unidentified, ::test_requirement_clarity_blocks_vague_ac_and_open_questions, ::test_impact_refused_until_requirement_clarity
   - id: EV-03
     name: Duplicate testcase ID
     expected: CoverageCli check fails duplicate-unique-identifier
@@ -67,7 +67,7 @@ scenarios:
     automated_by: ::test_approval_is_single_use
   - id: EV-17
     name: Missing tool or connector
-    expected: workflow stops with numbered enable steps from core/tools.yaml; no workaround
+    expected: workflow stops with numbered enable steps from merged core+pack tools.yaml; no workaround
     automated_by: ::test_tools_manifest_has_enable_steps_and_checker_runs (local); adapter side manual
   - id: EV-18
     name: Module change needs a dependency (apitest-commons) change
@@ -187,3 +187,55 @@ scenarios:
     name: Worktrees pile up next to the user's clone
     expected: task worktrees live under <clone>/.worktrees/, base checkouts are temporary, DONE is refused while a task worktree is open (single-checkout mode exempt)
     automated_by: test_sdlc.py::test_task_cannot_close_with_open_worktrees
+  - id: EV-47
+    name: Agent skips validators and tries to commit / force-push
+    expected: crewline guard (Cursor fail-closed hooks) denies git commit without an active task, unsigned commit, commit before QUALITY_GATE, force-push, --no-verify; writes outside approved_paths blocked when a task is live
+    automated_by: validators/tests/test_guard.py (policy + Cursor/Claude/generic install)
+  - id: EV-48
+    name: Developer skips coding standards; review becomes a style round
+    expected: IMPLEMENTATION_REVIEW refused until coding_standards PASS; missing spotless/eslint evidence blocks (STD-001); failed record blocks (STD-002); System.out / console.log in production diff blocks (STD-003); tests may still print; no checker in the repo is INFO not FAIL (STD-004)
+    automated_by: test_sdlc.py::test_review_refused_until_coding_standards, ::test_coding_standards_checker_requires_evidence, ::test_coding_standards_debug_in_production_blocks
+  - id: EV-49
+    name: Developer skips exception handling / error paths / hot-path care; review becomes a robustness round
+    expected: IMPLEMENTATION_REVIEW refused until robustness PASS; empty catch ROB-001; swallowed Exception ROB-002; throws Exception ROB-003; Thread.sleep ROB-004; api AC without a passing error-path test ROB-005; missing implementation.robustness ROB-006
+    automated_by: test_sdlc.py::test_robustness_empty_catch_blocks, ::test_robustness_swallowed_exception_blocks, ::test_robustness_sleep_and_raw_throws_block, ::test_robustness_api_error_path_must_pass
+  - id: EV-50
+    name: Unclear story or bug; design and tests start anyway
+    expected: bug-fix and test-automation walk ACCEPTANCE_REVIEW; REQ-001 no ACs; REQ-002 vague phrasing; REQ-003 open_ambiguities != 0; REQ-004 no story/bug key; IMPACT_ANALYSIS refused until requirement_clarity + acceptance_readiness PASS; requirement_clarity is never waivable
+    automated_by: test_sdlc.py::test_template_projection, ::test_requirement_clarity_blocks_empty_and_unidentified, ::test_requirement_clarity_blocks_vague_ac_and_open_questions, ::test_impact_refused_until_requirement_clarity, ::test_requirement_clarity_cannot_be_excepted
+  - id: EV-51
+    name: Developer implements something other than the story
+    expected: IMPLEMENTATION_REVIEW refused until requirement_fit PASS; AC tokens missing from the diff RFT-001; untouched code_ref RFT-002; AC tokens missing from changed tests RFT-005; requirement_fit is never waivable
+    automated_by: test_sdlc.py::test_requirement_fit_blocks_when_diff_misses_ac_tokens, ::test_requirement_fit_blocks_when_tests_miss_ac_tokens, ::test_requirement_fit_blocks_untouched_code_ref, ::test_review_refused_until_coding_standards
+  - id: EV-52
+    name: Installed Cursor/Claude rule drifts from adapters/
+    expected: install.py --check / crewline adapter-check FAIL (ADP-001) when an installed file is missing or edited
+    automated_by: test_guard.py::test_install_check_detects_drift
+  - id: EV-53
+    name: Frozen eval pack nodeids go missing
+    expected: crewline evals FAIL EVAL-001 when automated_by names a test that is not on disk
+    automated_by: test_sdlc.py::test_frozen_eval_pack_nodeids_exist
+  - id: EV-54
+    name: System tests against released env claimed as the branch (Q8)
+    expected: branch_environment FAIL BEV-001 unless environment_kind is branch-deployed-env or local-stack; post-merge-deferred needs an attributed exception (BEV-002); released-only host as the branch BEV-004; SYSTEM_TEST_EXECUTION refused until the gate PASSes
+    automated_by: test_sdlc.py::test_branch_env_refuses_released_as_branch, ::test_branch_env_deferral_needs_exception, ::test_environment_retry_is_not_a_repair
+  - id: EV-55
+    name: Application defect filed with a raw dump that contains secrets
+    expected: DEF-001 no report_path; DEF-003 secret in the report (value never printed); PASS only with a clean error report
+    automated_by: test_sdlc.py::test_application_defect_needs_clean_report
+  - id: EV-56
+    name: Task burns through the token pack (review loops, polling, dumping reports)
+    expected: token_budget FAIL USE-003 (task cap) / USE-004 (per-state cap); specialist packet dump USE-007/008; WAITING_FOR_USER continue/split/abort; Cursor without a transcript is USE-006 (adapter fire-break is the control)
+    automated_by: test_sdlc.py::test_usage_budget_blocks_when_over_cap, ::test_usage_packet_dump_blocks, ::test_usage_by_stage_and_step
+  - id: EV-57
+    name: New machine cannot prove the rails (cold-start kit)
+    expected: python -m crewline cold-start PASS (frozen pack, adapter --sync/--check, synthetic --apply). Human P5 remains evals/cold-start.md
+    automated_by: test_sdlc.py::test_cold_start_kit_passes, ::test_frozen_pack_has_eight_stories_with_outcomes
+  - id: EV-58
+    name: Task queue without a daemon
+    expected: crewline task new/list/status/resume over tasks/*/task-manifest.json; WAITING_FOR_USER without resume_state TSK-003; does not walk the crew
+    automated_by: test_sdlc.py::test_task_queue_new_status_resume
+  - id: EV-59
+    name: Installed adapter drift fixed by --sync; CI re-renders
+    expected: install.py --sync --check rewrites a tampered rule; GitHub workflow runs pytest, frozen pack, adapter --sync/--check
+    automated_by: test_guard.py::test_install_sync_rewrites_drift, ::test_install_check_detects_drift

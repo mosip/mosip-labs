@@ -54,8 +54,12 @@ entry_guards:
     - {gate: input_readiness, eq: PASS}
   IMPACT_ANALYSIS:
     - {path: requirements.open_ambiguities, eq: 0}
+    - {gate: requirement_clarity, eq: PASS}      # skipped when ACCEPTANCE_REVIEW is not on the path
+    - {gate: acceptance_readiness, eq: PASS}
   TESTCASE_DESIGN:
     - {path: requirements.open_ambiguities, eq: 0}
+    - {gate: requirement_clarity, eq: PASS}
+    - {gate: acceptance_readiness, eq: PASS}
   IMPLEMENTATION_PLAN:
     - {gate: design_readiness, eq: PASS}
   REPO_READY:                                      # ask BEFORE creating any branch
@@ -71,6 +75,7 @@ entry_guards:
   SYSTEM_TEST_EXECUTION:
     - {path: reviews.implementation_review, eq: PASS}
     - {path: reviews.fresh_context_review, eq: PASS}
+    - {gate: branch_environment, eq: PASS}
   QUALITY_GATE:
     - {path: reviews.implementation_review, eq: PASS}
     - {path: reviews.fresh_context_review, eq: PASS}

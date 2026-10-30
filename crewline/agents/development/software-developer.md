@@ -33,6 +33,16 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 4. Run the module build and the changed modules' tests with `crewline run` (e.g. `mvn -B -pl <module> -am verify`); fix until green.
    Run them with the coverage agent ON (never `-Djacoco.skip=true` for the coverage run) and `jacoco:report`, then
    `crewline diff-coverage`: every changed production line you wrote should be executed by a test (gate >= 80%).
+   Run the module's own format/lint checker the same way (spotless:check, checkstyle:check, `npm run lint` — whatever
+   `.crewline/development/local-context.md` lists). Record the path in `implementation.standards_evidence`.
+   `crewline coding-standards` must PASS before you ask for review. Do not leave `System.out.println` / `console.log`
+   in production code.
+   Exception handling: reuse the module's handler and error constants (cite file:line in `implementation.robustness.exception_reuse`).
+   Never empty catch, never catch `Exception`/`Throwable` only to log, never `throws Exception`, never `Thread.sleep`
+   on a request path. For every `api: true` AC record the negative case (`error_paths`: status, error_code, passing test).
+   `hot_path_notes` names the existing service/repo call so this is not an extra round-trip. `crewline robustness` must PASS.
+   The production diff must still contain the AC's observables (status, MOSIP-* error, route, quoted value).
+   `crewline requirement-fit` must PASS; do not implement a nearby behaviour and hope review will catch it.
 5. Test levels: unit tests for logic; a component test at the HTTP boundary (MockMvc / `@WebMvcTest`, following the
    module's existing `*ControllerTest`) for every AC a caller can observe (`api: true`), asserting the status code and
    error code. When no environment runs the branch build, that component test is the only proof of the user-visible fix (TRC-007).

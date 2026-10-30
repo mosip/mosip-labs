@@ -1,0 +1,1 @@
+{"id": "EV-50", "expected": "bug-fix walks ACCEPTANCE_REVIEW; requirement_clarity never waivable", "pytest": ["tests/test_sdlc.py::test_template_projection", "tests/test_sdlc.py::test_requirement_clarity_cannot_be_excepted"]}

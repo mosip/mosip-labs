@@ -3,6 +3,7 @@
 One orchestrator ([`orchestrator.md`](orchestrator.md)) owns state, approvals and evidence; every other agent is a
 specialist grouped by the role it plays in a team. Folders are for people; the workflow and the installer find agents
 by their `name:` (installed as `crewline-<name>`), so moving a file between role folders changes nothing at runtime.
+Product facts (TestRig, MOSIP map, stack tools) come from the active pack (`python -m crewline pack`), not from `core/`.
 
 | Role | Agent | Workflow states | Permission profile |
 |---|---|---|---|

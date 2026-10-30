@@ -15,7 +15,7 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 
 - approved ACs and design (NOT the implementation diff, during TESTCASE_DESIGN)
 - coverage matrix and module `.crewline/qa/` context
-- knowledge/frameworks/ (API TestRig, apitest-commons, UI, DSL)
+- pack knowledge dirs (`python -m crewline pack`; MOSIP: knowledge/frameworks/ API TestRig, apitest-commons, UI, DSL)
 
 ## Produces
 
@@ -25,7 +25,7 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 
 ## Procedure
 
-1. Design acceptance tests from the ACs and the design only. This keeps the tests an independent oracle; reviewers check that tests trace to ACs, not to the code.
+1. Design acceptance tests from the ACs and the design only. This keeps the tests an independent oracle; reviewers check that tests trace to ACs, not to the code. MOSIP pack: TestRig YAML + coverage matrix. Generic pack: the formats in the module `.crewline/` (unit/component/system as recorded); `testcase` / `coverage` CLIs are NOT_RUN.
 2. Delegate within the SDET specialty: testcase-designer -> testcase-reviewer -> api/ui/dsl-automation -> failure-analyst / defect-analyst. These are the contracts proven in PILOT-001.
 3. For a production-code change, run system tests only against an environment running the branch build; check the report header Commit Id/Branch Name.
 4. Scope rule: only new cases -> run them plus their `$ID:` producers while iterating; full suite base vs branch before commit.

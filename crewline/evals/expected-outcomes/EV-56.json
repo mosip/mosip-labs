@@ -1,0 +1,1 @@
+{"id": "EV-56", "expected": "token_budget FAIL over cap / packet dump", "must_block": ["USE-003", "USE-004", "USE-008"], "pytest": ["tests/test_sdlc.py::test_usage_budget_blocks_when_over_cap", "tests/test_sdlc.py::test_usage_packet_dump_blocks"]}

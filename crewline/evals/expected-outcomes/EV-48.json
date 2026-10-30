@@ -1,0 +1,1 @@
+{"id": "EV-48", "expected": "IMPLEMENTATION_REVIEW refused until coding_standards PASS", "pytest": ["tests/test_sdlc.py::test_review_refused_until_coding_standards"]}

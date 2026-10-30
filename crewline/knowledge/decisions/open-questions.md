@@ -9,5 +9,5 @@
 | Q5 | Approved CI, static-analysis, security, dependency, secret scanning | Partly answered | CI: `mosip/kattu` reusable maven/docker workflows; CodeQL (`codeql_custom.yml`); CodeRabbit + DCO seen on PR #1088. Local OWASP dependency-check: to confirm |
 | Q6 | GitHub issue/PR conventions, DCO, branch protection | Answered | fork model (ADR-0003), DCO required, PR to `mosip/develop` |
 | Q7 | Pre-authorized actions, how approvals are recorded | Answered | none pre-authorized; approvals in manifest + approvals.yaml, human and single-use |
-| Q8 | Non-production environment for a release/rollback drill, and how a branch build gets deployed there | **Open** | `api-internal.released` runs released builds only; system tests of a production-code change need an env running the branch build |
+| Q8 | Non-production environment for a release/rollback drill, and how a branch build gets deployed there | **Open** (gate + laptop recipe) | `api-internal.released` runs released builds only (BEV-004). Laptop: `evals/q8-local-stack.md` (`docker compose` / `spring-boot:run`, `environment_kind=local-stack`). Cluster deploy of the branch image is still a platform-team question. |
 | Q9 | Where to host the assistant repositories (org-wide rules) | Open | carried from SDET assistant |

@@ -15,14 +15,27 @@ Result fields: `validator, status, summary, findings[rule_id, severity BLOCK|WAR
 | `branch` | BR-001..005 | Fork model: branch cut from the recorded upstream base, only story-key commits (or `--allow`), no merges, PR target = upstream repo/branch |
 | `scope` | SCOPE-001..002 | Decides the test scope from the change: TARGETED (only new cases → those + `$ID` producers) or FULL |
 | `regression` | REG-001..006 | Base vs branch from TestRig Extent full reports or JUnit/surefire XML: blocks pass→fail and failing new tests without an exception |
-| `tools` | TOOL-000..002 | Local capabilities from `core/tools.yaml`; prints numbered enable steps for anything missing |
+| `tools` | TOOL-000..002 | Local capabilities from `core/tools.yaml` + active pack overlay; prints numbered enable steps for anything missing |
+| `pack` | PCK-001..002 | Show / `--list` / `--set` the product pack (`mosip` default). `CREWLINE_PACK` overrides for one process |
 | `run` / `evidence` | EVD-001..004 | `run` executes the command and records exit code, commit, worktree digest, log; `evidence` rejects missing fields, stale records (code changed since), non-zero exits |
 | `change-scope` | SCP-001..003 | Every changed file inside `scope.approved_paths`; CI/build/deploy/config files need an explicit `scope_change` approval |
 | `test-integrity` | TIN-001..006 | Unit tests (JUnit 4/5, TestNG; Jest/Vitest/Mocha): removed/disabled/focused tests, fewer assertions, deleted files; `--strict` blocks any test edit (refactor) |
 | `migration` | MIG-001..004 | MOSIP upgrade/rollback and release/revoke pairs, Flyway V/U; released scripts immutable; destructive statements flagged |
 | `trace` | TRC-001..007 | AC -> code_refs -> test_ids -> result on HEAD; code_refs inside approved paths; API-facing ACs need a passing component test when system tests are N/A |
-| `discover` | DSC-001..008 | Module onboarding: reads poms, tests, CI, DB scripts, deploy, guidance files and API TestRig suites read-only; writes evidence-labelled drafts (`.crewline/development/`, `.crewline/qa/`, profile) and a validator baseline |
+| `coding-standards` | STD-001..005 | The module's own lint/format checkers (spotless, checkstyle, eslint, prettier) plus no debug leftovers in the production diff. Blocks IMPLEMENTATION_REVIEW. Does not invent a style guide |
+| `robustness` | ROB-001..006 | Empty/swallowed catch, raw `throws Exception`, sleep on the hot path; required `implementation.robustness`; every api AC needs a passing error-path test. Blocks IMPLEMENTATION_REVIEW |
+| `requirement-clarity` | REQ-001..004 | Story/bug key, numbered observable ACs, `open_ambiguities == 0`, no TBD/should-work phrasing. Blocks IMPACT_ANALYSIS / TESTCASE_DESIGN. Skipped for non-story types |
+| `requirement-fit` | RFT-001..005 | AC observables in the diff / code_refs **and** a changed test file (RFT-005). Blocks IMPLEMENTATION_REVIEW |
+| `branch-env` | BEV-001..004 | branch-build env (Q8); released-only host refused (BEV-004). Blocks SYSTEM_TEST_EXECUTION |
+| `defect-reports` | DEF-001..003 | APPLICATION/SECURITY defects need a secret-scanned `report_path`; values never printed |
+| `adapter-check` | ADP-001 | installed Cursor/Claude/generic files match `adapters/` (`--sync` re-renders) |
+| `evals` | EVAL-001..005 | `automated_by` tests exist; `--pack frozen` requires `expected-outcomes/` (`--run` executes them) |
+| `cold-start` | CS-001..004 | new-machine kit: frozen pack, adapter --sync/--check, synthetic `--apply` |
+| `task` | TSK-001..004 | queue over `tasks/*/task-manifest.json` (`list` / `status` / `resume` / `new`). Not a daemon |
+| `usage` | USE-001..008 | API-reported tokens per stage/step; `core/usage-budget.yaml` caps (USE-003/004); packet dumps (USE-007/008). Gate `token_budget` |
+| `discover` | DSC-001..009 | Module onboarding: reads poms, tests, CI, DB scripts, deploy, guidance files, API TestRig suites and coding-standard checkers read-only; writes evidence-labelled drafts (`.crewline/development/`, `.crewline/qa/`, profile) and a validator baseline |
 | `diff-coverage` | DCV-001..004 | JaCoCo XML or lcov.info (Jest/Vitest) + git diff: share of changed executable production lines executed by tests (default 80%); unreported files and stale reports block |
+| `guard` | GRD-001..006 | Platform hooks: deny commit/push/PR without an active task and COMMIT_PR gates; always deny force-push, `--no-verify`, hard reset, stash, branch delete, merge, production deploy |
 
 Per-module rules: `<module repo>/.crewline/qa/profile.yaml`. Every rule there cites the repository evidence it came from.
 

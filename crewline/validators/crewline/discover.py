@@ -21,6 +21,7 @@ Existing files are never overwritten without --force. A human (module owner) rev
   DSC-006  repository guidance file present (AGENTS.md / CLAUDE.md / CONTRIBUTING.md): it wins where more specific INFO
   DSC-007  draft not written because the file exists (use --force after review)                                    WARN
   DSC-008  a Node project with tests whose coverage reporters do not include lcov (diff-coverage cannot read it)    WARN
+  DSC-009  coding-standard checkers found (spotless/checkstyle/eslint/prettier): run before review                    INFO
 """
 from __future__ import annotations
 
@@ -273,6 +274,8 @@ def collect(repo: str) -> dict:
                                      "api-test/src/main/resources/coverage/AGENTS.md",
                                      "api-test/src/main/resources/coverage/README.md") if (root / n).exists()]
     facts["api_test"] = _api_test(root)
+    from .coding_standards import detect as detect_standards
+    facts["standards"] = detect_standards(root)
     return facts
 
 
@@ -323,6 +326,7 @@ file named unless marked Inferred. A module owner reviews this draft; then copy 
 - Coverage: same with `jacoco:report` -> `<service>/target/site/jacoco/jacoco.xml`, then `crewline diff-coverage`
 - Component tests: follow {('`' + example.split(pdir + '/', 1)[-1] + '`') if example else 'the module controller tests (none with MockMvc found: Inferred gap)'}
 - Evidence: wrap every command in `python -m crewline run --repo <worktree> --out <task>/evidence/<name>.json -- <command>`
+- Coding standards: {('; '.join('`' + ' '.join(t['command']) + '`' for t in f.get('standards', {}).get('tools', [])) or 'none found (Crewline will not invent a style guide; debug leftovers in the production diff still block)')} → `crewline coding-standards`
 
 ## Default approved paths (the plan narrows them per task)
 
@@ -426,6 +430,10 @@ def run(repo: str, module: str, out: str | None = None, force: bool = False) -> 
             baseline = {"status": r.status, "summary": r.summary,
                         "by_rule": dict(Counter(f.rule_id for f in r.findings))}
     facts["baseline"] = baseline
+    if facts.get("standards", {}).get("tools"):
+        res.add("DSC-009", INFO, "coding-standard checkers: " +
+                ", ".join(t["id"] for t in facts["standards"]["tools"]) +
+                " — run via crewline run before IMPLEMENTATION_REVIEW")
     files = {".crewline/development/discovery.json": json.dumps(facts, indent=2, default=str) + "\n",
              ".crewline/development/local-context.md": _engineering_md(module, facts)}
     if a:

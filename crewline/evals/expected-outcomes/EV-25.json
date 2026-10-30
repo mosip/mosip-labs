@@ -1,0 +1,1 @@
+{"id": "EV-25", "expected": "MAN-010 agent approver; MAN-011 author=reviewer", "pytest": ["tests/test_sdlc.py::test_agent_cannot_approve", "tests/test_sdlc.py::test_author_cannot_review_and_reviews_need_two_contexts"]}
