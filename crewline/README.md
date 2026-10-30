@@ -94,11 +94,13 @@ only in repositories that carry a `.crewline/` folder.
 1. **Module (once, by its owner):** commit `.claude/settings.json` with the content of
    [`templates/module-claude-settings.json`](templates/module-claude-settings.json) (merge if the file exists), next to the
    module's reviewed `.crewline/` folder.
-2. **Developer:** clone the module, open Claude Code in it, accept the folder trust prompt and the plugin offer. Then just ask:
-   *"Add feature X"* - the session starts with *"Crewline is ACTIVE for this repository"* and follows the workflow.
-3. **Any repository by hand:** `/plugin marketplace add mosip/mosip-labs` is not enough on its own because the marketplace file
-   lives in `crewline/`; add the marketplace with the `extraKnownMarketplaces` entry above (in `~/.claude/settings.json` for
-   yourself), then `/plugin install crewline@mosip-labs`.
+2. **Developer:** clone the module, open Claude Code in it and trust the folder: Claude Code adds the `mosip-labs`
+   marketplace from the module's settings. Install the plugin once per machine if it is not offered: `/plugin` -> Discover ->
+   `crewline` -> *Install for you, in this repo only (local scope)*, or `claude plugin install crewline@mosip-labs --scope local`
+   in the clone. Restart Claude Code, then just ask *"Add feature X"* - the session starts with *"Crewline is ACTIVE for this
+   repository"* and follows the workflow.
+3. **Any repository by hand:** `/plugin marketplace add mosip/mosip-labs`, then `/plugin install crewline@mosip-labs`. The
+   marketplace catalog is `.claude-plugin/marketplace.json` at the root of mosip-labs; the plugin is this folder.
 
 **On / off per repository, locally:**
 
@@ -850,7 +852,7 @@ crewline/
 │   ├── crewline/                validator modules (see section 11)
 │   └── tests/                   test_validators.py · test_sdlc.py · test_guard.py · test_pack.py · test_setup_scripts.py
 ├── templates/                   task-manifest + agent-response schemas, PR, issue, subtask, escalation, final report
-├── .claude-plugin/              plugin.json + marketplace.json (Claude Code plugin)
+├── .claude-plugin/              plugin.json (marketplace catalog: mosip-labs root .claude-plugin/marketplace.json)
 ├── skills/crewline/SKILL.md     the Crewline skill
 ├── hooks/hooks.json             plugin hooks: SessionStart (module detection) + PreToolUse guard
 ├── bin/                         crewline, crewline.cmd (validators on PATH)

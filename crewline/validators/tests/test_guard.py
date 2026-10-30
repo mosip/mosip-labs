@@ -316,3 +316,15 @@ def test_session_names_version_and_flags_a_task_started_on_another(tmp_path, mon
                    encoding="utf-8")
     ctx = _plugin("session", r)["additional_context"]
     assert "started on Crewline 0.0.1" in ctx and "CHANGELOG.md" in ctx
+
+
+def test_marketplace_catalog_at_repo_root_points_at_the_plugin():
+    """Installed from GitHub a relative plugin source resolves against the repository root, so the catalog lives there."""
+    repo = ROOT.parent
+    cat = json.loads((repo / ".claude-plugin/marketplace.json").read_text(encoding="utf-8"))
+    entry = next(p for p in cat["plugins"] if p["name"] == "crewline")
+    assert (repo / entry["source"] / ".claude-plugin/plugin.json").is_file()
+    assert not (ROOT / ".claude-plugin/marketplace.json").exists()
+    src = json.loads((ROOT / "templates/module-claude-settings.json").read_text(encoding="utf-8"))
+    src = src["extraKnownMarketplaces"]["mosip-labs"]["source"]
+    assert "path" not in src and set(src["sparsePaths"]) == {".claude-plugin", "crewline"}

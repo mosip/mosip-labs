@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "crewline",
-      "source": "./",
+      "source": "./crewline",
       "description": "Gated, evidence-first AI engineering workflow for MOSIP modules"
     }
   ]
