@@ -127,7 +127,10 @@ def hook(mode: str) -> int:
         print(json.dumps({"additional_context": UNAVAILABLE.format(why=why)} if mode == "session" else allow))
         return 0
     r = run_core(path, ["hook", "--cursor", "--plugin", mode], raw)
-    if r.returncode != 0 or not r.stdout.strip():
+    if r.returncode == 0 and not r.stdout.strip():      # Crewline has nothing to say here (repository without .crewline/)
+        print(json.dumps({} if mode == "session" else allow))
+        return 0
+    if r.returncode != 0:
         msg = f"Crewline hook failed ({(r.stderr.strip().splitlines() or ['no output'])[-1]}); fix it (e.g. pip install pyyaml)"
         if mode == "session":
             print(json.dumps({"additional_context": msg}))

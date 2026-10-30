@@ -130,6 +130,8 @@ def test_real_guard_leaves_other_repos_alone(tmp_path):
     shell = {"hook_event_name": "beforeShellExecution", "command": "git push --force", "cwd": str(m)}
     out = json.loads(run(m, ["hook", "shell"], {"CREWLINE_CORE": str(ROOT)}, json.dumps(shell)).stdout)
     assert out["permission"] == "allow"
+    session = {"hook_event_name": "sessionStart", "cwd": str(m)}
+    assert json.loads(run(m, ["hook", "session"], {"CREWLINE_CORE": str(ROOT)}, json.dumps(session)).stdout) == {}   # silent, not "failed"
 
 
 def test_module_templates_are_portable():
