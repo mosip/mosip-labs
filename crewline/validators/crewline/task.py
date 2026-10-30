@@ -21,7 +21,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import manifest, workspace
+from . import manifest, version, workspace
 from .result import BLOCK, INFO, Result
 
 CORE = Path(__file__).resolve().parents[2]
@@ -44,6 +44,7 @@ def skeleton(task_id: str, task_type: str) -> dict:
     tpl = manifest.load_template(task_type) or {}
     return {
         "task_id": task_id,
+        "crewline_version": version.current(),
         "task_type": task_type,
         "risk_tier": tpl.get("risk_tier") or "L2",
         "outcome": "IN_PROGRESS",

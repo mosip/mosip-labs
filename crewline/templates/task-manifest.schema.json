@@ -588,10 +588,21 @@
               "items": {
                 "type": "object",
                 "properties": {
-                  "ac_id": { "type": "string" },
-                  "status": { "type": ["integer", "string"] },
-                  "error_code": { "type": "string" },
-                  "test_id": { "type": "string" }
+                  "ac_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "error_code": {
+                    "type": "string"
+                  },
+                  "test_id": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -735,10 +746,23 @@
         "budget": {
           "type": "object",
           "properties": {
-            "per_task": { "type": "integer", "minimum": 1 },
-            "per_state": { "type": "integer", "minimum": 1 },
-            "warn_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
-            "packet_max_chars": { "type": "integer", "minimum": 1000 }
+            "per_task": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "per_state": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "warn_ratio": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "packet_max_chars": {
+              "type": "integer",
+              "minimum": 1000
+            }
           }
         }
       }
@@ -871,6 +895,11 @@
           "description": "single-checkout mode: branch to restore at the end"
         }
       }
+    },
+    "crewline_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Crewline version the task started on (recorded at INTAKE: `crewline version`); MAN-016 warns when the installed Crewline differs"
     }
   },
   "$defs": {

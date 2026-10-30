@@ -300,3 +300,19 @@ def test_plugin_hooks_cover_bash_powershell_and_writes():
     assert pre["Bash|PowerShell"].endswith("hook --claude --plugin shell")
     assert pre["Write|Edit"].endswith("hook --claude --plugin write")
     assert spec["SessionStart"][0]["hooks"][0]["command"].endswith("hook --claude --plugin session")
+
+
+def test_session_names_version_and_flags_a_task_started_on_another(tmp_path, monkeypatch):
+    from crewline import version
+    monkeypatch.delenv("CREWLINE", raising=False)
+    monkeypatch.delenv("CREWLINE_TASK_MANIFEST", raising=False)
+    monkeypatch.setenv("CREWLINE_TASKS", str(tmp_path / "tasks"))
+    r = _module(tmp_path)
+    ctx = _plugin("session", r)["additional_context"]
+    assert f"Crewline {version.current()}." in ctx and "started on" not in ctx
+    man = tmp_path / "tasks/T-1/task-manifest.json"
+    man.parent.mkdir(parents=True)
+    man.write_text(json.dumps({"task_id": "T-1", "current_state": "IMPLEMENTATION", "crewline_version": "0.0.1"}),
+                   encoding="utf-8")
+    ctx = _plugin("session", r)["additional_context"]
+    assert "started on Crewline 0.0.1" in ctx and "CHANGELOG.md" in ctx

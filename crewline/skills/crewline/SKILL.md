@@ -74,3 +74,6 @@ into the chat; poll a long command or PR check; continue past a failed `token_bu
 - Task workspace: `<clone>/.crewline-work/tasks/<task-id>/` (manifest, evidence, usage, reports); worktrees:
   `<clone>/.crewline-work/worktrees/<task-id>`. Add `.crewline-work/` to `<clone>/.git/info/exclude` on first use; never commit it.
 - Validators: run `crewline <command>` (on PATH while the plugin is enabled), e.g. `crewline manifest <manifest> --to <STATE>`.
+- Record `crewline_version` (`crewline version`) in the manifest at INTAKE (`crewline task new` does it). If MAN-016 or the
+  session context reports a newer Crewline, read CHANGELOG.md between the two versions and tell the user what changes for
+  the task before the next transition.

@@ -29,6 +29,7 @@ Git / PR
   python -m crewline secrets       <path>... [--base-dir <dir>] [--no-gitleaks]
   python -m crewline dco           --repo <dir> --range <base>..<head>
   python -m crewline branch        --repo <dir> --upstream upstream/<branch> --base <sha> --story <KEY> [--allow <sha>] [--upstream-repo o/r --pr-repo o/r --pr-base <b>]
+  python -m crewline version       [--repo <git root> --base <ref>]   (shipped changes must raise the plugin version)
   python -m crewline guard         --shell "<cmd>" | --write <path> [--manifest <m>] [--cwd <dir>]
                                     (platform hooks call this so commit/push/PR cannot skip the gates)
 SDET (API TestRig — MOSIP pack; NOT_RUN when sdet.testrig/coverage_cli is false)
@@ -149,6 +150,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("usage")
     p.add_argument("--manifest", required=True); p.add_argument("--mark", help="start a named step now")
     p.add_argument("--transcript", action="append", default=[]); p.add_argument("--out")
+    p = sub.add_parser("version", help="print the Crewline version; with --base, check that shipped changes raise it")
+    p.add_argument("--repo", help="git checkout that contains crewline/ (default: this Crewline)")
+    p.add_argument("--base", help="base ref of the pull request, e.g. origin/develop")
     p = sub.add_parser("guard")
     p.add_argument("--shell", help="classify and gate a shell command (git commit/push, gh pr create, ...)")
     p.add_argument("--write", dest="write_path", help="gate a file write against scope.approved_paths")
@@ -244,6 +248,9 @@ def main(argv: list[str] | None = None) -> int:
             res = diff_coverage.run(a.repo, a.base, a.jacoco, a.threshold, a.include)
         elif a.cmd == "usage":
             res = usage.mark(a.manifest, a.mark) if a.mark else usage.report(a.manifest, a.transcript, a.out)
+        elif a.cmd == "version":
+            from . import version
+            res = version.run(a.repo, a.base)
         elif a.cmd == "guard":
             from .guard import find_active_manifest
             man = a.manifest or (str(find_active_manifest(cwd=a.cwd)) if find_active_manifest(cwd=a.cwd) else None)

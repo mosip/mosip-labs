@@ -1030,3 +1030,65 @@ def test_id_key_from_case_input(tmp_path):
     facts = json.loads((out / ".crewline/development/discovery.json").read_text())
     assert facts["api_test"]["id_capture"]["id_key_from_input"] == {"PiiRequest": "_idKeyName"}
     assert facts["baseline"]["by_rule"].get("DEP-001", 0) == 0          # the producer is found through the input field
+
+
+# --- Crewline updates reach machines only through a version bump ---------------------------------------------------
+def _crewline_repo(tmp_path, version="0.2.0"):
+    from crewline import version as ver
+    r = tmp_path / "labs"
+    core = r / "crewline"
+    (core / ".claude-plugin").mkdir(parents=True)
+    (core / "core").mkdir()
+    (core / "validators/tests").mkdir(parents=True)
+
+    def set_version(v):
+        (core / ".claude-plugin/plugin.json").write_text(json.dumps({"name": "crewline", "version": v}), encoding="utf-8")
+        (core / "VERSION").write_text(v + "\n", encoding="utf-8")
+    set_version(version)
+    (core / "core/workflow.yaml").write_text("states: []\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", str(r)], check=True)
+    commit_all(r, "base")
+    git(r, "branch", "base")
+    return r, core, set_version, ver
+
+
+def test_shipped_change_must_raise_the_version(tmp_path):
+    r, core, set_version, ver = _crewline_repo(tmp_path)
+    (core / "core/workflow.yaml").write_text("states: [A]\n", encoding="utf-8")
+    commit_all(r, "rule change")
+    res = ver.run(str(r), "base", core)
+    assert res.status == "FAIL" and "VER-001" in ids(res)
+    set_version("0.2.1")
+    commit_all(r, "bump")
+    assert ver.run(str(r), "base", core).status == "PASS"
+
+
+def test_test_only_change_needs_no_bump_and_files_must_agree(tmp_path):
+    r, core, set_version, ver = _crewline_repo(tmp_path)
+    (core / "validators/tests/test_x.py").write_text("def test_x(): pass\n", encoding="utf-8")
+    commit_all(r, "test only")
+    assert ver.run(str(r), "base", core).status == "PASS"
+    (core / "VERSION").write_text("0.3.0\n", encoding="utf-8")
+    assert "VER-002" in ids(ver.run(str(r), "base", core))
+    set_version("one")
+    assert "VER-003" in ids(ver.run(str(r), None, core))
+
+
+def test_task_records_version_and_manifest_warns_on_drift(tmp_path, monkeypatch):
+    from crewline import task, version as ver
+    monkeypatch.setenv("CREWLINE_TASKS", str(tmp_path / "tasks"))
+    task.run("new", "T-V1", "feature")
+    path = tmp_path / "tasks/T-V1/task-manifest.json"
+    d = json.loads(path.read_text(encoding="utf-8"))
+    assert d["crewline_version"] == ver.current()
+    assert "MAN-016" not in ids(manifest.check(str(path)))
+    d["crewline_version"] = "0.0.1"
+    path.write_text(json.dumps(d), encoding="utf-8")
+    res = manifest.check(str(path))
+    drift = [f for f in res.findings if f.rule_id == "MAN-016"]
+    assert drift and drift[0].severity == "WARN" and "0.0.1" in drift[0].message
+
+
+def test_version_file_matches_plugin_manifest():
+    from crewline import version as ver
+    assert ver.run().status == "PASS"          # this Crewline: VERSION == plugin.json, valid semver

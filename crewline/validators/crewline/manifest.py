@@ -13,6 +13,8 @@
   MAN-014  at COMMIT_PR: a defect caused by the change is still open, or a pre-existing one is neither raised (bug key)
            nor deferred with a reason
   MAN-015  a gate in the template's `no_silent_na` is NOT_APPLICABLE without an attributed exception
+  MAN-016  WARN: the task started on another Crewline version than the one running now (read CHANGELOG.md between
+           the two before the next transition; the task keeps its records)
   TRN-001  transition is not an edge of the (template-projected) state machine
   TRN-002  entry, edge or exit guard not satisfied
   TRN-003  forced escalation: a repair cap reached, or application/security/specification issue
@@ -26,7 +28,7 @@ from pathlib import Path
 
 import yaml
 
-from .result import BLOCK, Result
+from .result import BLOCK, WARN, Result
 
 CORE = Path(__file__).resolve().parents[2]
 WORKFLOW = CORE / "core" / "workflow.yaml"
@@ -195,7 +197,18 @@ def check(manifest_path: str) -> Result:
                                       "approvals come from a human, never from an agent")
     _independence(doc, res)
     _check_linked(doc, res)
+    _version_drift(doc, res)
     return res.finish()
+
+
+def _version_drift(doc: dict, res: Result) -> None:
+    from . import version
+    started, now = doc.get("crewline_version"), version.current()
+    res.inputs["crewline_version"] = now
+    if started and now and started != now:
+        res.add("MAN-016", WARN, f"task started on Crewline {started}, running {now}: read CHANGELOG.md for "
+                                 f"{started} -> {now} before the next transition; rules may have changed",
+                remediation="continue under the new rules, or tell the user if a change affects this task")
 
 
 def _required_gates(ctx: Ctx, res: Result, rule: str = "MAN-012") -> None:

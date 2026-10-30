@@ -11,7 +11,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import session, workspace
+from . import session, version, workspace
 from .guard import check_shell, check_write, find_active_manifest
 from .result import BLOCK
 
@@ -90,9 +90,18 @@ def handle_plugin(mode: str, payload: dict) -> dict:
         text = session.context(cwd) or ""
         if active:
             text += " " + PLUGIN_RAILS.format(tasks=workspace.tasks_root(cwd))
+            now = version.current()
+            text += f" Crewline {now}."
             manifest = find_active_manifest(cwd=cwd)
             if manifest:
                 text += f" Active task: {manifest}."
+                try:
+                    started = json.loads(manifest.read_text(encoding="utf-8")).get("crewline_version")
+                except (OSError, ValueError):
+                    started = None
+                if started and started != now:
+                    text += (f" That task started on Crewline {started}: read CHANGELOG.md ({started} -> {now}) "
+                             "and tell the user if a change affects it.")
         return {"additional_context": text.strip()}
     if not active:
         return {"permission": "allow"}

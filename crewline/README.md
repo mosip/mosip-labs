@@ -113,6 +113,14 @@ only in repositories that carry a `.crewline/` folder.
 `<clone>/.crewline-work/worktrees/<task-id>`, excluded from git through `.git/info/exclude`. Validators run as `crewline <command>`
 (the plugin's `bin/` is on the PATH while it is enabled).
 
+**Updates:** Claude Code keeps an installed copy of Crewline and replaces it only when the plugin version changes.
+- Turn on auto-update for the `mosip-labs` marketplace in `/plugin` (Marketplaces), or update by hand:
+  `/plugin marketplace update mosip-labs`, then update `crewline` in `/plugin`. A running session keeps its version;
+  the next session uses the new one (the session context names it: "Crewline x.y.z").
+- Every shipped change raises the version (CI runs `crewline version --base`); [CHANGELOG.md](CHANGELOG.md) says what changed.
+- A task records the version it started on (`crewline_version`). On a newer Crewline, `crewline manifest` warns (MAN-016)
+  and the session context points at the CHANGELOG entries in between; the task's records are untouched.
+
 **Rails come with the plugin (ADR-0007):** in a repository with `.crewline/`, the plugin's PreToolUse hooks (Bash, PowerShell,
 Write/Edit) run `crewline guard`: `git commit` / `git push` / `gh pr create` are denied until the active task's gates pass,
 and force-push, `--no-verify`, hard reset, stash, branch delete, PR merge and production deploy are always denied. In other
