@@ -140,7 +140,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--id", dest="task_id")
     p.add_argument("--type", dest="task_type", help="for `new`: feature, bug-fix, ...")
     sub.add_parser("session-start", help="SessionStart hook (prints hook JSON)")
-    sub.add_parser("hook", help="platform hook: crewline hook [--claude] [--plugin] session|shell|write (stdin JSON)")
+    sub.add_parser("hook", help="platform hook: crewline hook [--claude|--cursor] [--plugin] session|shell|write (stdin JSON)")
+    sub.add_parser("cursor-rule", help="print the Crewline rule for a module that uses .cursor/crewline.py")
     p = sub.add_parser("discover")
     p.add_argument("--repo", required=True); p.add_argument("--module", required=True)
     p.add_argument("--out"); p.add_argument("--force", action="store_true")
@@ -164,6 +165,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--note", default="")
 
     raw = list(sys.argv[1:] if argv is None else argv)
+    if raw[:1] == ["cursor-rule"]:                # the live Cursor rule (.cursor/crewline.py rule)
+        from . import cursor_rule
+        return cursor_rule.run()
     if raw[:1] == ["hook"]:                       # platform hook protocol: stdin JSON -> stdout JSON (hook.py)
         from . import hook
         return hook.main(raw[1:])

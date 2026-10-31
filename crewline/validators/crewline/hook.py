@@ -152,7 +152,9 @@ def git_exit(mode: str, argv: list[str]) -> int:
     return 0
 
 
-def detect_protocol(payload: dict, flag_claude: bool) -> str:
+def detect_protocol(payload: dict, flag_claude: bool, flag_cursor: bool = False) -> str:
+    if flag_cursor:                                # Cursor payloads also carry hook_event_name
+        return "cursor"
     if flag_claude:
         return "claude"
     if payload.get("hook_event_name") or payload.get("tool_name"):
@@ -182,6 +184,9 @@ def main(argv: list[str] | None = None) -> int:
     plugin = "--plugin" in args
     if plugin:
         args.remove("--plugin")
+    flag_cursor = "--cursor" in args
+    if flag_cursor:
+        args.remove("--cursor")
     mode = args[0] if args else "auto"
     rest = args[1:]
     if mode in ("git-commit", "git-push"):
@@ -192,12 +197,21 @@ def main(argv: list[str] | None = None) -> int:
         payload = json.loads(raw) if raw.strip() else {}
     except json.JSONDecodeError:
         payload = {}
-    protocol = detect_protocol(payload, flag_claude)
+    protocol = detect_protocol(payload, flag_claude, flag_cursor)
     if mode == "auto":
         mode = detect_mode(payload)
     out = handle_plugin(mode, payload) if plugin else handle(mode, payload)
     if out.get("additional_context") == "":
         return 0                                   # nothing to say: print nothing
+    if protocol == "cursor" and plugin and out.get("additional_context") and "ACTIVE" in out["additional_context"]:
+        out["additional_context"] = (out["additional_context"]
+            .replace("use the crewline skill workflow", "use the Crewline workflow (`python .cursor/crewline.py rule`)")
+            .replace("in .claude/settings.local.json (\"enabledPlugins\": {\"crewline@mosip-labs\": false})",
+                     "in .cursor/crewline.local.json ({\"enabled\": false})")
+            .replace("`crewline task new`", "`python .cursor/crewline.py task new`")
+            .replace("`crewline manifest ", "`python .cursor/crewline.py manifest "))
+        out["additional_context"] += (" Cursor: run `python .cursor/crewline.py rule` before the first change and follow it; "
+                                     "validators run as `python .cursor/crewline.py <command>`.")
     event = str(payload.get("hook_event_name") or ("SessionStart" if mode == "session" else "PreToolUse"))
     if protocol == "claude":
         out = to_claude(out, event)
