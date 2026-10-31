@@ -998,7 +998,7 @@ def test_session_start_activates_only_in_onboarded_repos(tmp_path):
     r.mkdir()
     git(tmp_path, "init", "-q", str(r))
     msg = session.context(str(r), env={})
-    assert msg and "no .crewline/" in msg                                   # enabled, not onboarded: offer onboarding only
+    assert msg is None                                                       # enabled, not onboarded: silent
     (r / ".crewline/qa").mkdir(parents=True)
     (r / ".crewline/module.yaml").write_text("module: mod\nroles:\n  development: development/local-context.md\n  qa: []\n")
     sub_dir = r / "src"; sub_dir.mkdir()

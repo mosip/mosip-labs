@@ -5,8 +5,8 @@
         "source": "github",
         "repo": "mosip/mosip-labs",
         "ref": "develop",
-        "path": "crewline/.claude-plugin/marketplace.json",
         "sparsePaths": [
+          ".claude-plugin",
           "crewline"
         ]
       }

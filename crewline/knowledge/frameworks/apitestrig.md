@@ -89,6 +89,37 @@ Baseline on 2026-10-27: **0 open gaps, 11 accepted by baseline; 41 wired subject
 | `secrets`, `dco` | secret patterns (redacted), Signed-off-by | out of its scope |
 | `manifest` | workflow transitions, repair cap, approval records | orchestration, not coverage |
 
+## 6b. Run configuration (template)
+
+Every MOSIP API TestRig module runs the same way; only the values change:
+
+```
+-Dmodules=<module> -Denv.user=api-internal.<env> -Denv.endpoint=https://api-internal.<env>.mosip.net -Denv.testLevel=smokeAndRegression -Xmx2G
+```
+
+Example (resident on the 131ga environment):
+`-Dmodules=resident -Denv.user=api-internal.131ga -Denv.endpoint=https://api-internal.131ga.mosip.net -Denv.testLevel=smokeAndRegression -Xmx2G`
+
+| Property | Value |
+|---|---|
+| `-Dmodules` | the module's own value: **read it from the module's `api-test/README.md`** (run-config section), never guess. Verified: `prereg`, `resident`, `idrepo`, `auth` (id-authentication, "IDA"), `partner` (partner-management-services, "PMS"), `keymanager`, `masterdata`, `esignet`, `signup`, `mimoto`, `injiverify`, `injicertify`; see knowledge/mosip/application-map.md |
+| `-Denv.user` | `api-internal.<env>`: the environment's internal API user prefix |
+| `-Denv.endpoint` | `https://api-internal.<env>.mosip.net`: the environment's internal API base URL |
+| `-Denv.testLevel` | `smoke` (cases whose name contains `smoke`) or `smokeAndRegression` (all) |
+| `-Xmx2G` | heap for the full suite |
+
+As a jar run: `java <the properties above> -jar target/apitest-<module>-<version>-jar-with-dependencies.jar` (module README).
+As an IDE run configuration: the same properties as VM options, main class the module's runner (`MosipTestRunner`;
+Inji modules `InjiTestRunner`).
+
+Rules:
+- Environment names and endpoints are run inputs: record them in the task's `test_plan.environment` and evidence, never in
+  committed files (module properties, YAML, `.crewline/`).
+- A shared released environment (e.g. `api-internal.released`, a `*ga` environment) runs the **released** build, not the
+  branch: it can baseline or regression-check develop, but it is not the branch's system test (Q8, `branch_test_env`). Ask
+  the user which environment runs the branch build.
+- Local Windows runs may also need `-Djdk.net.unixdomain.tmpdir=<dir outside the user Temp folder>` (§8).
+
 ## 7. Open items (Unknown)
 
 - Whether an unresolved `$ID:` token in `output` fails, passes or is compared literally (see known-issues).

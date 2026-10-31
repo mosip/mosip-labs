@@ -3,7 +3,8 @@
   crewline session-start        (run by hooks/hooks.json; reads CLAUDE_PROJECT_DIR, prints hook JSON, always exits 0)
 
 - `.crewline/` present            -> Crewline is active: follow the crewline skill, read the module's context
-- plugin enabled, no `.crewline/` -> say so once and offer `module-onboarding`; do not change behaviour otherwise
+- no `.crewline/`                 -> silent: the plugin may be enabled for every repository, so it says nothing and
+                                     its rails allow everything there (onboarding starts when the user asks for it)
 - CREWLINE=off in the environment -> silent (one-session opt-out)
 """
 from __future__ import annotations
@@ -28,8 +29,7 @@ def context(project_dir: str | None = None, env: dict | None = None) -> str | No
     top = repo_top(Path(project_dir or env.get("CLAUDE_PROJECT_DIR") or os.getcwd()))
     cl = top / ".crewline"
     if not cl.is_dir():
-        return ("Crewline is enabled here, but this repository has no .crewline/ folder yet. Work normally; if the user asks "
-                "for a Crewline task, start with the module-onboarding task (crewline skill) to create .crewline/.")
+        return None
     module, roles = top.name, []
     idx = cl / "module.yaml"
     if idx.is_file():

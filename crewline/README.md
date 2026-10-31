@@ -94,18 +94,23 @@ only in repositories that carry a `.crewline/` folder.
 1. **Module (once, by its owner):** commit `.claude/settings.json` with the content of
    [`templates/module-claude-settings.json`](templates/module-claude-settings.json) (merge if the file exists), next to the
    module's reviewed `.crewline/` folder.
-2. **Developer:** clone the module, open Claude Code in it, accept the folder trust prompt and the plugin offer. Then just ask:
-   *"Add feature X"* - the session starts with *"Crewline is ACTIVE for this repository"* and follows the workflow.
-3. **Any repository by hand:** `/plugin marketplace add mosip/mosip-labs` is not enough on its own because the marketplace file
-   lives in `crewline/`; add the marketplace with the `extraKnownMarketplaces` entry above (in `~/.claude/settings.json` for
-   yourself), then `/plugin install crewline@mosip-labs`.
+2. **Developer:** clone the module and open Claude Code in it (trust the folder). Claude Code does not offer the install
+   by itself, so install once:
+   - `/plugin` -> Discover -> `crewline` -> Install (if `mosip-labs` is not listed under Marketplaces:
+     `/plugin marketplace add mosip/mosip-labs`), or in a terminal `claude plugin install crewline@mosip-labs`;
+   - scope: *user* to have it for every module on this machine (outside repositories with `.crewline/` it says nothing and
+     allows everything), or *local* for this clone only.
+   Restart Claude Code, then just ask *"Add feature X"*: the session starts with *"Crewline is ACTIVE for this repository"*
+   and follows the workflow.
+3. **Any repository by hand:** `/plugin marketplace add mosip/mosip-labs`, then `/plugin install crewline@mosip-labs`. The
+   marketplace catalog is `.claude-plugin/marketplace.json` at the root of mosip-labs; the plugin is this folder.
 
 **On / off per repository, locally:**
 
 | Want | Do |
 |---|---|
 | Off for me in one module that has it on | `.claude/settings.local.json` in that clone: `{"enabledPlugins": {"crewline@mosip-labs": false}}` (git-ignored, overrides the committed setting) |
-| On for me in a repo that does not commit it | same file with `true` (the plugin is installed but `defaultEnabled` is false, so it stays off elsewhere) |
+| On for me in a repo that does not commit it | nothing to do once installed: it is active wherever `.crewline/` exists |
 | Off for one session only | start Claude Code with `CREWLINE=off` in the environment |
 | Check | the first lines of a session say whether Crewline is ACTIVE; `/plugin` lists it as enabled or disabled |
 
@@ -850,7 +855,7 @@ crewline/
 │   ├── crewline/                validator modules (see section 11)
 │   └── tests/                   test_validators.py · test_sdlc.py · test_guard.py · test_pack.py · test_setup_scripts.py
 ├── templates/                   task-manifest + agent-response schemas, PR, issue, subtask, escalation, final report
-├── .claude-plugin/              plugin.json + marketplace.json (Claude Code plugin)
+├── .claude-plugin/              plugin.json (marketplace catalog: mosip-labs root .claude-plugin/marketplace.json)
 ├── skills/crewline/SKILL.md     the Crewline skill
 ├── hooks/hooks.json             plugin hooks: SessionStart (module detection) + PreToolUse guard
 ├── bin/                         crewline, crewline.cmd (validators on PATH)

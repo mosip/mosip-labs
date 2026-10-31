@@ -7,6 +7,9 @@ last_verified: 2026-10-27
 
 # MOSIP / Inji automation map
 
+`-Dmodules=` values verified against each module's `api-test/README.md` (2026-10-30); run-config template:
+knowledge/frameworks/apitestrig.md §6b.
+
 | Repo dir | `-Dmodules=` | Package | Runner | Matrix | Module context |
 |---|---|---|---|---|---|
 | pre-registration | prereg | io.mosip.testrig.apirig.prereg | MosipTestRunner | ✅ complete (reference) | pre-registration/.crewline/ |
@@ -14,9 +17,9 @@ last_verified: 2026-10-27
 | resident-services | resident | io.mosip.testrig.apirig.resident | MosipTestRunner | has api-test/CLAUDE.md | — |
 | esignet-signup | signup | io.mosip.testrig.apirig.signup | MosipTestRunner | has api-test/CLAUDE.md | — |
 | admin-services | masterdata | io.mosip.testrig.apirig.masterdata | MosipTestRunner | Unknown | — |
-| id-authentication | auth | io.mosip.testrig.apirig.auth | MosipTestRunner | Unknown | — |
+| id-authentication (IDA) | auth | io.mosip.testrig.apirig.auth | MosipTestRunner | Unknown | — |
 | id-repository | idrepo | io.mosip.testrig.apirig.idrepo | MosipTestRunner | Unknown | — |
-| partner-management-services | pmp | io.mosip.testrig.apirig.partner | MosipTestRunner | Unknown | — |
+| partner-management-services (PMS) | partner | io.mosip.testrig.apirig.partner | MosipTestRunner | Unknown | — |
 | esignet | esignet | io.mosip.testrig.apirig.esignet | MosipTestRunner | Unknown | — |
 | inji-certify / inji-verify / mimoto | injicertify / injiverify / mimoto | io.inji.testrig.apirig.* | InjiTestRunner | Unknown | — |
 
