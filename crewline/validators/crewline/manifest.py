@@ -15,6 +15,15 @@
   MAN-015  a gate in the template's `no_silent_na` is NOT_APPLICABLE without an attributed exception
   MAN-016  WARN: the task started on another Crewline version than the one running now (read CHANGELOG.md between
            the two before the next transition; the task keeps its records)
+  MAN-017  tracker ticket: a move past INPUT_VALIDATION without a confirmed GitHub issue / Jira key or a human waiver
+           (core/workflow.yaml tracker_guard); a key that does not fit its system; created_by_crewline without a
+           create_tracker_item approval; both a key and a waiver; a posted closure comment without tracker_comment approval;
+           pr.title not prefixed `<KEY>: ` (and leaving PR_CLOSEOUT without a recorded pr.title)
+  MAN-018  subtasks under the ticket: past GITHUB_PLANNING without one subtask per kind the template lists (unless
+           waived); a subtask key that does not fit the system; created_by_crewline without create_tracker_subtasks;
+           a posted closure comment without tracker_comment; DONE while a subtask closure is neither posted nor declined
+  MAN-019  reaching FINAL_REPORT with a waived finding (known limitation, gate exception) that has no follow-up link or
+           accepted reason; a test suite no CI workflow runs (ci-coverage CIC-001) is refused on the same move
   TRN-001  transition is not an edge of the (template-projected) state machine
   TRN-002  entry, edge or exit guard not satisfied
   TRN-003  forced escalation: a repair cap reached, or application/security/specification issue
@@ -28,7 +37,7 @@ from pathlib import Path
 
 import yaml
 
-from .result import BLOCK, WARN, Result
+from .result import BLOCK, INFO, WARN, Result
 
 CORE = Path(__file__).resolve().parents[2]
 WORKFLOW = CORE / "core" / "workflow.yaml"
@@ -39,6 +48,10 @@ APPROVAL_FIELDS = ("approver", "reason", "scope", "timestamp")
 TIERS = ["L0", "L1", "L2", "L3"]
 DEFAULT_TYPE = "test-automation"     # manifests from the SDET assistant era carry no task_type
 NEVER_WAIVABLE = {"secrets", "requirement_clarity", "requirement_fit"}
+TRACKER_KEY = {
+    "github": re.compile(r"^([\w.-]+/[\w.-]+)?#\d+$"),       # owner/repo#12, or #12 on the primary upstream repo
+    "jira": re.compile(r"^[A-Z][A-Z0-9]+-\d+$"),             # INJIVER-1386
+}
 
 
 def _get(doc: dict, path: str):
@@ -197,8 +210,205 @@ def check(manifest_path: str) -> Result:
                                       "approvals come from a human, never from an agent")
     _independence(doc, res)
     _check_linked(doc, res)
+    _tracker(doc, res, agents)
     _version_drift(doc, res)
     return res.finish()
+
+
+def _tracker(doc: dict, res: Result, agents: set[str]) -> None:
+    """The tracker block itself; whether one is needed yet is the tracker_guard in transition()."""
+    t = doc.get("tracker") or {}
+    key, system, waived = t.get("key"), t.get("system"), t.get("waived")
+    if key and waived:
+        res.add("MAN-017", BLOCK, f"tracker has both key {key} and a waiver: keep the one that is true")
+    if key:
+        if system not in TRACKER_KEY:
+            res.add("MAN-017", BLOCK, f"tracker.key {key} without tracker.system github|jira")
+        elif not TRACKER_KEY[system].match(key):
+            res.add("MAN-017", BLOCK, f"tracker.key {key!r} is not a {system} key "
+                                      f"({'owner/repo#N or #N' if system == 'github' else 'PROJ-123'})")
+        who = str(t.get("confirmed_by", "")).lower()
+        if who and (who in agents or who.startswith("agent:")):
+            res.add("MAN-010", BLOCK, f"tracker {key} confirmed by {t['confirmed_by']!r}: the user confirms the link")
+    approved = {a.get("action") for a in doc.get("approvals", []) if all(a.get(k) for k in APPROVAL_FIELDS)}
+    if t.get("created_by_crewline") and "create_tracker_item" not in approved:
+        res.add("MAN-017", BLOCK, f"tracker {key or '?'} created by Crewline without an approval create_tracker_item",
+                remediation="show the draft (system, project, type, title, body) and record the user's approval first")
+    title = (doc.get("pr") or {}).get("title")
+    if title and key and not title_has_key(title, key):
+        res.add("MAN-017", BLOCK, pr_title_problem(doc, title), remediation=f"gh pr edit <n> --title \"{key}: <summary>\"")
+    if (t.get("closure") or {}).get("status") == "posted" and "tracker_comment" not in approved:
+        res.add("MAN-017", BLOCK, "closure comment posted without an approval tracker_comment")
+    for label, rec in (("tracker", waived), ("subtasks", t.get("subtasks_waived"))):
+        if not rec:
+            continue
+        missing = [k for k in APPROVAL_FIELDS if not rec.get(k)]
+        if missing:
+            res.add("MAN-005", BLOCK, f"{label} waiver missing {', '.join(missing)}")
+        who = str(rec.get("approver", "")).lower()
+        if rec.get("approver_type") == "agent" or who in agents or who.startswith("agent:"):
+            res.add("MAN-010", BLOCK, f"{label} waived by {rec.get('approver')!r}: only the user can decline it")
+    for s in t.get("subtasks") or []:
+        sk = s.get("key", "")
+        if system in TRACKER_KEY and not TRACKER_KEY[system].match(sk):
+            res.add("MAN-018", BLOCK, f"subtask {s.get('kind', '?')} key {sk!r} is not a {system} key like the ticket's")
+        if s.get("created_by_crewline") and "create_tracker_subtasks" not in approved:
+            res.add("MAN-018", BLOCK, f"subtask {sk} created by Crewline without an approval create_tracker_subtasks",
+                    remediation="show the drafted subtasks and record the user's approval first")
+        if (s.get("closure") or {}).get("status") == "posted" and "tracker_comment" not in approved:
+            res.add("MAN-018", BLOCK, f"closure comment on subtask {sk} posted without an approval tracker_comment")
+
+
+def subtask_kinds(ctx: Ctx) -> list[str]:
+    return list(ctx.tpl.get("subtasks", ctx.wf.get("subtask_kinds", [])))
+
+
+def _subtask_guard(ctx: Ctx, src: str | None, to_state: str, res: Result) -> None:
+    """Past GITHUB_PLANNING: one subtask per kind; at DONE: every subtask closed with a comment or declined."""
+    t = ctx.doc.get("tracker") or {}
+    if t.get("waived") or to_state not in ctx.wf["states"]:
+        return
+    subs = t.get("subtasks") or []
+    if "GITHUB_PLANNING" in ctx.path and ctx.idx(to_state) > ctx.idx("GITHUB_PLANNING") and not t.get("subtasks_waived"):
+        missing = [k for k in subtask_kinds(ctx) if not any(s.get("kind") == k and s.get("key") for s in subs)]
+        if missing:
+            res.add("MAN-018", BLOCK, f"no subtask under {t.get('key') or 'the ticket'} for: {', '.join(missing)} "
+                                      f"({to_state} from {src})",
+                    remediation="GITHUB_PLANNING: link existing subtasks, or draft them (templates/subtask-template.md) and "
+                                "create them on approval create_tracker_subtasks; or record the user's tracker.subtasks_waived")
+    if src == "FINAL_REPORT" and to_state == "DONE":
+        for s in subs:
+            if (s.get("closure") or {}).get("status") not in ("posted", "declined"):
+                res.add("MAN-018", BLOCK, f"subtask {s.get('key', '?')} ({s.get('kind', '?')}) has no closure comment: "
+                                          "post it on approval tracker_comment, or record that the user declined it")
+
+
+def title_has_key(title: str, key: str) -> bool:
+    """PR title prefix `<KEY>: summary` (mosip/pre-registration#1089). A GitHub key may be written as `#N`."""
+    m = re.fullmatch(r"(?:[\w.-]+/[\w.-]+)?#(\d+)", key.strip())
+    forms = [re.escape(key.strip())] + ([rf"#{m.group(1)}"] if m else [])
+    return bool(re.match(rf"\s*(?:{'|'.join(forms)})\s*:", title or ""))
+
+
+def pr_title_problem(doc: dict, title: str | None) -> str:
+    """'' when the title is fine (or the ticket was waived); otherwise what is wrong."""
+    t = doc.get("tracker") or {}
+    if t.get("waived") or not t.get("key"):
+        return "" if t.get("waived") else "no tracker.key yet (INPUT_VALIDATION)"
+    if not title:
+        return f"no PR title: pass --title \"{t['key']}: <summary>\""
+    if not title_has_key(title, t["key"]):
+        return f"PR title {title[:60]!r} must start with the tracker key: \"{t['key']}: <summary>\""
+    return ""
+
+
+def pr_body_problem(doc: dict, body: str | None) -> str:
+    """'' when the PR body links the ticket (its URL or key, e.g. `Closes #185` / `Refs INJIVER-1386`) or it was waived."""
+    from .branch import key_pattern
+    t = doc.get("tracker") or {}
+    if t.get("waived") or not t.get("key"):
+        return "" if t.get("waived") else "no tracker.key yet (INPUT_VALIDATION)"
+    if body is None:
+        return f"no PR body: pass --body / --body-file that links {t['key']} (templates/pr-template.md)"
+    if (t.get("url") and t["url"] in body) or key_pattern(t["key"]).search(body):
+        return ""
+    return f"PR body does not link the ticket: add `Closes {t.get('url') or t['key']}` (or Refs)"
+
+
+def waivers_without_follow_up(doc: dict) -> list[str]:
+    """token_budget is a decision to keep spending, not a finding that ships: nothing to follow up."""
+    out = [k.get("id", "?") for k in doc.get("known_limitations") or [] if not (k.get("follow_up") or k.get("no_follow_up"))]
+    for rec in (doc.get("exceptions") or []) + [a for a in doc.get("approvals", []) if a.get("action") == "gate_exception"]:
+        if rec.get("gate") != "token_budget" and not (rec.get("follow_up") or rec.get("no_follow_up")):
+            out.append(f"exception on {rec.get('gate') or rec.get('action', '?')}")
+    return out
+
+
+def _before_final_report(ctx: Ctx, manifest_path: str, to_state: str, res: Result) -> None:
+    if to_state not in ctx.wf["states"] or ctx.idx(to_state) < ctx.idx("FINAL_REPORT"):
+        return
+    for item in waivers_without_follow_up(ctx.doc):
+        res.add("MAN-019", BLOCK, f"{item} has no follow-up: link a ticket or task (`crewline limitation add --id <id> --follow-up "
+                                  "<key>`; a new ticket on approval create_tracker_item), or record no_follow_up with the reason the user accepted")
+    if to_state == "FINAL_REPORT" and "IMPLEMENTATION" in ctx.path:
+        from . import ci_coverage
+        for f in ci_coverage.run(manifest_path).findings:
+            if f.severity == BLOCK and not f.approved_by:
+                res.add(f.rule_id, BLOCK, f.message, remediation=f.remediation)
+
+
+def _threat_review(ctx: Ctx, manifest_path: str, to_state: str, res: Result) -> None:
+    """Untrusted input: a security-engineer threat review before tests and code exist, not after the repair cap."""
+    if not (ctx.doc.get("requirements") or {}).get("untrusted_input") or to_state not in ctx.wf["states"]:
+        return
+    first = next((s for s in ("TESTCASE_DESIGN", "IMPLEMENTATION_PLAN", "IMPLEMENTATION") if s in ctx.path), None)
+    if first and ctx.idx(to_state) >= ctx.idx(first):
+        from . import packets
+        packets.require_threat_review(manifest_path, ctx.doc, res, to_state)
+
+
+def _guard_text(g: dict) -> str:
+    if "all_of" in g:
+        return " and ".join(_guard_text(x) for x in g["all_of"])
+    if "any_of" in g:
+        return "one of (" + " | ".join(_guard_text(x) for x in g["any_of"]) + ")"
+    if "approval" in g:
+        return f"approval {g['approval']}"
+    name = f"gate {g['gate']}" if "gate" in g else g.get("path", "?")
+    return " ".join(f"{name} {op} {val!r}" for op, val in g.items() if op not in ("gate", "path"))
+
+
+def next_report(manifest_path: str) -> Result:
+    """`--next`: every legal move and every precondition with its current state, so a move is prepared, not tried."""
+    res = Result("manifest-next", inputs={"manifest": manifest_path})
+    doc = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    ctx = Ctx(doc)
+    src = doc.get("current_state")
+    base = check(manifest_path)
+    known = {(f.rule_id, f.message) for f in base.findings}
+    for f in base.findings:
+        if f.severity == BLOCK and not f.approved_by:
+            res.add("NXT-002", WARN, f"the manifest itself, fix first: {f.rule_id} {f.message}")
+    waiting = src in ("WAITING_FOR_USER", "S_ESCALATE")
+    moves = ([doc["resume_state"]] if doc.get("resume_state") else []) if waiting else ctx.next_states(src or "")
+    if not waiting:
+        forced = [g for g in ctx.wf.get("forced_escalation", {}).get(src, []) if ctx.holds(g)[0]]
+        if forced:
+            res.add("NXT-003", WARN, f"forced escalation in {src}: only S_ESCALATE is legal ({_guard_text(forced[0])})")
+            moves = []
+    from . import packets
+    ready = []
+    for to in moves:
+        guards = ctx.entry_guards(to) if waiting else _guards_for(ctx, src, to)
+        lines = [f"{'ok ' if ctx.holds(g)[0] else 'NOT'} {_guard_text(g)}" for g in guards]
+        if ctx.wf.get("tracker_guard") and ctx.idx(to) > ctx.idx(ctx.wf.get("tracker_guard_after", "INPUT_VALIDATION")):
+            lines.append(f"{'ok ' if ctx.holds(ctx.wf['tracker_guard'])[0] else 'NOT'} tracker ticket or waiver")
+        need = packets.PACKET_FOR.get(to)
+        if need:
+            lines.append(f"{'ok ' if packets.packet_path(manifest_path, need).is_file() else 'NOT'} packets/{need}.md")
+        t = transition(manifest_path, to)
+        fresh = [f for f in t.findings if f.severity == BLOCK and not f.approved_by and (f.rule_id, f.message) not in known]
+        lines += [f"NOT {f.rule_id}: {f.message}" for f in fresh if f.rule_id != "TRN-002" and not f.message.startswith("no tracker")]
+        verdict = "READY" if not fresh else "not ready"
+        if not fresh:
+            ready.append(to)
+        res.add("NXT-001", INFO, f"{src} -> {to}: {verdict}" + "".join(f"\n      {x}" for x in lines))
+    res.add("NXT-004", INFO, "always legal: WAITING_FOR_USER (needs resume_state), S_ESCALATE; ready now: " + (", ".join(ready) or "none"))
+    res.inputs["ready"] = ready
+    return res.finish()
+
+
+def _tracker_guard(ctx: Ctx, src: str | None, to_state: str, res: Result) -> None:
+    """No design or code without a ticket: every move into a state after `tracker_guard_after` (any template)."""
+    guard, after = ctx.wf.get("tracker_guard"), ctx.wf.get("tracker_guard_after", "INPUT_VALIDATION")
+    if not guard or to_state not in ctx.wf["states"] or ctx.idx(to_state) <= ctx.idx(after):
+        return
+    ok, why = ctx.holds(guard)
+    if not ok:
+        res.add("MAN-017", BLOCK, f"no tracker ticket for {to_state} (from {src}): {why}",
+                remediation="INPUT_VALIDATION: find the GitHub issue / Jira item (request, branch, commits, search) and "
+                            "have the user confirm it; else ask GitHub or Jira, draft it, create it on approval "
+                            "create_tracker_item; or record the user's waiver with a reason (tracker.waived)")
 
 
 def _version_drift(doc: dict, res: Result) -> None:
@@ -321,6 +531,14 @@ def transition(manifest_path: str, to_state: str) -> Result:
         if ok:
             res.add("TRN-003", BLOCK, f"forced escalation in {src}: {guard} - only S_ESCALATE is allowed",
                     remediation="produce templates/escalation-report.md and move to S_ESCALATE")
+    _tracker_guard(ctx, src, to_state, res)
+    _subtask_guard(ctx, src, to_state, res)
+    _before_final_report(ctx, manifest_path, to_state, res)
+    _threat_review(ctx, manifest_path, to_state, res)
+    if src == "PR_CLOSEOUT" and ctx.idx(to_state) > ctx.idx(src):          # the PR as opened carries the key
+        problem = pr_title_problem(doc, (doc.get("pr") or {}).get("title"))
+        if problem:
+            res.add("MAN-017", BLOCK, f"leaving PR_CLOSEOUT: {problem} (record pr.title as on GitHub)")
     extra = per_repo_gate_guards(doc) if to_state == "PR_CLOSEOUT" and src == "COMMIT_PR" else []
     for guard in guards + extra:
         ok, why = ctx.holds(guard)

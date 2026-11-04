@@ -17,10 +17,20 @@ raw `mvn test` (GRD-007) and Read of dump/oversized files (GRD-008). Developer w
 `test_ids` / evidence paths on the manifest; QA reads those + `.crewline/qa/` + the packet, not the chat.
 Leaving DESIGN needs `packets/DESIGN.md`. Bug-fix IMPLEMENTATION_PLAN needs `evidence/reproduction.json` (failed base run).
 IMPLEMENTATION needs a non-empty `scope.approved_paths`. Feature / dependency-upgrade review needs
-`evidence/dependency-security.json`. Leaving SYSTEM_TEST_EXECUTION needs `evidence/system-tests.json`.
+`evidence/dependency-security.json`. Leaving SYSTEM_TEST_EXECUTION needs `evidence/system-tests[-<suite>].json` runs of
+the module's own system suites (`.crewline/module.yaml`: api-test, ui-test; a UI change needs the UI rig: SYS-002/003).
+COMMIT_PR needs `crewline regression --out <task>/evidence/full-regression[-<suite>].json` for those suites (REG-007/008).
+Leaving REQUIREMENT_ANALYSIS, ACCEPTANCE_REVIEW, IMPACT_ANALYSIS, TESTCASE_DESIGN, TESTCASE_REVIEW needs the specialist's
+`packets/<STATE>.md` with `agent:` and `context_id:` (PKT-004).
 RTK is optional.
 
 ## How to run a task
+
+Before offering a choice read `crewline status`; prepare a move with `crewline manifest <m> --next`; write records with `crewline review
+record`, `approval add`, `limitation add`, never by hand. Waivers need a follow-up (MAN-019). Untrusted input needs limit ACs and a threat review before test design.
+New session on a paused task: `crewline resume <id>` (never hand-write a hand-over); after a repair `crewline gates refresh
+--all [--rerun]` (never a per-task gate script). Several open tasks: `crewline task activate --id <id>`. Work inside the task
+worktree: `crewline task worktree --id <id> --base <ref> --branch <name>`, then open the session there.
 
 1. At **INTAKE only**, read `${CLAUDE_PLUGIN_ROOT}/core/principles.md`. Run `crewline pack` and load only that pack's knowledge dirs
    (`packs/<id>/pack.yaml`). MOSIP (default) adds `knowledge/mosip` and `knowledge/frameworks`. Then the target
@@ -30,6 +40,12 @@ RTK is optional.
 2. INTAKE: classify the request into one task type (`${CLAUDE_PLUGIN_ROOT}/core/workflows/`: feature, bug-fix, refactor,
    dependency-upgrade, database-migration, incident, release, test-automation) and its risk tier. Create the task manifest
    (`${CLAUDE_PLUGIN_ROOT}/templates/task-manifest.schema.json`) in the task workspace `<clone>/.crewline-work/tasks/<id>/`, never in a repository.
+   **Tracker ticket before design or code** (INPUT_VALIDATION, every task; MAN-017): link the user-confirmed GitHub
+   issue / Jira item, or draft one and create it in the system the user picks only on approval `create_tracker_item`,
+   or record their waiver. Commit subjects carry `tracker.key`; the PR title starts with it
+   (`<KEY>: <summary>`, GRD-009); the PR body links the ticket (GRD-009). GITHUB_PLANNING:
+   one subtask per template kind under the ticket, created on approval `create_tracker_subtasks` or waived (MAN-018).
+   Closure comments on the ticket and each subtask on approval `tracker_comment` before DONE (orchestrator step 2b).
 3. S0_BOOTSTRAP_CHECK: `crewline tools` (from `${CLAUDE_PLUGIN_ROOT}/validators`) plus any connector/browser the task type needs.
    Missing -> stop and give the user the numbered steps from the merged tools (`core/tools.yaml` + active pack);
    never work around it.

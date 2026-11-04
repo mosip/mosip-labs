@@ -35,7 +35,7 @@ def _write(dir_path: Path, doc: dict, name: str = "task-manifest.json") -> str:
 
 
 def _synthetic(res: Result) -> None:
-    """Prove --apply refuses IMPACT without clarity and REVIEW without fit, then accepts both."""
+    """Prove --apply refuses IMPACT without clarity or a tracker ticket and REVIEW without fit, then accepts both."""
     d = skeleton("cold-start-synth", "feature")
     d["current_state"] = "ACCEPTANCE_REVIEW"
     d["gates"] = [{"gate": "input_readiness", "status": "PASS"}]
@@ -48,13 +48,26 @@ def _synthetic(res: Result) -> None:
         root = Path(raw)
         path = _write(root, d)
         first = manifest.apply(path, "IMPACT_ANALYSIS")
-        if first.status != "FAIL" or "requirement_clarity" not in first.to_text():
-            res.add("CS-003", BLOCK, "synthetic IMPACT_ANALYSIS must FAIL until requirement_clarity PASS",
-                    evidence=first.to_text()[-800:])
+        if first.status != "FAIL" or "requirement_clarity" not in first.to_text() or "MAN-017" not in first.to_text():
+            res.add("CS-003", BLOCK, "synthetic IMPACT_ANALYSIS must FAIL until requirement_clarity PASS and a tracker "
+                                     "ticket is confirmed (MAN-017)", evidence=first.to_text()[-800:])
             return
+        d["tracker"] = {"system": "jira", "key": "MOSIP-0", "found_by": "request", "confirmed_by": "cold-start user",
+                        "subtasks": [{"kind": k, "key": f"MOSIP-{i}"} for i, k in
+                                     enumerate(manifest.load_workflow()["subtask_kinds"], 1)]}
         d["gates"] += [{"gate": "requirement_clarity", "status": "PASS"},
                        {"gate": "acceptance_readiness", "status": "PASS"}]
         path = _write(root, d, "clarity.json")
+        (root / "packets").mkdir(exist_ok=True)
+        (root / "packets/ACCEPTANCE_REVIEW.md").write_text("agent: orchestrator\ncontext_id: main\nverdict: PASS\n",
+                                                           encoding="utf-8")
+        self_review = manifest.transition(path, "IMPACT_ANALYSIS")
+        if self_review.status != "FAIL" or "PKT-004" not in self_review.to_text():
+            res.add("CS-003", BLOCK, "synthetic IMPACT_ANALYSIS must FAIL while the orchestrator signs ACCEPTANCE_REVIEW (PKT-004)",
+                    evidence=self_review.to_text()[-800:])
+            return
+        (root / "packets/ACCEPTANCE_REVIEW.md").write_text(
+            "agent: acceptance-reviewer\ncontext_id: cs-acceptance-1\nverdict: PASS\n", encoding="utf-8")
         second = manifest.apply(path, "IMPACT_ANALYSIS")
         if second.status != "PASS":
             res.add("CS-003", BLOCK, "synthetic IMPACT_ANALYSIS must PASS once clarity gates are recorded",

@@ -239,3 +239,47 @@ scenarios:
     name: Installed adapter drift fixed by --sync; CI re-renders
     expected: install.py --sync --check rewrites a tampered rule; GitHub workflow runs pytest, frozen pack, adapter --sync/--check
     automated_by: test_guard.py::test_install_sync_rewrites_drift, ::test_install_check_detects_drift
+  - id: EV-60
+    name: Tracker ticket before design or code
+    expected: no state after INPUT_VALIDATION (any template, a WAITING_FOR_USER resume, a task already in flight) without a user-confirmed GitHub issue / Jira key or a human waiver (MAN-017); creation needs approval create_tracker_item; FINAL_REPORT -> DONE needs the closure comment posted on approval or declined; branch scope accepts the key (#N, owner/repo#N, PROJ-1) with word boundaries
+    automated_by: test_sdlc.py::test_tracker_required_to_leave_input_validation, ::test_tracker_guard_on_every_template_resume_and_in_flight_task, ::test_tracker_record_rules, ::test_done_needs_tracker_closure_comment, ::test_branch_scope_accepts_tracker_keys
+  - id: EV-61
+    name: PR title prefixed with the tracker key
+    expected: "gh pr create / gh pr edit --title refused (GRD-009) unless the title starts with `<KEY>: ` (Jira key, GitHub #N or owner/repo#N); not when waived; leaving PR_CLOSEOUT needs pr.title with the prefix (MAN-017)"
+    automated_by: test_guard.py::test_pr_title_must_start_with_tracker_key, test_sdlc.py::test_pr_title_recorded_with_key_before_leaving_pr_closeout, test_guard.py::test_pr_body_must_link_the_ticket
+  - id: EV-62
+    name: Subtasks under the ticket and their closure comments
+    expected: "past GITHUB_PLANNING: one subtask per template kind (default testcase, implementation, testing, review, pr; test-automation: automation) or a human subtasks waiver (MAN-018); creation needs create_tracker_subtasks; DONE needs every subtask closure posted on approval or declined"
+    automated_by: test_sdlc.py::test_subtasks_required_past_github_planning, ::test_subtask_record_rules, ::test_done_needs_each_subtask_closed
+  - id: EV-63
+    name: Resume a paused task with one command
+    expected: crewline resume writes HANDOVER.md from the manifest and activates the task; gates refresh records what validators return, stale evidence fails, review gates and NOT_APPLICABLE stay
+    automated_by: test_task_session.py::test_resume_writes_the_handover_in_one_command, ::test_gates_refresh_records_what_the_validators_return, ::test_gates_refresh_sees_stale_evidence_and_rerun_fixes_it, ::test_gates_refresh_keeps_not_applicable_and_reports_missing_repo
+  - id: EV-64
+    name: Explicit active task
+    expected: a change to another manifest does not switch the active task; task list marks it; every deny names it; scratchpad writable, a checkout in a temp folder still guarded
+    automated_by: test_task_session.py::test_active_task_does_not_follow_the_newest_file, ::test_activate_refuses_unknown_and_closed_and_stale_file_falls_back, ::test_every_deny_names_the_active_task, ::test_scratchpad_is_writable_but_a_checkout_in_temp_stays_guarded
+  - id: EV-65
+    name: A session inside the task worktree
+    expected: the worktree is active, finds its task and the module context without copying it, hooks judge the folder being changed, nothing a git add -A could leak; a plain clone stays inactive
+    automated_by: test_task_session.py::test_task_worktree_is_a_full_crewline_session, ::test_worktree_needs_the_base_branch_approval_and_keeps_user_settings, ::test_a_plain_clone_without_crewline_stays_inactive
+  - id: EV-66
+    name: A move is prepared, not tried
+    expected: manifest --next lists every legal move with each precondition; status rules out a fourth repair; record commands refuse an illegal value and write nothing
+    automated_by: test_preflight_and_ci.py::test_next_lists_every_precondition_without_a_rejected_attempt, ::test_next_says_ok_for_what_holds_and_reports_forced_escalation, ::test_status_never_offers_a_fourth_repair, ::test_review_record_refuses_what_the_schema_or_independence_forbid, ::test_approval_and_limitation_records
+  - id: EV-67
+    name: A Python-only change is measured with no flags
+    expected: diff-coverage finds the changed source from the diff and matches coverage.xml; 0 lines measured is never a silent pass; requirement-fit counts Python tests
+    automated_by: test_preflight_and_ci.py::test_diff_coverage_measures_python_with_no_flags, ::test_zero_lines_measured_is_never_a_silent_pass, ::test_requirement_fit_sees_python_tests, ::test_python_paths_count_as_tests
+  - id: EV-68
+    name: Untrusted input is handled before code
+    expected: an AC that reads like parsing untrusted input gets the question asked; true needs limit ACs and a security-engineer threat review before test design
+    automated_by: test_preflight_and_ci.py::test_untrusted_input_needs_limit_acs, ::test_a_plain_api_ac_is_not_asked_about_untrusted_input, ::test_threat_review_comes_before_test_design
+  - id: EV-69
+    name: Standards for a repository that has none
+    expected: the gate says only debug leftovers were checked; onboarding drafts a checker proposal; changed-lines mode blocks only violations on touched lines and an unmappable log still blocks
+    automated_by: test_preflight_and_ci.py::test_no_checker_says_so_and_onboarding_proposes_one, ::test_changed_lines_mode_blocks_only_new_violations, ::test_changed_lines_mode_from_module_yaml
+  - id: EV-70
+    name: Nothing ships silently
+    expected: FINAL_REPORT refused with a waived finding that has no follow-up, or a unit suite no CI workflow runs, unless a person accepted it
+    automated_by: test_preflight_and_ci.py::test_waived_findings_need_a_follow_up_before_final_report, ::test_a_suite_no_ci_runs_is_refused_unless_accepted, ::test_system_suite_outside_ci_warns_and_a_task_with_no_code_is_not_asked
