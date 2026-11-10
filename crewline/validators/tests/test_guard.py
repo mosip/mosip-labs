@@ -31,6 +31,9 @@ def write_manifest(tmp_path, **over):
                   ("quality_gate", "deterministic_validation", "change_scope", "secrets", "token_budget")],
         "approvals": [{"action": "commit_pr", **HUMAN}],
         "evidence_refs": [],
+        "tracker": {"system": "jira", "key": "MOSIP-1", "confirmed_by": "mohan", "closure": {"status": "declined", "reason": "r"},
+                    "subtasks": [{"kind": k, "key": f"MOSIP-{i}", "closure": {"status": "declined", "reason": "r"}}
+                                 for i, k in enumerate(("testcase", "automation", "implementation", "testing", "review", "pr"), 2)]},
         "github": {"issue": None, "subtasks": [], "pull_request": None},
         "test_plan": {"environment": "n/a", "environment_kind": "local-stack"},
     }
@@ -45,6 +48,9 @@ def write_manifest(tmp_path, **over):
     ("git commit -sm MOSIP-1", "commit"),
     ("git push origin HEAD", "push"),
     ("gh pr create --title x", "pr"),
+    ("gh pr edit 12 --title 'MOSIP-1: x'", "pr_edit"),
+    ("gh pr edit 12 --body-file b.md", "pr_edit"),
+    ("gh pr edit 12 --add-label bug", "other"),
     ("git push --force origin HEAD", "deny_force"),
     ("git push -f", "deny_force"),
     ("git reset --hard HEAD~1", "deny_destructive"),
@@ -101,6 +107,20 @@ def test_write_outside_approved_paths_blocked(tmp_path):
     res = guard.check_write("src/main/java/X.java", m, cwd=str(tmp_path))
     assert res.status == "FAIL" and "GRD-004" in ids(res)
     assert guard.check_write("docs/guide.md", m, cwd=str(tmp_path)).status == "PASS"
+
+
+def test_write_outside_cwd_matches_from_the_git_top(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / "ui-test").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    m = write_manifest(tmp_path, current_state="IMPLEMENTATION",
+                       scope={"module": "svc", "repositories": [], "approved_paths": [".crewline/qa/ui-test-context.md"]})
+    target = repo / ".crewline" / "qa" / "ui-test-context.md"                   # not created yet
+    # the session sits in ui-test/: 0.6.0 matched the bare name and refused an approved path
+    assert guard.check_write(str(target), m, cwd=str(repo / "ui-test")).status == "PASS"
+    res = guard.check_write(str(repo / ".crewline/other.md"), m, cwd=str(repo / "ui-test"))
+    assert res.status == "FAIL" and "GRD-004" in ids(res)
+    assert ".crewline/other.md" in res.to_text()
 
 
 def test_write_without_task_is_allowed():
@@ -365,3 +385,45 @@ def test_installing_the_plugin_enables_it():
     """A local-scope install writes the plugin's default into settings.local.json, which overrides the module's opt-in:
     with defaultEnabled false a new user followed the README and still had Crewline off."""
     assert json.loads((ROOT / ".claude-plugin/plugin.json").read_text(encoding="utf-8")).get("defaultEnabled", True) is True
+
+
+def test_pr_title_must_start_with_tracker_key(tmp_path):
+    """mosip/pre-registration#1089 format: `MOSIP-38854: Handle missing identity name fields`."""
+    ready = dict(current_state="COMMIT_PR",
+                 approvals=[{"action": "commit_pr", **HUMAN}, {"action": "push_and_pr", **HUMAN}],
+                 gates=[{"gate": g, "status": "PASS"} for g in
+                        ("quality_gate", "deterministic_validation", "change_scope", "secrets", "dco", "branch_scope")])
+    m = write_manifest(tmp_path, **ready)
+    for bad in ('gh pr create --title "Fix notification NPE"', "gh pr create --fill",
+                'gh pr create --title "Fix MOSIP-1 in notification"', 'gh pr edit 7 --title "fix"'):
+        res = guard.check_shell(bad, m)
+        assert res.status == "FAIL" and "GRD-009" in ids(res), bad
+    for good in ('gh pr create --title "MOSIP-1: Handle missing name" --body "Closes MOSIP-1"',
+                 "gh pr create -t 'MOSIP-1 : Negative coverage' -b 'Refs MOSIP-1'", 'gh pr edit 7 --title="MOSIP-1: renamed"'):
+        assert "GRD-009" not in ids(guard.check_shell(good, m)), good
+    gh = write_manifest(tmp_path, tracker={"system": "github", "key": "inji/pixelpass#185", "confirmed_by": "mohan"}, **ready)
+    assert "GRD-009" not in ids(guard.check_shell('gh pr create --title "#185: Python SDK" --body "Closes #185"', gh))
+    assert "GRD-009" not in ids(guard.check_shell(
+        'gh pr create --title "inji/pixelpass#185: Python SDK" --body "Closes inji/pixelpass#185"', gh))
+    waived = write_manifest(tmp_path, tracker={"waived": {"action": "tracker_waiver", **HUMAN}}, **ready)
+    assert "GRD-009" not in ids(guard.check_shell('gh pr create --title "anything"', waived))
+    assert guard.check_shell('gh pr edit 7 --title "fix"', None).status == "PASS"     # no active task: not a shipping action
+
+
+def test_pr_body_must_link_the_ticket(tmp_path):
+    ready = dict(current_state="COMMIT_PR",
+                 approvals=[{"action": "commit_pr", **HUMAN}, {"action": "push_and_pr", **HUMAN}],
+                 gates=[{"gate": g, "status": "PASS"} for g in
+                        ("quality_gate", "deterministic_validation", "change_scope", "secrets", "dco", "branch_scope")])
+    url = "https://mosip.atlassian.net/browse/MOSIP-1"
+    m = write_manifest(tmp_path, tracker={"system": "jira", "key": "MOSIP-1", "url": url, "confirmed_by": "mohan"}, **ready)
+    title = '--title "MOSIP-1: x"'
+    for bad in (f"gh pr create {title}", f'gh pr create {title} --body "fixes the NPE"', f"gh pr create {title} -F -",
+                f"gh pr create {title} --body-file {(tmp_path / 'missing.md').as_posix()}", 'gh pr edit 7 --body "no link"'):
+        res = guard.check_shell(bad, m)
+        assert "GRD-009" in ids(res) and "body" in res.to_text(), bad
+    body = tmp_path / "body.md"
+    body.write_text(f"Closes {url}\n\nscope ...", encoding="utf-8")
+    for good in (f'gh pr create {title} --body "Refs MOSIP-1"', f"gh pr create {title} --body-file {body.as_posix()}",
+                 f"gh pr edit 7 -F {body.as_posix()}", "gh pr edit 7 --add-label bug"):
+        assert "GRD-009" not in ids(guard.check_shell(good, m)), good
