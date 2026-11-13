@@ -1,0 +1,109 @@
+name: Self Registration build upon a push
+
+on:
+  release:
+    types: [published]
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'self-registration/**'
+      - '.github/workflows/self-registration-push-trigger.yml'
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Message for manually triggering'
+        required: false
+        default: 'Triggered for Updates'
+        type: string
+  push:
+    branches:
+      - '!release-branch'
+      - master
+      - 1.*
+      - develop
+      - MOSIP*
+      - release*
+    paths:
+      - 'self-registration/**'
+      - '.github/workflows/self-registration-push-trigger.yml'
+
+permissions:
+  contents: read
+
+# All kattu workflows are pinned to the mosip/kattu master commit reviewed for
+# this change. master (not master-java21 / develop) is used because it builds
+# with JDK 11, which self-registration (Spring Boot 2.0.2, Lombok 1.18.20)
+# requires.
+jobs:
+  build-self-registration-service:
+    uses: mosip/kattu/.github/workflows/maven-build.yml@4e9370bc8edcdada050ccac663a9c751af7ec0aa
+    with:
+      SERVICE_LOCATION: ./self-registration
+      BUILD_ARTIFACT: self-registration-service
+    secrets:
+      OSSRH_USER: ${{ secrets.OSSRH_USER }}
+      OSSRH_SECRET: ${{ secrets.OSSRH_SECRET }}
+      OSSRH_TOKEN: ${{ secrets.OSSRH_TOKEN }}
+      GPG_SECRET: ${{ secrets.GPG_SECRET }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  sonar-self-registration-service:
+    # Secrets are not available to pull requests from forks, so analyse pushes only.
+    if: github.event_name == 'push'
+    needs: build-self-registration-service
+    uses: mosip/kattu/.github/workflows/maven-sonar-analysis.yml@4e9370bc8edcdada050ccac663a9c751af7ec0aa
+    with:
+      SERVICE_LOCATION: ./self-registration
+      PROJECT_KEY: mosip_mosip-labs_self-registration
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      ORG_KEY: ${{ secrets.ORG_KEY }}
+      OSSRH_USER: ${{ secrets.OSSRH_USER }}
+      OSSRH_SECRET: ${{ secrets.OSSRH_SECRET }}
+      OSSRH_TOKEN: ${{ secrets.OSSRH_TOKEN }}
+      GPG_SECRET: ${{ secrets.GPG_SECRET }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  build-dockers-self-registration-service:
+    needs: build-self-registration-service
+    strategy:
+      matrix:
+        include:
+          # No leading './': docker-build.yml unzips "<SERVICE_LOCATION>/target/*"
+          # from the maven artifact, whose entries are stored without './'.
+          - SERVICE_LOCATION: 'self-registration/service'
+            SERVICE_NAME: 'self-registration'
+            BUILD_ARTIFACT: 'self-registration-service'
+      fail-fast: false
+    name: ${{ matrix.SERVICE_NAME }}
+    uses: mosip/kattu/.github/workflows/docker-build.yml@4e9370bc8edcdada050ccac663a9c751af7ec0aa
+    with:
+      SERVICE_LOCATION: ${{ matrix.SERVICE_LOCATION }}
+      SERVICE_NAME: ${{ matrix.SERVICE_NAME }}
+      BUILD_ARTIFACT: ${{ matrix.BUILD_ARTIFACT }}
+    secrets:
+      DEV_NAMESPACE_DOCKER_HUB: ${{ secrets.DEV_NAMESPACE_DOCKER_HUB }}
+      ACTOR_DOCKER_HUB: ${{ secrets.ACTOR_DOCKER_HUB }}
+      RELEASE_DOCKER_HUB: ${{ secrets.RELEASE_DOCKER_HUB }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # self-registration/ui is a self-contained multi-stage Dockerfile (it runs
+  # npm install / npm run build itself), so no separate npm artifact step,
+  # NPM_BUILD / BUILD_ARTIFACT or needs: here.
+  build-dockers-self-registration-ui:
+    strategy:
+      matrix:
+        include:
+          - SERVICE_LOCATION: './self-registration/ui'
+            SERVICE_NAME: 'self-registration-ui'
+      fail-fast: false
+    name: ${{ matrix.SERVICE_NAME }}
+    uses: mosip/kattu/.github/workflows/docker-build.yml@4e9370bc8edcdada050ccac663a9c751af7ec0aa
+    with:
+      SERVICE_LOCATION: ${{ matrix.SERVICE_LOCATION }}
+      SERVICE_NAME: ${{ matrix.SERVICE_NAME }}
+    secrets:
+      DEV_NAMESPACE_DOCKER_HUB: ${{ secrets.DEV_NAMESPACE_DOCKER_HUB }}
+      ACTOR_DOCKER_HUB: ${{ secrets.ACTOR_DOCKER_HUB }}
+      RELEASE_DOCKER_HUB: ${{ secrets.RELEASE_DOCKER_HUB }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

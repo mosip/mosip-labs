@@ -1,4 +1,4 @@
-FROM openjdk:11
+FROM eclipse-temurin:11-jre-jammy
 
 ARG SOURCE
 ARG COMMIT_HASH
@@ -24,14 +24,17 @@ ARG is_glowroot
 # can be passed during Docker build as build time environment for artifactory URL
 ARG artifactory_url
 
+# can be passed during Docker build as build time environment for iam adapter URL
+ARG iam_adapter_url
+
 # environment variable to pass active profile such as DEV, QA etc at docker runtime
 ENV active_profile_env=${active_profile}
 
 # environment variable to pass github branch to pickup configuration from, at docker runtime
 ENV spring_config_label_env=${spring_config_label}
 
-# environment variable to pass github branch to pickup configuration from, at docker runtime
-ENV spring_config_label_env=${spring_config_label}
+# environment variable to pass spring configuration url, at docker runtime
+ENV spring_config_url_env=${spring_config_url}
 
 # environment variable to pass glowroot, at docker runtime
 ENV is_glowroot_env=${is_glowroot}
@@ -56,7 +59,8 @@ ARG container_user_gid=1001
 
 # install packages and create user
 RUN apt-get -y update \
-&& apt-get install -y unzip \
+&& apt-get install -y unzip wget \
+&& rm -rf /var/lib/apt/lists/* \
 && groupadd -g ${container_user_gid} ${container_user_group} \
 && useradd -u ${container_user_uid} -g ${container_user_group} -s /bin/sh -m ${container_user}
 

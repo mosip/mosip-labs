@@ -21,6 +21,11 @@ fi
 
 echo "Replacing completed."
 
+echo "Configuring nginx to proxy /v1/selfregistration to ${SELF_REGISTRATION_SERVICE_URL}"
+sed "s|_SELF_REGISTRATION_SERVICE_URL_|${SELF_REGISTRATION_SERVICE_URL}|g" /etc/nginx/nginx.conf > /tmp/nginx.conf
+cat /tmp/nginx.conf > /etc/nginx/nginx.conf
+rm -f /tmp/nginx.conf
+
 echo "generating env-config file"
 
 echo "window._env_ = {" > ${workingDir}/env-config.js
