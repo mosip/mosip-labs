@@ -1,6 +1,7 @@
 """Task manifest checks and state-transition enforcement against core/workflow.yaml + the task-type template.
 
-  MAN-001  manifest fails the JSON schema (templates/task-manifest.schema.json)
+  MAN-001  manifest fails the JSON schema (templates/task-manifest.schema.json): every violation at once, each with its
+           JSON path and the allowed values; the semantic checks below run only on a schema-valid manifest
   MAN-002  current_state is not a known state, or not on the task type's path
   MAN-003  repair counters (attempt_count / dev_attempt_count) disagree with attempt_history
   MAN-004  outcome SUCCESS while a recorded required gate is not PASS / NOT_APPLICABLE
@@ -27,6 +28,13 @@
   TRN-001  transition is not an edge of the (template-projected) state machine
   TRN-002  entry, edge or exit guard not satisfied
   TRN-003  forced escalation: a repair cap reached, or application/security/specification issue
+  TRN-004  leaving a state on the main line while a gate that state owns (and a later entry guard needs) is not met:
+           checked when its own state ends, not states later (e.g. plan_readiness leaving IMPLEMENTATION_PLAN)
+  TRN-005  SYSTEM_TEST_EXECUTION -> FAILURE_TRIAGE while full_regression is PASS: no PASS->FAIL to triage
+  TRN-006  moving into repair (QUALITY_GATE -> IMPLEMENTATION, SYSTEM_TEST_EXECUTION -> FAILURE_TRIAGE) while
+           full_regression is FAIL without the user's one `regression_fix` approval: ask once - fix, or raise a bug and
+           defer (`crewline regression-decision --fix | --defer --bug <KEY>`); the move consumes the approval
+Entering FAILURE_TRIAGE clears repair.classification: each triage classifies its own failure.
 """
 from __future__ import annotations
 
@@ -48,6 +56,7 @@ APPROVAL_FIELDS = ("approver", "reason", "scope", "timestamp")
 TIERS = ["L0", "L1", "L2", "L3"]
 DEFAULT_TYPE = "test-automation"     # manifests from the SDET assistant era carry no task_type
 NEVER_WAIVABLE = {"secrets", "requirement_clarity", "requirement_fit"}
+GUARD_WAIVABLE = {"full_regression"}     # an entry guard on these accepts an attributed whole-gate exception
 TRACKER_KEY = {
     "github": re.compile(r"^([\w.-]+/[\w.-]+)?#\d+$"),       # owner/repo#12, or #12 on the primary upstream repo
     "jira": re.compile(r"^[A-Z][A-Z0-9]+-\d+$"),             # INJIVER-1386
@@ -147,6 +156,10 @@ class Ctx:
         if gate in self.tpl.get("not_applicable_gates", {}) and gate not in self.tpl.get("required_gates", []) \
                 and gate not in NEVER_WAIVABLE:
             return True, ""                  # the template states why this type has nothing for the gate to measure
+        if "gate" in guard and gate in GUARD_WAIVABLE and any(
+                e.get("gate") == gate and not e.get("test_ids") and all(e.get(k) for k in APPROVAL_FIELDS)
+                for e in self.doc.get("exceptions") or []):
+            return True, ""                  # an attributed waiver of the whole gate (regression-decision --waive)
         actual = _gate(doc, guard["gate"]) if "gate" in guard else _get(doc, guard["path"])
         label = f"gate {guard['gate']}" if "gate" in guard else guard["path"]
         for op, want in guard.items():
@@ -167,16 +180,52 @@ class Ctx:
         return True, ""
 
 
-def check(manifest_path: str) -> Result:
-    res = Result("manifest", inputs={"manifest": manifest_path})
-    doc = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
-    ctx = Ctx(doc)
+def _json_path(parts) -> str:
+    return "$" + "".join(f"[{p}]" if isinstance(p, int) else f".{p}" for p in parts)
+
+
+def schema_errors(doc) -> list[str] | None:
+    """Every schema violation as '<JSON path>: <message>' (sorted by path), or None when jsonschema is not installed.
+    A anyOf/oneOf failure lists its branches' own errors, and an enum names its allowed values."""
     try:
         import jsonschema
-        for err in jsonschema.Draft202012Validator(json.loads(SCHEMA.read_text(encoding="utf-8"))).iter_errors(doc):
-            res.add("MAN-001", BLOCK, f"{'/'.join(map(str, err.path)) or '<root>'}: {err.message}")
     except ImportError:
+        return None
+    out = []
+    for err in jsonschema.Draft202012Validator(json.loads(SCHEMA.read_text(encoding="utf-8"))).iter_errors(doc):
+        msg = err.message
+        if err.validator == "enum":
+            msg = f"{err.instance!r} is not one of {', '.join(map(str, err.validator_value))}"
+        subs = sorted({f"{_json_path(e.absolute_path)}: {e.message}" for e in err.context or []})
+        out.append(f"{_json_path(err.absolute_path)}: {msg}" + (f" ({'; '.join(subs[:4])})" if subs else ""))
+    return sorted(out)
+
+
+def check(manifest_path: str) -> Result:
+    res = Result("manifest", inputs={"manifest": manifest_path})
+    try:
+        doc = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return Result.not_run("manifest", f"cannot read {manifest_path}: {e}")
+    errors = schema_errors(doc)
+    if errors is None:
         res.inputs["schema"] = "jsonschema not installed; schema check skipped"
+    elif errors:
+        for e in errors:
+            res.add("MAN-001", BLOCK, e)
+        res.inputs["schema_invalid"] = True
+    try:
+        _semantic(doc, res)
+    except (AttributeError, TypeError, KeyError) as e:
+        if not errors:
+            raise
+        res.add("MAN-001", BLOCK, f"semantic checks stopped on the schema violations above ({type(e).__name__}: {e}); "
+                "fix them all, then re-run")
+    return res.finish()
+
+
+def _semantic(doc: dict, res: Result) -> None:
+    ctx = Ctx(doc)
     res.inputs["task_type"] = doc.get("task_type") or DEFAULT_TYPE
     if not ctx.tpl:
         res.add("MAN-013", BLOCK, f"unknown task_type {doc.get('task_type')!r} (core/workflows/)")
@@ -212,7 +261,6 @@ def check(manifest_path: str) -> Result:
     _check_linked(doc, res)
     _tracker(doc, res, agents)
     _version_drift(doc, res)
-    return res.finish()
 
 
 def _tracker(doc: dict, res: Result, agents: set[str]) -> None:
@@ -422,7 +470,8 @@ def _version_drift(doc: dict, res: Result) -> None:
 
 
 def _required_gates(ctx: Ctx, res: Result, rule: str = "MAN-012") -> None:
-    excepted = {e.get("gate") for e in ctx.doc.get("exceptions", []) if all(e.get(k) for k in APPROVAL_FIELDS)}
+    excepted = {e.get("gate") for e in ctx.doc.get("exceptions", [])
+                if all(e.get(k) for k in APPROVAL_FIELDS) and not e.get("test_ids")}      # a per-test deferral is not the gate
     strict = set(ctx.tpl.get("no_silent_na", []))
     for name in ctx.tpl.get("required_gates", []):
         status = _gate(ctx.doc, name)
@@ -498,9 +547,38 @@ def _guards_for(ctx: Ctx, src: str, to_state: str) -> list[dict]:
     return guards
 
 
+REPAIR_MOVES = {("QUALITY_GATE", "IMPLEMENTATION"), ("SYSTEM_TEST_EXECUTION", "FAILURE_TRIAGE")}
+
+
+def _regression_fix_needed(doc: dict, src: str | None, to_state: str) -> bool:
+    return (src, to_state) in REPAIR_MOVES and _gate(doc, "full_regression") == "FAIL"
+
+
+def _open_approval(doc: dict, action: str) -> dict | None:
+    return next((a for a in doc.get("approvals", []) if a.get("action") == action and not a.get("consumed_by")
+                 and all(a.get(k) for k in APPROVAL_FIELDS)), None)
+
+
+def _own_gates_on_exit(ctx: Ctx, src: str, to_state: str, guards: list[dict], res: Result) -> None:
+    """TRN-004: a gate owned by `src` that a later state's entry guard needs is checked when `src` ends."""
+    if src not in ctx.path or to_state not in ctx.path or ctx.path.index(to_state) != ctx.path.index(src) + 1:
+        return
+    seen = [g for g in guards if "gate" in g]
+    for later in ctx.path[ctx.path.index(to_state) + 1:]:
+        for g in ctx.entry_guards(later):
+            if "gate" not in g or ctx.gate_state.get(g["gate"]) != src or g in seen:
+                continue
+            seen.append(g)
+            ok, why = ctx.holds(g)
+            if not ok:
+                res.add("TRN-004", BLOCK, f"leaving {src}: {why} ({later} needs it; {src} owns the gate)")
+
+
 def transition(manifest_path: str, to_state: str) -> Result:
     res = check(manifest_path)
     res.validator = "manifest-transition"
+    if res.status == "NOT_RUN" or res.inputs.get("schema_invalid"):
+        return res                       # the guards below assume the schema's types
     doc = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     ctx = Ctx(doc)
     src = doc.get("current_state")
@@ -531,6 +609,14 @@ def transition(manifest_path: str, to_state: str) -> Result:
         if ok:
             res.add("TRN-003", BLOCK, f"forced escalation in {src}: {guard} - only S_ESCALATE is allowed",
                     remediation="produce templates/escalation-report.md and move to S_ESCALATE")
+    _own_gates_on_exit(ctx, src, to_state, guards, res)
+    if src == "SYSTEM_TEST_EXECUTION" and to_state == "FAILURE_TRIAGE" and _gate(doc, "full_regression") == "PASS":
+        res.add("TRN-005", BLOCK, "full_regression is PASS (no PASS->FAIL): there is nothing to triage",
+                remediation="move to QUALITY_GATE; record a real failure (full_regression FAIL) before triage")
+    if _regression_fix_needed(doc, src, to_state) and not _open_approval(doc, "regression_fix"):
+        res.add("TRN-006", BLOCK, "full_regression found new breaks: ask the user once whether to fix them or raise a bug "
+                "and defer", remediation="crewline regression-decision --manifest <m> --fix --approver <who> --reason <why>,"
+                " or --defer --bug <KEY> --record <evidence/full-regression.json> ...")
     _tracker_guard(ctx, src, to_state, res)
     _subtask_guard(ctx, src, to_state, res)
     _before_final_report(ctx, manifest_path, to_state, res)
@@ -575,11 +661,19 @@ def apply(manifest_path: str, to_state: str, note: str = "") -> Result:
     else:
         guards = _guards_for(ctx, src, to_state)
     stamp = f"{src}->{to_state}@{at}"
+    fix = _open_approval(doc, "regression_fix") if _regression_fix_needed(doc, src, to_state) else None
+    if fix:
+        fix["consumed_by"] = stamp
     for action in {g["approval"] for g in guards if "approval" in g}:
         for a in doc.get("approvals", []):          # consume the oldest unconsumed matching approval
             if a.get("action") == action and not a.get("consumed_by"):
                 a["consumed_by"] = stamp
                 break
+    if to_state == "FAILURE_TRIAGE":                  # each triage classifies its own failure (TRN-005 note)
+        stale = (doc.get("repair") or {}).get("classification")
+        if stale:
+            doc["repair"]["classification"] = ""
+            res.summary += f"; cleared repair.classification {stale}"
     doc["current_state"] = to_state
     p.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     res.summary += f"; applied {src} -> {to_state}"

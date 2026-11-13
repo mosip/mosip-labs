@@ -189,11 +189,13 @@ gates:
     state: SYSTEM_TEST_EXECUTION
     enforced_by: deterministic
     commands: ["branch-env --manifest <task-manifest.json>"]
-    requires: [test_plan.environment_kind is branch-deployed-env or local-stack (or post-merge-deferred with an attributed exception), test_plan.environment names where the BRANCH build runs]
+    requires: [test_plan.environment_kind is branch-deployed-env or local-stack (or post-merge-deferred with an attributed exception, or local-test-rig for a test-rig-only change), test_plan.environment names where the BRANCH build runs]
     on_fail: WAITING_FOR_USER
     note: >-
       Does not provision Q8. It refuses a missing kind (BEV-001), a deferral without an exception (BEV-002),
-      an empty URL (BEV-003), and a released-only host named as the branch (BEV-004). Laptop recipe:
+      an empty URL (BEV-003), and a released-only host named as the branch (BEV-004; an attributed branch_environment
+      exception approves it). local-test-rig: every changed file is in the test rig, so the branch build is the local test
+      jar and a released env is correct (BEV-005 otherwise). Laptop recipe:
       evals/q8-local-stack.md. The user names the env.
 
   system_tests:
@@ -215,7 +217,12 @@ gates:
     procedure: [unit/component suites base vs branch AND the TestRig system suites base vs branch (same env, sequential)]
     commands: ["regression --baseline <base report> --candidate <branch report> --out <task>/evidence/full-regression[-<suite>].json --allow-fail <id with attributed exception>"]
     requires: ["code task types - a PASS full-regression record before COMMIT_PR (REG-007)", "one record compares a system suite the module declares (REG-008)", "reports - TestRig full-report HTML, JUnit/Surefire XML, Cucumber JSON (UI rig)"]
-    blocks_on: [PASS->FAIL on branch, new test failing without exception]
+    blocks_on: [PASS->FAIL on branch, new test failing without exception, a language/module run missing on the branch (REG-009)]
+    decisions: >-
+      One user decision each, recorded by `crewline regression-decision`: --waive (no code change, checked from the diff,
+      or the user's explicit waiver) records an attributed exception instead of a run; --fix approves the repair loop
+      (TRN-006); --defer --bug <KEY> covers every new break in the record with one approval and adds a raised defect
+      (`regression --manifest <m>` then marks them APPROVED). A break classified CODE_UNDER_CHANGE is never deferred.
     scope_rule: "crewline scope (TestRig) / changed modules (unit): only new tests added -> those tests (+ producers); anything else -> FULL"
 
   defect_reports:

@@ -9,6 +9,73 @@ because Claude Code updates an installed plugin only when that version changes. 
   changed for them.
 - **MAJOR**: a change that can break a task in progress (state machine, manifest schema). Finish or restart open tasks.
 
+## 0.8.0
+Token cost. KM-COV-001 (keymanager coverage matrices) spent 94M tokens against the 8M per-task budget and the budget never
+stopped it. Stricter for tasks in progress: USE-001 is now a BLOCK, and USE-010/011 are new BLOCKs.
+- **Meter was blind:** `crewline usage` was run without `--transcript`, counted 0 calls and passed. It now finds the Claude
+  Code transcripts of the clone and its worktrees by itself. Transcripts with no call in the task window BLOCK (USE-001);
+  a Claude session with no transcript found BLOCKs (USE-010). Cursor without a transcript is unchanged (USE-006).
+- **Per-subagent cap:** `per_subagent` (1.5M) BLOCKs one subagent run over it (USE-011); `context_warn` (150k) warns when a
+  call's context passes it, for the orchestrator or a subagent (USE-012). `usage.md` gains a By agent table with peak context.
+- **testcase-designer** runs on `model: sonnet`, reads `packets/FACTS.md` instead of re-reading the service source, does at
+  most 4 matrix files per run, appends rows instead of rewriting tables, and stops at ~120k context.
+- **Orchestrator** (rule 14a): facts packet before many-file batches, at most 2 designers at once, a fresh run with a packet
+  instead of `SendMessage` to a large subagent, `/compact` or `crewline resume` on USE-012, and `crewline usage` after
+  every subagent hand-back.
+- **`task new --repo <clone>`** (repeatable; first = primary): fills `scope.repositories`, excludes `.crewline-work/` in each
+  clone, and keeps the task in the primary clone. From a folder that is not a clone, `task new` used to write the task into
+  the plugin cache (lost on update); it now refuses (TSK-011). Seen in the Java 21/25 migration session, which moved the task by
+  hand and spent five calls reading the schema and hand-writing the manifest.
+
+Efficiency findings from MOSIP-45750 (Java 21 -> 25 upgrade, run on 0.7.2). Stricter for tasks in progress: TRN-004, TRN-005.
+- **Tasks stay in the clone (#3):** in any git clone, onboarded or not, the task root is `<main clone>/.crewline-work/tasks`
+  (the plugin cache only outside git, or in the Crewline source clone); `task new` adds `.crewline-work/` to
+  `.git/info/exclude`. No more `CREWLINE_TASKS` on every shell call.
+- **`crewline run` on Windows (#13, #15, #6):** the executable is resolved through PATH/PATHEXT (`mvn` -> `mvn.cmd`; was
+  WinError 2). `--env KEY=VALUE` sets a variable for one run (`JAVA_HOME` also leads PATH); the record keeps the names, and
+  `java_version` says which JDK produced the evidence. Commands run with `MSYS_NO_PATHCONV=1`.
+- **Schema first (#4, #14, #16):** `manifest` reports every MAN-001 at once, each with its JSON path
+  (`$.scope.repositories[0]`) and an enum's allowed values; a type error after that is a named MAN-001, not an
+  `AttributeError`. `robustness` validates the manifest before reading it.
+- **BEV-004 exception, `local-test-rig` (#18, #9):** an attributed `branch_environment` exception approves BEV-004, so the gate
+  PASSes from the command, not a manual override. New `environment_kind: local-test-rig` for a change confined to the test
+  rig (`api-test/`, `apitest-commons/`, UI/DSL rigs): the branch build is the local test jar, so a released env is the right
+  target. BEV-005 refuses it when a changed file is outside the rig.
+- **Regression (#21, #22):** a folder with one TestRig full report per language is paired by run (`<env>-<module>-<lang>`,
+  newest each) and every pair compared; a base run with no branch run BLOCKs (REG-009). `--out` copies the compared reports to
+  `<out dir>/reports/<out stem>/{base,branch}` and REG-007 hashes those copies, so the base checkout can be removed right
+  after its run.
+- **`tools --task-type` (#1):** capabilities whose `needed_for` names only other task types are skipped (TOOL-003), e.g. helm
+  for a dependency-upgrade. Defaults to the active task's type.
+- **Gates when their state ends (#10, #23):** leaving a state on the main line checks the gates it owns that a later entry
+  guard needs (TRN-004: plan_readiness on leaving IMPLEMENTATION_PLAN, not at IMPLEMENTATION). SYSTEM_TEST_EXECUTION ->
+  FAILURE_TRIAGE is refused while full_regression is PASS (TRN-005), and entering FAILURE_TRIAGE clears
+  `repair.classification`.
+
+Regression decisions, kept reports, and KM-COV-001 (session review). Stricter for tasks in progress: TRN-006, EVD-005.
+- **Full regression, one decision each (`crewline regression-decision`):** `--waive` records an attributed exception
+  instead of a run: `no_code_change` when the diff (`--repo/--base`) has only docs / coverage / markdown, otherwise
+  `user_waiver`. After base and branch ran with new breaks, the user is asked once: `--fix` records `regression_fix`,
+  which the move into repair needs (TRN-006, consumed by it); `--defer --bug <KEY>` covers every new break in the record
+  with ONE exception and adds a raised defect, and `regression --manifest <m>` re-scores them APPROVED. A
+  CODE_UNDER_CHANGE break is never deferred (RGD-003); a per-test deferral never waives the whole gate. KM-COV-001
+  recorded 23 separate exceptions for one decision.
+- **Reuse the user's base run:** `regression --baseline <existing report> --baseline-from-user --approver <who>` skips
+  the base build and run when a recent full run on the same environment exists; REG-010 needs the approver and warns
+  past `--max-age-days` (14). Pairing by `<env>-<module>-<lang>` refuses a base from another environment.
+- **Run reports kept with the task:** `crewline run` copies `--report` and every report the run wrote (TestRig
+  `testng-report/`, Surefire/Failsafe XML, cucumber.json) to `<task>/evidence/reports/<record>/` and lists them in the
+  record (EVD-006); EVD-004 accepts the kept copy once the worktree is gone.
+- **`crewline run --timeout <min> --fail-on <regex>`:** stops a run that hangs (KM-COV-001: a TestRig 401 at login hung the
+  base run for 38 minutes) and records why (EVD-005).
+- **Guard false positives:** `git commit` / `push --force` inside a quoted argument or heredoc (a manifest note, a commit
+  message) is no longer read as a git command (GRD-005 / GRD-002 in KM-COV-001); a nested `bash -c` still is. Writes to
+  a path in no git checkout (agent memory, an 8.3 temp scratchpad) are not repository changes (GRD-004).
+- **`crewline creds merge --from <values> --into <props>` / `restore`:** env values into a worktree config by key, names
+  only in the output, tracked file marked skip-worktree, original kept and restored (finding #19).
+- **Orchestrator 14b:** a re-review checks the previous findings and the diff since; after two rounds with new findings
+  the user decides (KM-COV-001 ran five fresh-context rounds).
+
 ## 0.7.4
 The rest of what PP-PYSDK found. Stricter rules for tasks in progress: REQ-005/006, PKT-005, MAN-019, CIC-001; DCV-005 can block.
 Closes mosip/mosip-labs#117, #118, #119, #120, #121, #122.
