@@ -190,6 +190,8 @@ function App() {
           startDate={startDate}
           endDate={endDate}
           onPeriodChange={handlePeriodChange}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
         />
       )}
 
