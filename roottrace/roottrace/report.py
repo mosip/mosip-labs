@@ -249,7 +249,20 @@ def _chain_names(chain: dict) -> set[str]:
     return {n.lower() for n in names if n}
 
 
+def _owns(iss: dict, root: str) -> bool:
+    """True when this issue is the chain root. The dependency-map name wins over the pod name."""
+    comp = (iss.get("component") or "").lower()
+    if comp:
+        return comp == root
+    ns = (iss.get("namespace") or "").lower()
+    svc = (iss.get("service") or "").lower()
+    return ns == root or svc == root or svc.startswith(root + "-")
+
+
 def _on_chain(chain: dict, iss: dict, names: set[str]) -> bool:
+    comp = (iss.get("component") or "").lower()
+    if comp:
+        return comp in names
     ns = (iss.get("namespace") or "").lower()
     svc = (iss.get("service") or "").lower()
     if ns in names or svc in names:
@@ -259,9 +272,7 @@ def _on_chain(chain: dict, iss: dict, names: set[str]) -> bool:
 
 def _root_issue(chain: dict, issues: list[dict], names: set[str]) -> dict | None:
     root = (chain.get("root") or "").lower()
-    own = [i for i in issues if _on_chain(chain, i, names) and (
-        (i.get("namespace") or "").lower() == root or (i.get("service") or "").lower() == root
-        or (i.get("service") or "").lower().startswith(root + "-"))]
+    own = [i for i in issues if _on_chain(chain, i, names) and _owns(i, root)]
     if not own:
         return None
     return max(own, key=lambda i: i.get("score") or 0)
@@ -288,8 +299,12 @@ def _moments(iss: dict) -> list[int]:
     return sorted(raw)
 
 
-def _closest(cause: list[int], symptom: list[int]) -> int | None:
-    """Smallest gap (symptom time minus cause time) inside the window. None when they never line up."""
+def _closest(cause: list[int], symptom: list[int]) -> tuple[int, int] | None:
+    """(gap, cause time) for the closest pair inside the window. None when they never line up.
+
+    The cause time is the one that matched, so the next hop is measured from that moment
+    and not from some other firing of the same pattern.
+    """
     if not cause or not symptom:
         return None
     best = None
@@ -298,8 +313,8 @@ def _closest(cause: list[int], symptom: list[int]) -> int | None:
         hi = bisect_right(cause, st + _AFTER_NS)
         for ct in cause[lo:hi]:
             delta = st - ct
-            if best is None or abs(delta) < abs(best):
-                best = delta
+            if best is None or abs(delta) < abs(best[0]):
+                best = (delta, ct)
     return best
 
 
@@ -321,24 +336,25 @@ def _time_frames(iss: dict, by_comp: dict[str, list[dict]], calls: dict[str, set
     frames: list[dict] = []
     seen_ids = {id(iss)}
     seen_comp = {_comp(iss)}
-    layer = [iss]
+    layer = [(iss, moments[id(iss)])]
     while layer and len(frames) < 4:
         found = []
-        for cur in layer:
+        for cur, anchors in layer:
             for dep in calls.get(_comp(cur), ()):
                 if dep in seen_comp:
                     continue
                 for other in by_comp.get(dep, []):
                     if id(other) in seen_ids:
                         continue
-                    delta = _closest(moments[id(other)], moments[id(cur)])
-                    if delta is None:
+                    pair = _closest(moments[id(other)], anchors)
+                    if pair is None:
                         continue
-                    found.append((abs(delta), delta, other, dep))
+                    delta, cause_ts = pair
+                    found.append((abs(delta), delta, cause_ts, other, dep))
         found.sort(key=lambda row: row[0])
         nxt = []
         taken: set[str] = set()
-        for _, delta, other, dep in found:
+        for _, delta, cause_ts, other, dep in found:
             if dep in seen_comp or dep in taken or id(other) in seen_ids:
                 continue
             taken.add(dep)
@@ -347,7 +363,7 @@ def _time_frames(iss: dict, by_comp: dict[str, list[dict]], calls: dict[str, set
             frame = _frame(other)
             frame["gap"] = _gap(delta)
             frames.append(frame)
-            nxt.append(other)
+            nxt.append((other, [cause_ts]))
             if len(frames) >= 4:
                 break
         layer = nxt
@@ -360,48 +376,36 @@ def attach_stacks(issues: list[dict], chains: list[dict], calls: dict[str, set[s
     an earlier error that shares its transaction id; otherwise an error on a service it calls
     that was logged within a few seconds; otherwise the root of its failure chain.
     """
-    parent = list(range(len(issues)))
-
-    def find(x: int) -> int:
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(a: int, b: int) -> None:
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[rb] = ra
-
-    seen: dict[str, int] = {}
-    for i, iss in enumerate(issues):
+    by_tid: dict[str, list[dict]] = {}
+    for iss in issues:
         for tid in iss.get("trace_ids") or []:
-            if tid in seen:
-                union(i, seen[tid])
-            else:
-                seen[tid] = i
-    groups: dict[int, list[dict]] = {}
-    for i, iss in enumerate(issues):
-        if iss.get("trace_ids"):
-            groups.setdefault(find(i), []).append(iss)
+            by_tid.setdefault(tid, []).append(iss)
 
     peers: dict[int, list[dict]] = {}
-    for members in groups.values():
-        if len(members) < 2:
+    for iss in issues:
+        mine = set(iss.get("trace_ids") or [])
+        if not mine:
             continue
-        for iss in members:
-            peers[id(iss)] = members
+        found = []
+        seen = set()
+        for tid in mine:
+            for other in by_tid.get(tid, []):
+                if other is iss or id(other) in seen:
+                    continue
+                if mine.intersection(other.get("trace_ids") or []):
+                    seen.add(id(other))
+                    found.append(other)
+        if found:
+            peers[id(iss)] = found
 
     named = [(ch, _chain_names(ch)) for ch in chains]
 
     def root_frame(iss: dict) -> dict | None:
-        ns = (iss.get("namespace") or "").lower()
-        svc = (iss.get("service") or "").lower()
         for ch, names in named:
             if not _on_chain(ch, iss, names):
                 continue
             root = (ch.get("root") or "").lower()
-            if ns == root or svc == root or svc.startswith(root + "-"):
+            if _owns(iss, root):
                 return None                            # this error is the root, nothing under it
             top = _root_issue(ch, issues, names)
             if top is not None and top is not iss:
@@ -453,9 +457,7 @@ def attach_stacks(issues: list[dict], chains: list[dict], calls: dict[str, set[s
             prev = by_svc.get(iss.get("service") or "")
             if prev is None or (iss.get("score") or 0) > (prev.get("score") or 0):
                 by_svc[iss.get("service") or ""] = iss
-        own = [i for i in by_svc.values() if (i.get("namespace") or "").lower() == root
-               or (i.get("service") or "").lower() == root
-               or (i.get("service") or "").lower().startswith(root + "-")]
+        own = [i for i in by_svc.values() if _owns(i, root)]
         kids = [i for i in by_svc.values() if i not in own]
         kids.sort(key=lambda i: -(i.get("score") or 0))
         frames = [_frame(i) for i in kids[:6]]
@@ -522,6 +524,10 @@ def build(result: dict) -> dict:
     elif new or issues:
         verdict = f"Degraded. Start with {look}." if look else f"Degraded. {len(issues)} error patterns, {new} of them new."
         vcls = "warn"
+    elif result.get("coverage"):
+        # An empty window that Loki did not finish is not a clean result.
+        verdict = "Incomplete. Part of this window was not read, so a clean result is not known."
+        vcls = "bad"
     else:
         verdict, vcls = "Healthy. No errors in this window.", ""
     # The same Drain template in two services is one shared upstream, not two incidents.
@@ -582,6 +588,9 @@ def _annotate_streaks(r: dict, out: Path) -> None:
     for path in hist.glob("roottrace-report-*.json"):
         day = path.name[len("roottrace-report-"):len("roottrace-report-") + 8]
         if len(day) != 8 or not day.isdigit():
+            continue
+        today = datetime.now(timezone.utc).strftime("%Y%m%d")
+        if day >= today:
             continue
         try:
             prior = json.loads(path.read_text(encoding="utf-8"))

@@ -1,17 +1,17 @@
 """Saved log lines for a scan, so a later run can analyze them without calling Loki again.
 
-A scan writes three files under ``<out>/traces``:
+A scan publishes one generation under ``<out>/traces/generations/<stamp>`` and then
+points ``LATEST`` at it. A reader follows that pointer, so a save that stops halfway
+cannot mix a new current file with an old baseline. A directory written before
+generations existed is still read when ``LATEST`` is absent.
 
-- ``meta.json`` — the window, the query, and any slices that stopped early
-- ``current.jsonl`` — one masked event per line for the window
-- ``baseline.jsonl`` — the same for the comparison window
-
-The lines are already masked. They stay on disk until the next scan of that output directory replaces them.
+The lines are already masked.
 """
 from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, fields
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .parser import Event
@@ -38,24 +38,31 @@ def dir_for(out_dir: str) -> Path:
 
 def save(out_dir: str, start_ns: int, end_ns: int, baseline_offset: str, query: str,
          coverage: list, current: list, baseline: list) -> Path:
-    """Write the window's events. Returns the traces directory."""
+    """Write one complete generation, then publish it. Returns the traces directory."""
     dest = dir_for(out_dir)
     dest.mkdir(parents=True, exist_ok=True)
-    _write_events(dest / "current.jsonl", current)
-    _write_events(dest / "baseline.jsonl", baseline)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    gen = dest / "generations" / stamp
+    gen.mkdir(parents=True)
+    _write_events(gen / "current.jsonl", current)
+    _write_events(gen / "baseline.jsonl", baseline)
     meta = {
         "start_ns": start_ns, "end_ns": end_ns, "baseline_offset": baseline_offset,
         "query": query, "coverage": coverage,
         "current_count": len(current), "baseline_count": len(baseline),
     }
-    (dest / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    (gen / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    pointer = dest / "LATEST.tmp"
+    pointer.write_text(json.dumps({"generation": stamp}), encoding="utf-8")
+    pointer.replace(dest / "LATEST")
     return dest
 
 
 def load(out_dir: str) -> SavedTraces:
-    """Read a previous scan's events. Raises FileNotFoundError when that scan never saved them."""
+    """Read the published generation. Raises FileNotFoundError when that scan never saved them."""
     dest = dir_for(out_dir)
-    meta_path = dest / "meta.json"
+    gen = _published(dest)
+    meta_path = gen / "meta.json"
     if not meta_path.is_file():
         raise FileNotFoundError(
             f"No saved traces in {dest}. Run a scan first; it downloads the lines. "
@@ -67,9 +74,19 @@ def load(out_dir: str) -> SavedTraces:
         baseline_offset=meta.get("baseline_offset") or "24h",
         query=meta.get("query") or "",
         coverage=list(meta.get("coverage") or []),
-        current=_read_events(dest / "current.jsonl"),
-        baseline=_read_events(dest / "baseline.jsonl"),
+        current=_read_events(gen / "current.jsonl"),
+        baseline=_read_events(gen / "baseline.jsonl"),
     )
+
+
+def _published(dest: Path) -> Path:
+    """The generation LATEST names. A directory from before generations is the folder itself."""
+    latest = dest / "LATEST"
+    if latest.is_file():
+        name = json.loads(latest.read_text(encoding="utf-8")).get("generation")
+        if name:
+            return dest / "generations" / name
+    return dest
 
 
 def _write_events(path: Path, events: list) -> None:
@@ -80,8 +97,7 @@ def _write_events(path: Path, events: list) -> None:
 
 
 def _read_events(path: Path) -> list:
-    if not path.is_file():
-        return []
+    """Read one event file. A missing file raises; an empty file is an empty scan."""
     out = []
     with path.open(encoding="utf-8") as fh:
         for line in fh:

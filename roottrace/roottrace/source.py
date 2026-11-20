@@ -111,14 +111,16 @@ def attach_snippets(issues: list[dict], revisions: list[dict], fetch=fetch_snipp
     for row in revisions or []:
         commit = (row.get("revision") or {}).get("commit")
         if row.get("pod") and commit:
-            by_pod[row["pod"]] = commit
+            by_pod[(row.get("namespace"), row["pod"])] = commit
     opened = 0
     ranked = sorted(issues, key=lambda i: -(i.get("score") or 0))
     for iss in ranked:
         code = iss.get("code")
         if not code or not code.get("line"):
             continue
-        commit = next((by_pod[p] for p in iss.get("pods") or [] if p in by_pod), None)
+        ns = iss.get("namespace")
+        pods = [code["pod"]] if code.get("pod") else list(iss.get("pods") or [])
+        commit = next((by_pod[(ns, p)] for p in pods if (ns, p) in by_pod), None)
         if not commit:
             code["snippet_note"] = "running commit was not read from the pod"
             continue

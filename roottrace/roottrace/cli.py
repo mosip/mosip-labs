@@ -74,15 +74,17 @@ def main(argv=None):
             else:
                 loaded = load_traces(a.out)
                 # The saved file is one window. --since would ask Loki for a new one, which this run does not do.
-                print(f"Using saved traces {loaded.directory}")
-                print(f"Window: {report.fmt_ts(loaded.start_ns)} → {report.fmt_ts(loaded.end_ns)}")
+                # Status lines stay off stdout when the caller asked for JSON.
+                if not a.json:
+                    print(f"Using saved traces {loaded.directory}")
+                    print(f"Window: {report.fmt_ts(loaded.start_ns)} → {report.fmt_ts(loaded.end_ns)}")
                 cfg.baseline_offset = loaded.baseline_offset
                 r = engine.scan(cfg, loaded.start_ns, loaded.end_ns, a.namespace, loaded=loaded)
         except FileNotFoundError as e:
-            print(e)
+            print(e, file=sys.stderr)
             return 1
         hp, jp = report.write(r, a.out)
-        if r.get("traces_saved"):
+        if r.get("traces_saved") and not a.json:
             print(f"Traces: {r['traces_saved']}")
         if a.slack and cfg.slack_webhook:
             notify.slack(cfg.slack_webhook, r, a.report_url)
@@ -107,7 +109,7 @@ def main(argv=None):
                 r = engine.trace(cfg, a.id, loaded.start_ns, loaded.end_ns, a.namespace,
                                  events=loaded.current)
         except FileNotFoundError as e:
-            print(e)
+            print(e, file=sys.stderr)
             return 1
         if a.json:
             print(json.dumps(r, indent=2))

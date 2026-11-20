@@ -198,7 +198,7 @@ start roottrace-out\roottrace-report.html
 - `-v` prints progress (`INFO …`) so you can see it working.
 - The terminal prints the verdict and the top 10 patterns. The full detail is in the HTML report.
 
-**Exit code:** `0` means healthy or degraded, and `2` means **critical**. That's a critical known issue, failing pods, a silent service, or a high score, so you can use it to gate CI or stop a test run.
+**Exit code:** `0` means healthy or degraded, and `2` means **critical**. That's a critical known issue, failing pods, a silent service, a high score, or a window that was not fully read, so you can use it to gate CI or stop a test run.
 
 ### Your daily routine (after the first setup)
 ```powershell
@@ -217,12 +217,13 @@ start roottrace-out\roottrace-report.html
 A scan downloads the matching lines and then analyzes them on this machine. Downloading is on by default, and the lines are written next to the report:
 
 ```text
-roottrace-out\traces\current.jsonl     errors and warnings for the window
-roottrace-out\traces\baseline.jsonl    the same window one baseline earlier (24h by default)
-roottrace-out\traces\meta.json         the window start and end, the query, and any partial slices
+roottrace-out\traces\LATEST                         which generation is complete
+roottrace-out\traces\generations\<stamp>\current.jsonl
+roottrace-out\traces\generations\<stamp>\baseline.jsonl
+roottrace-out\traces\generations\<stamp>\meta.json
 ```
 
-The lines are already masked. The folder is replaced the next time a scan of that same `--out` directory downloads again. `roottrace-out/` is gitignored.
+A scan writes the three files, then points `LATEST` at that generation. A save that stops halfway leaves the previous generation in place. A folder that already has `current.jsonl`, `baseline.jsonl`, and `meta.json` directly under `traces\` (no `LATEST`) is still read. The lines are already masked. `roottrace-out/` is gitignored.
 
 Run the analysis again on those files. This does not call Loki, and it keeps the window that was saved, so `--since` is not a new download:
 

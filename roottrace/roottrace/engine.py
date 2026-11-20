@@ -116,7 +116,7 @@ def _pull(loki: LokiClient, query: str, start: int, end: int, cfg: Config, which
     and marked partial, so the rest of the window still runs.
     """
     pending = _slices(start, end)
-    events = []
+    acquired = []
     partial = []
     i = 0
     while i < len(pending):
@@ -133,9 +133,12 @@ def _pull(loki: LokiClient, query: str, start: int, end: int, cfg: Config, which
             partial.append({"which": which, "from_ns": a, "to_ns": b, "reason": "Loki did not answer"})
             log.warning("Loki %s slice skipped: %s", which, e)
             continue
-        events.extend(e for e in parse(rows, cfg.service_label) if keep(e, cfg.include_warn))
+        acquired.extend(rows)
         if loki.truncated:
             partial.append({"which": which, "from_ns": a, "to_ns": b, "reason": "stopped at max_lines"})
+    # One parse across the slices so a stack that crosses a boundary stays one event.
+    acquired.sort(key=lambda e: e.ts_ns)
+    events = [e for e in parse(acquired, cfg.service_label) if keep(e, cfg.include_warn)]
     return events, partial
 
 
@@ -154,8 +157,9 @@ def scan(cfg: Config, start: int, end: int, namespaces: list[str] | None = None,
     saved_to = None
     if loaded is not None:
         cur, base = list(loaded.current), list(loaded.baseline)
-        if namespaces:
-            want = set(namespaces)
+        selected = namespaces or cfg.namespaces
+        if selected:
+            want = set(selected)
             cur = [e for e in cur if e.namespace in want]
             base = [e for e in base if e.namespace in want]
         gaps, q = list(loaded.coverage), loaded.query
@@ -217,7 +221,16 @@ def scan(cfg: Config, start: int, end: int, namespaces: list[str] | None = None,
     cut = min((r["ts_ns"] for r in kube["rollouts"]), default=0)
     for iss in issues:
         iss.since_deploy = (iss.first_ns >= cut) if cut and iss.is_new else None
-    targets = [(iss.namespace, pod, None) for iss in issues for pod in sorted(iss.pods)[:1]]
+    targets = []
+    seen_pods = set()
+    for iss in issues:
+        pod = (iss.code or {}).get("pod") or next(iter(sorted(iss.pods)), None)
+        if not pod:
+            continue
+        key = (iss.namespace, pod, None)
+        if key not in seen_pods:
+            seen_pods.add(key)
+            targets.append(key)
     targets += [(f["namespace"], f["pod"], f.get("container"))
                 for f in kube["findings"] if f["kind"] in ("pod-state", "restart", "not-ready")]
     revisions = k8smod.read_revisions(cfg.k8s, targets)

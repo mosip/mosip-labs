@@ -1,4 +1,7 @@
 """Saved scans can be analyzed again without calling Loki."""
+import contextlib
+import io
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -43,6 +46,10 @@ def test_roundtrip_and_rescan():
         narrowed = engine.scan(cfg, loaded.start_ns, loaded.end_ns, ["keymanager"], loaded=loaded)
         assert {i["service"] for i in narrowed["issues"]} == {"keymanager"}
 
+        cfg.namespaces = ["ida"]
+        configured = engine.scan(cfg, loaded.start_ns, loaded.end_ns, loaded=loaded)
+        assert {i["service"] for i in configured["issues"]} == {"ida-auth"}
+
         found = engine.trace(cfg, "TXN10042", loaded.start_ns, loaded.end_ns, events=loaded.current)
         assert found["count"] == 2
         assert found["services"] == ["ida-auth", "keymanager"]
@@ -56,16 +63,55 @@ def test_cli_uses_the_file():
         save(tmp, 10, 20, "24h", "q", [], [_ev(1_000_000_000_000, "resident", "resident", "connection refused")], [])
         cfg = Path(tmp) / "cfg.yaml"
         cfg.write_text("k8s:\n  enabled: false\nloki:\n  url: http://127.0.0.1:1\n", encoding="utf-8")
-        code = main(["scan", "-c", str(cfg), "--no-download-traces", "--out", tmp, "--json"])
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = main(["scan", "-c", str(cfg), "--no-download-traces", "--out", tmp, "--json"])
         assert code in (0, 2)
+        json.loads(buf.getvalue())
         text = (Path(tmp) / "roottrace-report.html").read_text(encoding="utf-8")
         assert "from saved traces" in text
         assert "connection refused" in text
 
 
+def test_publish_is_one_generation():
+    cur = [_ev(1_000_000_000_000, "ida", "ida-auth", "sign failed")]
+    with tempfile.TemporaryDirectory() as tmp:
+        save(tmp, 10, 20, "24h", "q", [], cur, [])
+        dest = Path(tmp) / "traces"
+        stamp = json.loads((dest / "LATEST").read_text(encoding="utf-8"))["generation"]
+        published = dest / "generations" / stamp
+        assert (published / "current.jsonl").is_file()
+        assert (published / "baseline.jsonl").is_file()
+        half = dest / "generations" / "99990101T000000000000Z"
+        half.mkdir()
+        (half / "current.jsonl").write_text('{"ts_ns": 1}\n', encoding="utf-8")
+        assert load(tmp).current[0].message == "sign failed"
+        (published / "baseline.jsonl").unlink()
+        try:
+            load(tmp)
+        except FileNotFoundError:
+            return
+        raise AssertionError("a missing baseline was treated as an empty window")
+
+
+def test_flat_layout_still_loads():
+    cur = [_ev(1_000_000_000_000, "ida", "ida-auth", "sign failed")]
+    with tempfile.TemporaryDirectory() as tmp:
+        save(tmp, 10, 20, "24h", "q", [], cur, [])
+        dest = Path(tmp) / "traces"
+        stamp = json.loads((dest / "LATEST").read_text(encoding="utf-8"))["generation"]
+        gen = dest / "generations" / stamp
+        for name in ("meta.json", "current.jsonl", "baseline.jsonl"):
+            (gen / name).replace(dest / name)
+        (dest / "LATEST").unlink()
+        assert load(tmp).current[0].message == "sign failed"
+
+
 def main_tests():
     test_roundtrip_and_rescan()
     test_cli_uses_the_file()
+    test_publish_is_one_generation()
+    test_flat_layout_still_loads()
     print("TRACE FILE CHECKS PASSED")
 
 

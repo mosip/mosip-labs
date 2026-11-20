@@ -50,6 +50,28 @@ def test_attach_uses_pod_commit():
     assert calls == ["fa3d713f2de9"]
     assert missed["code"]["snippet_note"] == "running commit was not read from the pod"
 
+    calls.clear()
+    ida = {"score": 9, "namespace": "ida", "pods": ["auth-0"], "code": {
+        "class": "io.mosip.authentication.service.AuthService", "file": "AuthService.java",
+        "line": 210, "repo": "https://github.com/mosip/id-authentication", "pod": "auth-0"}}
+    other = {"score": 8, "namespace": "other", "pods": ["auth-0"], "code": {
+        "class": "io.mosip.authentication.service.AuthService", "file": "AuthService.java",
+        "line": 210, "repo": "https://github.com/mosip/id-authentication", "pod": "auth-0"}}
+    attach_snippets([ida, other], [
+        {"namespace": "other", "pod": "auth-0", "revision": {"commit": "aaaaaaaaaaaa"}},
+        {"namespace": "ida", "pod": "auth-0", "revision": {"commit": "fa3d713f2de9"}},
+    ], fetch=fetch)
+    assert calls == ["fa3d713f2de9", "aaaaaaaaaaaa"]
+
+    stray = {"score": 7, "namespace": "ida", "pods": ["auth-0", "auth-1"], "code": {
+        "class": "io.mosip.authentication.service.AuthService", "file": "AuthService.java",
+        "line": 12, "repo": "https://github.com/mosip/id-authentication", "pod": "auth-1"}}
+    attach_snippets([stray], [
+        {"namespace": "ida", "pod": "auth-0", "revision": {"commit": "bbbbbbbbbbbb"}},
+    ], fetch=fetch)
+    assert calls == ["fa3d713f2de9", "aaaaaaaaaaaa"]
+    assert stray["code"]["snippet_note"] == "running commit was not read from the pod"
+
 
 def test_catalog_certainty(tmp_path=None):
     path = Path(__file__).parent / "_catalog_certainty.yaml"

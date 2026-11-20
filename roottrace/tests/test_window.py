@@ -69,11 +69,58 @@ def test_timeout_is_split_and_reported():
     assert boom.calls and min(boom.calls) <= engine._MIN_NS
 
 
+def test_stack_crosses_a_slice():
+    from roottrace.loki import LogEntry
+    labels = {"namespace": "ida", "app": "ida-auth", "pod": "p"}
+
+    class Split:
+        truncated = False
+
+        def query_range(self, query, start, end):
+            if end <= engine._SLICE_NS:
+                return [LogEntry(100, labels, "2026-11-19 10:00:00 ERROR sign failed")]
+            return [LogEntry(200, labels, "Caused by: java.lang.NullPointerException: boom")]
+
+    events, partial = engine._pull(Split(), "q", 0, engine._SLICE_NS + 1, Config(), "current")
+    assert partial == []
+    assert len(events) == 1, events
+    assert events[0].root_cause and "NullPointerException" in events[0].root_cause
+
+
+def test_unread_window_is_incomplete():
+    class Dead:
+        truncated = False
+
+        def __init__(self, cfg):
+            pass
+
+        def query_range(self, *a, **k):
+            raise RuntimeError("timeout")
+
+        def instant_vector(self, *a, **k):
+            raise RuntimeError("timeout")
+
+    orig = engine.LokiClient
+    engine.LokiClient = Dead
+    try:
+        cfg = Config()
+        cfg.k8s.enabled = False
+        now = time.time_ns()
+        result = engine.scan(cfg, now - 3600 * 10**9, now)
+    finally:
+        engine.LokiClient = orig
+    assert result["verdict"].startswith("Incomplete")
+    assert result["critical"]
+    assert result["coverage"]
+
+
 def main():
     test_slices()
     test_long_window_is_split()
     test_cap_is_partial()
     test_timeout_is_split_and_reported()
+    test_stack_crosses_a_slice()
+    test_unread_window_is_incomplete()
     print("WINDOW CHECKS PASSED")
 
 

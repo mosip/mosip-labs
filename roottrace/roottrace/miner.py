@@ -145,7 +145,7 @@ class Miner:
             if iss.code is None:
                 loc = code_location(ev)            # first event that can name a MOSIP frame wins
                 if loc:
-                    iss.code = loc
+                    iss.code = {**loc, "pod": ev.pod}
                     iss.code_note = None
                 elif not iss.code_note:
                     # A one-line message has nothing to open. A stack of library frames is a different gap.
