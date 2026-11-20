@@ -13,6 +13,7 @@ class FakeLoki:
     def __init__(self, lines):  # lines: list of (ts_ns, labels, line)
         self.lines = sorted(lines, key=lambda x: x[0])
         self.queries = []
+        self.ranges = []                        # (start, end, limit) for each query_range
 
     def _filter(self, q, start, end):
         sel = re.search(r"\{(.*?)\}", q).group(1)
@@ -39,6 +40,7 @@ class FakeLoki:
         q = qs.get("query", "")
         self.queries.append(q)
         if path.endswith("/query_range"):
+            self.ranges.append((int(qs["start"]), int(qs["end"]), int(qs.get("limit", 100))))
             rows = self._filter(q, int(qs["start"]), int(qs["end"]))[: int(qs.get("limit", 100))]
             streams = {}
             for ts, lb, line in rows:

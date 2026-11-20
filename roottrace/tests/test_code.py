@@ -66,6 +66,8 @@ def test_scan():
     assert err["code"]["file"] == "AuthService.java" and err["code"]["line"] == 210
     assert err["code"]["repo"].endswith("/id-authentication"), err["code"]
     assert err["path"] == ["keymanager", "ida-auth"], err["path"]
+    assert err["code"]["snippet_note"] == "running commit was not read from the pod"
+    assert warn["code"] is None and warn["code_note"] == "no stack in this window", warn
 
 
 def main():

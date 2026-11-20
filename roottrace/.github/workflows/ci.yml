@@ -27,3 +27,7 @@ jobs:
           python tests/test_service_name.py
           python tests/test_warn.py
           python tests/test_solid.py
+          python tests/test_source.py
+          python tests/test_stack.py
+          python tests/test_window.py
+          python tests/test_traces.py

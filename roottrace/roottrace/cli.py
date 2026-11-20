@@ -2,7 +2,9 @@
 
   roottrace scan  --since 1h [-n ida -n regproc] [--slack] [--out ./out]
   roottrace scan  --from 2026-11-19T09:00:00Z --to 2026-11-19T10:30:00Z      # a test-run window
+  roottrace scan  --no-download-traces --out ./out                          # re-analyze saved lines
   roottrace trace <transactionId> --since 2h
+  roottrace trace <transactionId> --no-download-traces --out ./out
   roottrace serve --port 8080                                              # HTTP API for test rigs
 
 Exit codes (scan): 0 = healthy/degraded, 2 = critical (use it to gate CI or a test run).
@@ -19,6 +21,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import engine, notify, report
 from .config import load_config
+from .traces import load as load_traces
 
 
 def _common(p):
@@ -28,6 +31,10 @@ def _common(p):
     p.add_argument("--since", help="look-back window, e.g. 30m, 2h, 1d (default 1h)")
     p.add_argument("--from", dest="frm", help="window start (ISO-8601 or epoch)")   # "from" is a Python keyword
     p.add_argument("--to", help="window end (ISO-8601 or epoch; default now)")
+    p.add_argument("--out", default="./roottrace-out", help="report directory; saved log lines go in <out>/traces")
+    p.add_argument("--download-traces", action=argparse.BooleanOptionalAction, default=True,
+                   help="download log lines from Loki and save them (default). "
+                        "--no-download-traces analyzes the lines already in --out/traces")
     p.add_argument("-v", "--verbose", action="store_true")
 
 
@@ -38,7 +45,6 @@ def main(argv=None):
     s = sub.add_parser("scan", help="mine errors in a window and produce a health report")
     _common(s)
     s.add_argument("--baseline", help="baseline offset, e.g. 24h or 7d (default from config)")
-    s.add_argument("--out", default="./roottrace-out")
     s.add_argument("--slack", action="store_true", help="post digest to Slack webhook")
     s.add_argument("--report-url", help="link to include in Slack message")
     s.add_argument("--json", action="store_true", help="print JSON summary to stdout")
@@ -61,9 +67,23 @@ def main(argv=None):
     if a.cmd == "scan":
         if a.baseline:
             cfg.baseline_offset = a.baseline            # CLI overrides the YAML value for this run only
-        start, end = engine.window(a.since, a.frm, a.to)
-        r = engine.scan(cfg, start, end, a.namespace)
+        try:
+            if a.download_traces:
+                start, end = engine.window(a.since, a.frm, a.to)
+                r = engine.scan(cfg, start, end, a.namespace, save_dir=a.out)
+            else:
+                loaded = load_traces(a.out)
+                # The saved file is one window. --since would ask Loki for a new one, which this run does not do.
+                print(f"Using saved traces {loaded.directory}")
+                print(f"Window: {report.fmt_ts(loaded.start_ns)} → {report.fmt_ts(loaded.end_ns)}")
+                cfg.baseline_offset = loaded.baseline_offset
+                r = engine.scan(cfg, loaded.start_ns, loaded.end_ns, a.namespace, loaded=loaded)
+        except FileNotFoundError as e:
+            print(e)
+            return 1
         hp, jp = report.write(r, a.out)
+        if r.get("traces_saved"):
+            print(f"Traces: {r['traces_saved']}")
         if a.slack and cfg.slack_webhook:
             notify.slack(cfg.slack_webhook, r, a.report_url)
         if a.json:
@@ -78,8 +98,17 @@ def main(argv=None):
         return 2 if r["critical"] else 0               # 2 is the CI gate; 1 is reserved for crashes
 
     if a.cmd == "trace":
-        start, end = engine.window(a.since or "6h", a.frm, a.to)   # traces default to a longer window than scans
-        r = engine.trace(cfg, a.id, start, end, a.namespace)
+        try:
+            if a.download_traces:
+                start, end = engine.window(a.since or "6h", a.frm, a.to)   # traces default to a longer window than scans
+                r = engine.trace(cfg, a.id, start, end, a.namespace)
+            else:
+                loaded = load_traces(a.out)
+                r = engine.trace(cfg, a.id, loaded.start_ns, loaded.end_ns, a.namespace,
+                                 events=loaded.current)
+        except FileNotFoundError as e:
+            print(e)
+            return 1
         if a.json:
             print(json.dumps(r, indent=2))
         else:

@@ -16,6 +16,8 @@ from .config import Config
 from .loki import LokiClient
 from .miner import Miner, keep
 from .parser import parse
+from .source import attach_snippets
+from .traces import SavedTraces, save as save_traces
 
 log = logging.getLogger(__name__)
 # Duration suffixes accepted by --since, --baseline and baseline_offset. Values are seconds.
@@ -88,24 +90,90 @@ def line_filter(cfg: Config) -> str:
     return f"(?i)(?:(?:{f})|{addition})"
 
 
-def scan(cfg: Config, start: int, end: int, namespaces: list[str] | None = None) -> dict:
+# A single query_range across a full day times out. Six hours is the slice that finished on 131ga.
+_SLICE_NS = 6 * 3600 * 1_000_000_000
+# Below this, a failed slice is reported instead of being split again.
+_MIN_NS = 30 * 60 * 1_000_000_000
+
+
+def _slices(start: int, end: int) -> list[tuple[int, int]]:
+    """One range when the window is at most six hours, otherwise six-hour slices in order."""
+    if end - start <= _SLICE_NS:
+        return [(start, end)]
+    out = []
+    cursor = start
+    while cursor < end:
+        nxt = min(end, cursor + _SLICE_NS)
+        out.append((cursor, nxt))
+        cursor = nxt
+    return out
+
+
+def _pull(loki: LokiClient, query: str, start: int, end: int, cfg: Config, which: str) -> tuple[list, list]:
+    """Events in [start, end), plus slices that stopped early or never answered.
+
+    A slice that times out is split in half down to 30 minutes. A slice that hits max_lines is kept
+    and marked partial, so the rest of the window still runs.
+    """
+    pending = _slices(start, end)
+    events = []
+    partial = []
+    i = 0
+    while i < len(pending):
+        a, b = pending[i]
+        i += 1
+        try:
+            rows = loki.query_range(query, a, b)
+        except Exception as e:
+            if b - a > _MIN_NS:
+                mid = a + (b - a) // 2
+                pending[i:i] = [(a, mid), (mid, b)]
+                log.warning("Loki %s slice failed (%s); splitting it", which, e)
+                continue
+            partial.append({"which": which, "from_ns": a, "to_ns": b, "reason": "Loki did not answer"})
+            log.warning("Loki %s slice skipped: %s", which, e)
+            continue
+        events.extend(e for e in parse(rows, cfg.service_label) if keep(e, cfg.include_warn))
+        if loki.truncated:
+            partial.append({"which": which, "from_ns": a, "to_ns": b, "reason": "stopped at max_lines"})
+    return events, partial
+
+
+def scan(cfg: Config, start: int, end: int, namespaces: list[str] | None = None, *,
+         save_dir: str | None = None, loaded: SavedTraces | None = None) -> dict:
     """One health scan. Returns the dict the HTML report, the JSON file and the CLI all print from.
 
     Steps: pull errors for this window and for the same window one baseline ago, cluster both,
     match the known-issue catalog, find services that went silent, read Kubernetes, then name root causes.
-    """
-    loki = LokiClient(cfg.loki)
-    sel = selector(cfg, namespaces)
-    q = f'{sel} |~ `{line_filter(cfg)}`'            # |~ is a regex line filter, not a label matcher
-    off = dur_ns(cfg.baseline_offset)
-    span = end - start
 
-    log.info("Loki query: %s", q)
-    # keep() drops INFO lines that only matched because a stack frame contains '.java:'.
-    cur = [e for e in parse(loki.query_range(q, start, end), cfg.service_label) if keep(e, cfg.include_warn)]
-    base = [e for e in parse(loki.query_range(q, start - off, end - off), cfg.service_label)
-            if keep(e, cfg.include_warn)]
-    log.info("events: current=%d baseline=%d", len(cur), len(base))
+    ``save_dir`` writes the pulled lines under ``<save_dir>/traces`` so a later run can pass them
+    back as ``loaded`` and skip Loki.
+    """
+    off = dur_ns(loaded.baseline_offset if loaded else cfg.baseline_offset)
+    span = end - start
+    saved_to = None
+    if loaded is not None:
+        cur, base = list(loaded.current), list(loaded.baseline)
+        if namespaces:
+            want = set(namespaces)
+            cur = [e for e in cur if e.namespace in want]
+            base = [e for e in base if e.namespace in want]
+        gaps, q = list(loaded.coverage), loaded.query
+        loki = None
+        log.info("events from disk: current=%d baseline=%d (%s)", len(cur), len(base), loaded.directory)
+    else:
+        loki = LokiClient(cfg.loki)
+        sel = selector(cfg, namespaces)
+        q = f'{sel} |~ `{line_filter(cfg)}`'            # |~ is a regex line filter, not a label matcher
+        log.info("Loki query: %s", q)
+        # keep() drops INFO lines that only matched because a stack frame contains '.java:'.
+        cur, gaps = _pull(loki, q, start, end, cfg, "current")
+        base, base_gaps = _pull(loki, q, start - off, end - off, cfg, "baseline")
+        gaps.extend(base_gaps)
+        log.info("events: current=%d baseline=%d partial_slices=%d", len(cur), len(base), len(gaps))
+        if save_dir:
+            saved_to = str(save_traces(save_dir, start, end, cfg.baseline_offset, q, gaps, cur, base))
+            log.info("saved traces to %s", saved_to)
 
     miner = Miner()
     miner.add_baseline(base)                       # teaches Drain the old templates and records baseline counts
@@ -117,29 +185,31 @@ def scan(cfg: Config, start: int, end: int, namespaces: list[str] | None = None)
     _decorate(issues, cur)                         # repo of the throw site, and the services on each trace id
 
     # Services that logged anything in the baseline but nothing now. A count query, not another log pull.
+    # A run that reads saved lines skips it: those counts need every log line, not just the saved errors.
     silent = []
-    try:
-        lbl = cfg.service_label
-        rng = f"{max(span // 1_000_000_000, 60)}s"  # range at least 60s so a short window still has a bucket
-        vq = f"sum by (namespace, {lbl}) (count_over_time({sel}[{rng}]))"
-        now_v = {(m.get("namespace"), m.get(lbl)) for m, v in loki.instant_vector(vq, end) if v > 0}
-        for m, v in loki.instant_vector(vq, end - off):
-            k = (m.get("namespace"), m.get(lbl))
-            # Require 10 baseline lines so a service that logged once is not called "silent".
-            if v >= 10 and k not in now_v and k[1]:
-                silent.append({"namespace": k[0], "service": k[1], "baseline": int(v)})
-    except Exception as e:
-        log.warning("silent-service check skipped: %s", e)
-
-    # Every namespace that logged anything, errors or not. A suspect absent from this set is logs-missing.
     logged_namespaces = None
-    try:
-        rng = f"{max(span // 1_000_000_000, 60)}s"
-        nq = f"sum by (namespace) (count_over_time({sel}[{rng}]))"
-        logged_namespaces = sorted({m.get("namespace") for m, v in loki.instant_vector(nq, end)
-                                    if v > 0 and m.get("namespace")})
-    except Exception as e:
-        log.warning("namespace log check skipped: %s", e)
+    if loki is not None:
+        try:
+            lbl = cfg.service_label
+            rng = f"{max(span // 1_000_000_000, 60)}s"  # range at least 60s so a short window still has a bucket
+            vq = f"sum by (namespace, {lbl}) (count_over_time({sel}[{rng}]))"
+            now_v = {(m.get("namespace"), m.get(lbl)) for m, v in loki.instant_vector(vq, end) if v > 0}
+            for m, v in loki.instant_vector(vq, end - off):
+                k = (m.get("namespace"), m.get(lbl))
+                # Require 10 baseline lines so a service that logged once is not called "silent".
+                if v >= 10 and k not in now_v and k[1]:
+                    silent.append({"namespace": k[0], "service": k[1], "baseline": int(v)})
+        except Exception as e:
+            log.warning("silent-service check skipped: %s", e)
+
+        # Every namespace that logged anything, errors or not. A suspect absent from this set is logs-missing.
+        try:
+            rng = f"{max(span // 1_000_000_000, 60)}s"
+            nq = f"sum by (namespace) (count_over_time({sel}[{rng}]))"
+            logged_namespaces = sorted({m.get("namespace") for m, v in loki.instant_vector(nq, end)
+                                        if v > 0 and m.get("namespace")})
+        except Exception as e:
+            log.warning("namespace log check skipped: %s", e)
 
     kube = k8smod.collect(cfg.k8s, namespaces or cfg.namespaces, cfg.exclude_namespaces, start, end)
     cat.apply_k8s(kube["findings"])                # CrashLoop / probe entries from the catalog
@@ -155,16 +225,25 @@ def scan(cfg: Config, start: int, end: int, namespaces: list[str] | None = None)
     raw = {
         "environment": cfg.environment_name,
         "window_from": report.fmt_ts(start), "window_to": report.fmt_ts(end),
-        "start_ns": start, "end_ns": end, "baseline_offset": cfg.baseline_offset,
+        "start_ns": start, "end_ns": end,
+        "baseline_offset": loaded.baseline_offset if loaded else cfg.baseline_offset,
+        "traces_from": str(loaded.directory) if loaded else None,
+        "traces_saved": saved_to,
         "namespaces": ", ".join(namespaces or cfg.namespaces),
         "generated": report.fmt_ts(time.time_ns()), "query": q,
         "issues": [i.to_dict() for i in issues],
         "resolved": [i.to_dict() for i in miner.resolved()[:20]],
         "silent": sorted(silent, key=lambda s: -s["baseline"]),
         "k8s": kube["findings"], "rollouts": kube["rollouts"], "k8s_error": kube["error"],
-        "revisions": revisions, "grafana_url": cfg.grafana_url, "public_url": cfg.public_url,
+        "revisions": revisions, "coverage": gaps,
+        "grafana_url": cfg.grafana_url, "public_url": cfg.public_url,
         "service_label": cfg.service_label, "report_history": cfg.report_history,
     }
+    # Open the file at the commit read from the pod. sources.yaml is not a commit to reuse.
+    try:
+        attach_snippets(raw["issues"], revisions)
+    except Exception as e:
+        log.warning("source snippets skipped: %s", e)
     if logged_namespaces is not None:
         raw["logged_namespaces"] = logged_namespaces
     try:
@@ -207,15 +286,26 @@ def _decorate(issues, events) -> None:
         iss.path = path
 
 
-def trace(cfg: Config, txn_id: str, start: int, end: int, namespaces: list[str] | None = None) -> dict:
+def trace(cfg: Config, txn_id: str, start: int, end: int, namespaces: list[str] | None = None,
+          events: list | None = None) -> dict:
     """Every log line (any level) mentioning an ID, across all services, in time order.
 
     This is a substring search (`|=`), not the error filter, so INFO lines on that transaction are included.
     Capped at 5000 lines; a chatty id should be narrowed with --since or -n.
+
+    ``events`` searches lines already saved by a scan. Those are the error and warning lines from that
+    window, so an INFO line that never matched the scan filter is not in the result.
     """
-    loki = LokiClient(cfg.loki)
-    q = f'{selector(cfg, namespaces)} |= `{txn_id}`'
-    events = parse(loki.query_range(q, start, end, max_lines=5000), cfg.service_label)
+    if events is None:
+        loki = LokiClient(cfg.loki)
+        q = f'{selector(cfg, namespaces)} |= `{txn_id}`'
+        events = parse(loki.query_range(q, start, end, max_lines=5000), cfg.service_label)
+    else:
+        q = f"saved traces |= `{txn_id}`"
+        want = set(namespaces) if namespaces else None
+        events = [e for e in events
+                  if (want is None or e.namespace in want)
+                  and (txn_id in (e.raw or "") or txn_id in (e.message or "") or txn_id in (e.trace_ids or []))]
     events.sort(key=lambda e: e.ts_ns)
     errors = [e for e in events if e.level in ("ERROR", "FATAL")]
     first_err = errors[0] if errors else None          # earliest error, which is what the CLI highlights

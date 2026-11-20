@@ -250,9 +250,12 @@ def analyze(raw: dict, dm: DepMap) -> dict:
                         known.setdefault(k["id"], k)
         # Infra (postgres, keycloak, activemq) does not get a Java throw site. Services do.
         code = None
+        code_note = None
+        ranked = sorted(c["issues"], key=lambda i: -i.get("score", 0))
         if not node or node.kind != "infra":
-            ranked = sorted(c["issues"], key=lambda i: -i.get("score", 0))
             code = next((i.get("code") for i in ranked if i.get("code")), None)
+            if code is None:
+                code_note = next((i.get("code_note") for i in ranked if i.get("code_note")), None)
         # Union of per-issue request paths, in the order the issues started.
         request_path = []
         for i in sorted(c["issues"], key=lambda i: i.get("first_ns") or 0):
@@ -279,7 +282,7 @@ def analyze(raw: dict, dm: DepMap) -> dict:
             "evidence": c["evidence"][:8], "known": list(known.values()),
             "revision": revision, "image": image, "previous_logs": previous_logs,
             "checks": _checks(r, node, c), "impacted": tree, "impacted_count": impacted,
-            "code": code, "request_path": request_path,
+            "code": code, "code_note": code_note, "request_path": request_path,
             "at_risk": at_risk[:10],
             # down/suspected/degraded dominates, then how many components are dragged along, then the worst score.
             "rank": (_status_rank(c["status"]) * 1000 + impacted * 50

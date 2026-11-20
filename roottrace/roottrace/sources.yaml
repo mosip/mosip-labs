@@ -2,7 +2,9 @@
 # A stack frame matches the longest prefix. Rows come from the jars on the 131ga cluster,
 # and each repo was checked against the commit inside that jar.
 # Not mapped: resident-service (the develop image has no git commit in the jar),
-# websub (hub.jar has no build info), and the UI images.
+# websub (hub.jar has no build info), io.mosip.vercred, and the UI images.
+# kernel.core and kernel.dataaccess were checked in mosip/commons at 4592962e.
+# io.mosip.commons.packet was checked in mosip/packet-manager at d94a06af.
 sources:
   - prefix: io.mosip.admin
     repo: https://github.com/mosip/admin-services
@@ -52,6 +54,12 @@ sources:
   - prefix: io.mosip.kernel.config
     repo: https://github.com/mosip/commons
     artifacts: [kernel-config-server]
+  - prefix: io.mosip.kernel.core
+    repo: https://github.com/mosip/commons
+    artifacts: [kernel-core]
+  - prefix: io.mosip.kernel.dataaccess
+    repo: https://github.com/mosip/commons
+    artifacts: [kernel-dataaccess-hibernate]
   - prefix: io.mosip.kernel.idgenerator
     repo: https://github.com/mosip/commons
     artifacts: [kernel-idgenerator-service]
@@ -86,6 +94,9 @@ sources:
     repo: https://github.com/mosip/keymanager
     artifacts: [kernel-keymanager-service]
   - prefix: io.mosip.commons.packetmanager
+    repo: https://github.com/mosip/packet-manager
+    artifacts: [commons-packet-service]
+  - prefix: io.mosip.commons.packet
     repo: https://github.com/mosip/packet-manager
     artifacts: [commons-packet-service]
   - prefix: io.mosip.pms

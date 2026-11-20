@@ -22,6 +22,7 @@ The result is a single HTML report, plus JSON output, a Slack digest, an exit co
 3. [Quick start (Windows, step by step)](#3-quick-start-windows-step-by-step)
 4. [Connect to your cluster](#4-connect-to-your-cluster)
 5. [Run your first scan](#5-run-your-first-scan)
+   - [Reuse a downloaded window](#reuse-a-downloaded-window)
 6. [Reading the report](#6-reading-the-report)
 7. [All commands](#7-all-commands)
 8. [Configuration reference](#8-configuration-reference)
@@ -46,6 +47,7 @@ The result is a single HTML report, plus JSON output, a Slack digest, an exit co
 | **Kubernetes health** | Flags CrashLoopBackOff, OOMKilled, image pull errors, restarts, NotReady pods, warning events and rollouts |
 | **Masking** | Hides biometric/base64 blobs, JWTs, e-mails and 10–16 digit IDs before anything is shown or stored |
 | **Transaction trace** | Shows every log line for one transaction ID across all services, with the first error highlighted |
+| **Saved lines** | A scan keeps the masked lines on disk, so the same window can be analyzed again without calling Loki |
 | **Outputs** | HTML report, JSON, Slack, exit code (2 = critical), HTTP API |
 
 ## 2. How it works
@@ -210,6 +212,37 @@ roottrace scan --since 1h -c config.yaml
 start roottrace-out\roottrace-report.html
 ```
 
+### Reuse a downloaded window
+
+A scan downloads the matching lines and then analyzes them on this machine. Downloading is on by default, and the lines are written next to the report:
+
+```text
+roottrace-out\traces\current.jsonl     errors and warnings for the window
+roottrace-out\traces\baseline.jsonl    the same window one baseline earlier (24h by default)
+roottrace-out\traces\meta.json         the window start and end, the query, and any partial slices
+```
+
+The lines are already masked. The folder is replaced the next time a scan of that same `--out` directory downloads again. `roottrace-out/` is gitignored.
+
+Run the analysis again on those files. This does not call Loki, and it keeps the window that was saved, so `--since` is not a new download:
+
+```powershell
+roottrace scan --no-download-traces --out ./roottrace-out -c config.yaml
+start roottrace-out\roottrace-report.html
+```
+
+`-n ida` still works: it limits the saved lines to that namespace. The report header says `from saved traces` when the lines came from disk.
+
+Look up one transaction in the saved window:
+
+```powershell
+roottrace trace TXN12345 --no-download-traces --out ./roottrace-out -c config.yaml
+```
+
+That search sees the errors and warnings the scan kept. An INFO line that never matched the scan filter is not in the file. `roottrace trace TXN12345 --since 6h` still asks Loki and can show those INFO lines.
+
+A local re-run still reads Kubernetes for pod health. The "service went silent" check is skipped, because that check counts every log line, not only the saved errors.
+
 ---
 
 ## 6. Reading the report
@@ -244,8 +277,12 @@ roottrace scan --since 2h --baseline 7d -c config.yaml
 roottrace scan --since 1h --slack -c config.yaml
 # Print a JSON summary (for scripts or CI)
 roottrace scan --since 1h --json -c config.yaml
+# Analyze the lines already saved by the scan above. Same --out directory, no Loki call.
+roottrace scan --no-download-traces --out ./roottrace-out -c config.yaml
+# Look up one id in those saved lines
+roottrace trace TXN12345 --no-download-traces --out ./roottrace-out -c config.yaml
 
-# Follow one transaction across all services
+# Follow one transaction across all services, including INFO lines (asks Loki)
 roottrace trace TXN12345 --since 6h -c config.yaml
 
 # Run as an HTTP API (this is what the Rancher Deployment runs)
@@ -256,6 +293,8 @@ roottrace serve -c config.yaml --port 8080
 #   GET /health
 ```
 Time formats: `--since 30m | 2h | 1d | 1w`. `--from` and `--to` take ISO-8601 (`2026-11-19T09:00:00Z`) or epoch time.
+
+`--download-traces` is on unless you pass `--no-download-traces`. See [Reuse a downloaded window](#reuse-a-downloaded-window).
 
 ---
 
@@ -276,12 +315,12 @@ Time formats: `--since 30m | 2h | 1d | 1w`. `--from` and `--to` take ISO-8601 (`
 | `loki.bearer_token` | `null` | Bearer token auth |
 | `loki.org_id` | `null` | `X-Scope-OrgID` for multi-tenant Loki |
 | `loki.verify_tls` | `true` | Verify TLS certificates |
-| `loki.max_lines` | `200000` | Safety cap per query window |
+| `loki.max_lines` | `200000` | Cap per slice. A window longer than 6h is queried in 6h slices, and the report says when a slice stopped early |
 | `k8s.enabled` | `true` | Collect pod and event health |
 | `k8s.kubeconfig` | `null` | Path to the Rancher kubeconfig (`null` = default or in-cluster) |
 | `k8s.context` | `null` | Kubeconfig context |
 | `k8s.evidence` | `true` | Attach the previous container log for up to 8 crashing pods |
-| `k8s.revisions` | `false` | Exec into up to 8 pods and read `git.properties` from the running jar. Needs `pods/exec` |
+| `k8s.revisions` | `false` | Exec into up to 8 pods and read `git.properties`. The report then shows the logged line from that commit. Needs `pods/exec` |
 | `namespaces` | `[]` | Namespaces to scan (empty = all except `exclude_namespaces`) |
 | `exclude_namespaces` | system namespaces | Namespaces to skip |
 | `service_label` | `app` | Loki label that names the service. A sidecar container (`istio-proxy`) is reported as `<app>/<container>`, so its lines stay separate from the service |
@@ -418,6 +457,7 @@ roottrace/
 │   ├── engine.py              Orchestration: query → parse → mine → analyse → report
 │   ├── loki.py                Loki HTTP client (pagination, auth)
 │   ├── parser.py              Log parsing (Spring Boot, MOSIP logback, JSON), masking, stack-trace stitching
+│   ├── traces.py              Save and reload a scan's lines under <out>/traces
 │   ├── miner.py               Drain3 clustering, baseline diff, scoring
 │   ├── deps.py                Dependency analysis: root causes, impact trees, at-risk
 │   ├── dependencies.yaml      Starter MOSIP dependency map  ← review & extend
