@@ -1,0 +1,108 @@
+# Package prefix owned by a service, and the git repository that prefix lives in.
+# A stack frame matches the longest prefix. Rows come from the jars on the 131ga cluster,
+# and each repo was checked against the commit inside that jar.
+# Not mapped: resident-service (the develop image has no git commit in the jar),
+# websub (hub.jar has no build info), and the UI images.
+sources:
+  - prefix: io.mosip.admin
+    repo: https://github.com/mosip/admin-services
+    artifacts: [admin-service]
+  - prefix: io.mosip.hotlist
+    repo: https://github.com/mosip/admin-services
+    artifacts: [hotlist-service]
+  - prefix: io.mosip.kernel.masterdata
+    repo: https://github.com/mosip/admin-services
+    artifacts: [kernel-masterdata-service]
+  - prefix: io.mosip.kernel.syncdata
+    repo: https://github.com/mosip/admin-services
+    artifacts: [kernel-syncdata-service]
+  - prefix: io.mosip.authentication
+    repo: https://github.com/mosip/id-authentication
+    artifacts: [authentication-service, authentication-internal-service, authentication-otp-service]
+  - prefix: io.mosip.biosdk
+    repo: https://github.com/mosip/biosdk-services
+    artifacts: [biosdk-services]
+  - prefix: io.mosip.captcha
+    repo: https://github.com/mosip/captcha
+    artifacts: [captcha-validation-service]
+  - prefix: io.mosip.datashare
+    repo: https://github.com/mosip/durian
+    artifacts: [data-share-service]
+  - prefix: io.mosip.digitalcard
+    repo: https://github.com/mosip/digital-card-service
+    artifacts: [digital-card-service]
+  - prefix: io.mosip.esignet
+    repo: https://github.com/mosip/esignet
+    artifacts: [esignet-service]
+  - prefix: io.mosip.idrepository
+    repo: https://github.com/mosip/id-repository
+    artifacts: [id-repository-identity-service, id-repository-vid-service]
+  - prefix: io.mosip.credentialstore
+    repo: https://github.com/mosip/id-repository
+    artifacts: [credential-service]
+  - prefix: io.mosip.credential.request
+    repo: https://github.com/mosip/id-repository
+    artifacts: [credential-request-generator]
+  - prefix: io.mosip.kernel.auditmanager
+    repo: https://github.com/mosip/audit-manager
+    artifacts: [kernel-auditmanager-service]
+  - prefix: io.mosip.kernel.auth
+    repo: https://github.com/mosip/mosip-openid-bridge
+    artifacts: [kernel-auth-service]
+  - prefix: io.mosip.kernel.config
+    repo: https://github.com/mosip/commons
+    artifacts: [kernel-config-server]
+  - prefix: io.mosip.kernel.idgenerator
+    repo: https://github.com/mosip/commons
+    artifacts: [kernel-idgenerator-service]
+  - prefix: io.mosip.kernel.vidgenerator
+    repo: https://github.com/mosip/commons
+    artifacts: [kernel-idgenerator-service]
+  - prefix: io.mosip.kernel.uingenerator
+    repo: https://github.com/mosip/commons
+    artifacts: [kernel-idgenerator-service]
+  - prefix: io.mosip.kernel.emailnotification
+    repo: https://github.com/mosip/commons
+    artifacts: [kernel-notification-service]
+  - prefix: io.mosip.kernel.pridgenerator
+    repo: https://github.com/mosip/commons
+    artifacts: [kernel-pridgenerator-service]
+  - prefix: io.mosip.kernel.ridgenerator
+    repo: https://github.com/mosip/commons
+    artifacts: [kernel-ridgenerator-service]
+  - prefix: io.mosip.kernel.otpmanager
+    repo: https://github.com/mosip/otp-manager
+    artifacts: [kernel-otpmanager-service]
+  - prefix: io.mosip.kernel.keymanager
+    repo: https://github.com/mosip/keymanager
+    artifacts: [kernel-keymanager-service]
+  - prefix: io.mosip.kernel.keymanagerservice
+    repo: https://github.com/mosip/keymanager
+    artifacts: [kernel-keymanager-service]
+  - prefix: io.mosip.kernel.signature
+    repo: https://github.com/mosip/keymanager
+    artifacts: [kernel-keymanager-service]
+  - prefix: io.mosip.kernel.partnercertservice
+    repo: https://github.com/mosip/keymanager
+    artifacts: [kernel-keymanager-service]
+  - prefix: io.mosip.commons.packetmanager
+    repo: https://github.com/mosip/packet-manager
+    artifacts: [commons-packet-service]
+  - prefix: io.mosip.pms
+    repo: https://github.com/mosip/partner-management-services
+    artifacts: [partner-management-service, policy-management-service]
+  - prefix: io.mosip.preregistration
+    repo: https://github.com/mosip/pre-registration
+    artifacts: [pre-registration-application-service, pre-registration-batchjob, pre-registration-datasync-service]
+  - prefix: io.mosip.print
+    repo: https://github.com/mosip/print
+    artifacts: [print]
+  - prefix: io.mosip.registration.processor
+    repo: https://github.com/mosip/registration
+    artifacts: [registration-processor-stage-group-1]
+  - prefix: io.mosip.proxy.abis
+    repo: https://github.com/mosip/mosip-mock-services
+    artifacts: [mock-abis]
+  - prefix: io.mosip.mock.mv
+    repo: https://github.com/mosip/mosip-mock-services
+    artifacts: [mock-mv]

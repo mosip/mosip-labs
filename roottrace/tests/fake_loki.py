@@ -46,7 +46,19 @@ class FakeLoki:
             return {"status": "success", "data": {"resultType": "streams", "result": [
                 {"stream": dict(k), "values": v} for k, v in streams.items()]}}
         if path.endswith("/query"):
+            # sum by (namespace) — used to decide logs-missing, not the per-service silent check.
+            ns_only = re.search(r"by \(namespace\) \(count_over_time\((.*)\[(\d+)s\]\)\)", q)
+            if ns_only:
+                sel, rng = ns_only.group(1), int(ns_only.group(2))
+                t = int(qs["time"])
+                counts = {}
+                for ts, lb, _ in self._filter(sel, t - rng * 10**9, t):
+                    counts[lb["namespace"]] = counts.get(lb["namespace"], 0) + 1
+                return {"status": "success", "data": {"resultType": "vector", "result": [
+                    {"metric": {"namespace": k}, "value": [t / 1e9, str(v)]} for k, v in counts.items()]}}
             m = re.search(r"by \(namespace, (\w+)\) \(count_over_time\((.*)\[(\d+)s\]\)\)", q)
+            if not m:
+                return {"status": "error", "data": {"error": "unsupported query"}}
             lbl, sel, rng = m.group(1), m.group(2), int(m.group(3))
             t = int(qs["time"])
             counts = {}

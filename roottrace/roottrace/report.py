@@ -4,16 +4,20 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 from jinja2 import Environment
 
 
 def fmt_ts(ns: int) -> str:
+    """Nanoseconds -> 'YYYY-MM-DD HH:MM:SS UTC'. 0 and missing timestamps render as '-'."""
     if not ns:
         return "-"
     return datetime.fromtimestamp(ns / 1e9, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
+# One self-contained HTML page. Jinja renders it with autoescape on, so log text cannot inject markup.
+# The page is ordered failure-first: verdict, chains, tiles, catalog, shared errors, ranked patterns, pods.
 TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RootTrace · {{ r.environment }}</title>
@@ -42,7 +46,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--bg);padding:10px;
 .fix{margin-top:6px;padding:8px 10px;border-radius:6px;background:var(--bg);font-size:13px}
 .muted{color:var(--mut)}input#q{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);margin-bottom:10px}
 .chain{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
-.chain h3{margin:0 0 6px;font-size:16px}.down{background:var(--crit)}.degraded{background:var(--high)}.suspected{background:var(--new)}
+.chain h3{margin:0 0 6px;font-size:16px}.down{background:var(--crit)}.degraded{background:var(--high)}.suspected,.logs-missing{background:var(--new)}
 .chain ul.ev{margin:6px 0 0 18px;padding:0}.chain ul.ev li{margin:2px 0}
 .tree,.tree ul{list-style:none;margin:0;padding-left:18px;border-left:2px solid var(--line)}
 .tree li{margin:6px 0;padding-left:8px}.tree .sym{color:var(--mut);font-size:12.5px}
@@ -68,6 +72,10 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--bg);padding:10px;
 <h3><span class="pill {{ ch.status }}">{{ ch.status }}</span>{{ ch.root }} <span class="muted" style="font-weight:400;font-size:13px">({{ ch.kind }} · {{ ch.namespaces|join(", ") }}{% if ch.first != "-" %} · first seen {{ ch.first }}{% endif %})</span>
 {% if ch.impacted_count %}<span class="pill high" style="float:right">{{ ch.impacted_count }} component(s) impacted</span>{% endif %}</h3>
 <ul class="ev">{% for e in ch.evidence %}<li>{{ e }}</li>{% endfor %}</ul>
+{% if ch.code %}<div class="mono">{{ ch.code.class }}{% if ch.code.method %}.{{ ch.code.method }}{% endif %}{% if ch.code.file %} ({{ ch.code.file }}:{{ ch.code.line }}){% elif ch.code.line %} :{{ ch.code.line }}{% endif %}{% if ch.code.repo %} · {{ ch.code.repo }}{% endif %}</div>{% endif %}
+{% if ch.revision %}<div class="mono">running {{ ch.revision.commit_abbrev or ch.revision.commit }}{% if ch.revision.version %} · {{ ch.revision.version }}{% endif %}{% if ch.image %} · {{ ch.image }}{% endif %}</div>{% elif ch.image %}<div class="mono">{{ ch.image }}</div>{% endif %}
+{% if ch.previous_logs %}<details><summary>previous container log</summary><pre>{{ ch.previous_logs }}</pre></details>{% endif %}
+{% if ch.request_path %}<div class="muted">request path: {{ ch.request_path|join(" → ") }}</div>{% endif %}
 {% if ch.impacted %}<div style="margin-top:10px"><b class="muted" style="font-size:12px">IMPACT TREE</b><ul class="tree">{% for t in ch.impacted %}{{ branch(t) }}{% endfor %}</ul></div>{% endif %}
 <div class="cols">
  <div class="box"><b>Troubleshoot</b>{% for k in ch.known %}<div class="fix"><span class="pill {{ k.severity or 'high' }}">{{ k.id }}</span>{{ k.cause }}<br>→ {{ k.fix }}</div>{% endfor %}
@@ -100,10 +108,14 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--bg);padding:10px;
 {% if r.issues %}<table id="issues"><tr><th class="num">Score</th><th>Service</th><th>Pattern</th><th class="num">Count<br><span class="muted">vs base</span></th></tr>
 {% for i in r.issues %}<tr><td class="num">{{ i.score }}</td>
 <td><b>{{ i.service }}</b><div class="muted mono">{{ i.namespace }}</div><div class="muted">{{ i.pods|length }} pod(s)</div></td>
-<td><span class="pill {{ i.level }}">{{ i.level }}</span>{% if i.is_new %}<span class="pill new">NEW</span>{% endif %}{% for k in i.known %}<span class="pill {{ k.severity }}">{{ k.id }}</span>{% endfor %}
+<td><span class="pill {{ i.level }}">{{ i.level }}</span>{% if i.is_new %}<span class="pill new">NEW</span>{% endif %}{% if i.since_deploy is true %}<span class="pill new">since deploy</span>{% elif i.since_deploy is false %}<span class="pill medium">before deploy</span>{% endif %}{% for k in i.known %}<span class="pill {{ k.severity }}">{{ k.id }}</span>{% if k.review %} <span class="muted">{{ k.review }}</span>{% endif %}{% endfor %}
 <div class="tpl">{{ i.template }}</div>
 {% if i.root_causes %}<div class="muted">root cause: <code>{{ i.root_causes|join(", ") }}</code></div>{% elif i.exceptions %}<div class="muted">exception: <code>{{ i.exceptions|join(", ") }}</code></div>{% endif %}
 {% if i.error_codes %}<div class="muted">codes: <code>{{ i.error_codes|join(", ") }}</code></div>{% endif %}
+{% if i.code %}<div class="mono">{{ i.code.class }}{% if i.code.method %}.{{ i.code.method }}{% endif %}{% if i.code.file %} ({{ i.code.file }}:{{ i.code.line }}){% elif i.code.line %} :{{ i.code.line }}{% endif %}{% if i.code.repo %} · {{ i.code.repo }}{% endif %}</div>{% endif %}
+{% if i.path %}<div class="muted">across services: {{ i.path|join(" → ") }}</div>{% endif %}
+{% if i.grafana %}<div><a href="{{ i.grafana }}">open in Grafana</a></div>{% endif %}
+{% if i.traces %}<div class="mono">{% for t in i.traces %}<a href="{{ t.url }}">{{ t.id }}</a> {% endfor %}</div>{% endif %}
 <details><summary>samples · first {{ i.first }} · last {{ i.last }}{% if i.trace_ids %} · trace ids{% endif %}</summary>
 {% for k in i.known %}<div class="fix"><b>{{ k.title }}:</b> {{ k.cause }} → {{ k.fix }}</div>{% endfor %}
 {% if i.trace_ids %}<div class="mono muted">trace/txn: {{ i.trace_ids|join("  ") }}</div>{% endif %}
@@ -135,9 +147,27 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--bg);padding:10px;
 </body></html>"""
 
 
+def _grafana(base: str, namespace: str, label: str, service: str, text: str) -> str:
+    """Grafana Explore URL for one pattern. The snippet is a literal line filter, not the Drain template."""
+    snippet = (text or "")[:90].replace("`", "'").replace("\\", "")
+    expr = '{namespace="%s", %s="%s"} |= `%s`' % (namespace, label or "app", service, snippet)
+    panes = {"q": {"datasource": "loki", "queries": [{"refId": "A", "expr": expr}]}}
+    return base.rstrip("/") + "/explore?schemaVersion=1&orgId=1&panes=" + quote(json.dumps(panes))
+
+
+def _trace_url(public: str | None, tid: str) -> str:
+    path = "/trace/" + quote(tid) + "?since=6h"
+    return (public.rstrip("/") + path) if public else path
+
+
 def build(result: dict) -> dict:
-    """Shape the scan result into a template-friendly dict (also the JSON output)."""
+    """Shape the scan result into a template-friendly dict. The same dict is written as JSON.
+
+    Mutates issue rows in place: timestamps become strings, counters become lists. Callers that
+    still need the raw counters must read them before build().
+    """
     issues = result["issues"]
+    # Collapse catalog hits that fired in several services into one row, remembering where.
     known: dict[str, dict] = {}
     for i in issues:
         for k in i["known"]:
@@ -145,6 +175,7 @@ def build(result: dict) -> dict:
             e["where"].add(i["service"])
     for f in result["k8s"]:
         for k in f.get("known", []):
+            # A pod-level catalog hit (CrashLoop, failing probe) is always shown as critical.
             e = known.setdefault(k["id"], {**k, "severity": "critical", "where": set()})
             e["where"].add(f["pod"])
     sev = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -152,9 +183,11 @@ def build(result: dict) -> dict:
                            key=lambda k: sev.get(k.get("severity"), 9))
     crit = sum(1 for k in known_summary if k.get("severity") == "critical")
     new = sum(1 for i in issues if i["is_new"])
+    # Distinct pods, so one CrashLooping container plus its restart event counts as one pod.
     bad_pods = len({f["pod"] for f in result["k8s"] if f["kind"] in ("pod-state", "restart")})
     chains = result.get("deps", {}).get("chains", [])
     roots_txt = (f" · {len(chains)} root cause(s): " + ", ".join(c["root"] for c in chains[:4])) if chains else ""
+    # Unhealthy beats degraded. Critical catalog hits, failing pods, or a silent service are enough.
     if crit or bad_pods or result["silent"]:
         parts = []
         if crit: parts.append(f"{crit} critical known issue(s)")
@@ -166,6 +199,7 @@ def build(result: dict) -> dict:
         verdict, vcls = f"🟠 Degraded — {new} new error pattern(s), {len(issues)} total" + roots_txt, "warn"
     else:
         verdict, vcls = "🟢 Healthy — no errors found in the window", ""
+    # The same Drain template in two services is one shared upstream, not two incidents.
     groups: dict[str, dict] = {}
     for i in issues:
         g = groups.setdefault(i["template"].strip().lower(), {"template": i["template"], "services": [],
@@ -173,10 +207,16 @@ def build(result: dict) -> dict:
         g["services"].append(i["service"]); g["count"] += i["count"]; g["new"] |= i["is_new"]
         g["known"] += [k["id"] for k in i["known"] if k["id"] not in g["known"]]
     cross = sorted((g for g in groups.values() if len(set(g["services"])) >= 2), key=lambda g: -len(g["services"]))
+    label = result.get("service_label") or "app"
     for i in issues:
         i["first"], i["last"] = fmt_ts(i["first_ns"]), fmt_ts(i["last_ns"])
         for s in i["samples"]:
             s["ts"] = fmt_ts(s["ts_ns"])
+        sample = (i["samples"][0]["text"].split("\n", 1)[0] if i["samples"] else i["template"])
+        if result.get("grafana_url"):
+            i["grafana"] = _grafana(result["grafana_url"], i["namespace"], label, i["service"], sample)
+        i["traces"] = [{"id": t, "url": _trace_url(result.get("public_url"), t)} for t in i.get("trace_ids") or []]
+        # Counters arrived as dicts from Issue.to_dict(); the template joins the keys.
         i["exceptions"] = list(i["exceptions"])
         i["root_causes"] = list(i["root_causes"])
         i["error_codes"] = list(i["error_codes"])
@@ -191,15 +231,31 @@ def build(result: dict) -> dict:
         "stats": {"issues": len(issues), "new": new, "events": sum(i["count"] for i in issues),
                   "services": len({(i["namespace"], i["service"]) for i in issues}),
                   "k8s": len(result["k8s"])},
-        "unhealthy": vcls == "bad",
+        "unhealthy": vcls == "bad",            # what the HTTP API's only_if=unhealthy checks
     }
 
 
 def write(r: dict, out_dir: str) -> tuple[Path, Path]:
+    """Write the latest report and a timestamped copy under history/. Returns the latest paths.
+
+    JSON uses default=list so the sets collected while building the known-issue summary survive dumps.
+    history/ keeps report_history copies (default 48) and deletes older ones.
+    """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     html = Environment(autoescape=True).from_string(TEMPLATE).render(r=r)
+    body = json.dumps(r, indent=2, default=list)
     hp, jp = out / "roottrace-report.html", out / "roottrace-report.json"
     hp.write_text(html, encoding="utf-8")
-    jp.write_text(json.dumps(r, indent=2, default=list), encoding="utf-8")
+    jp.write_text(body, encoding="utf-8")
+    hist = out / "history"
+    hist.mkdir(exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    (hist / f"roottrace-report-{stamp}.html").write_text(html, encoding="utf-8")
+    (hist / f"roottrace-report-{stamp}.json").write_text(body, encoding="utf-8")
+    keep = int(r.get("report_history") or 48)
+    old = sorted(hist.glob("roottrace-report-*.html"))[:-keep]
+    for p in old:
+        p.unlink(missing_ok=True)
+        p.with_suffix(".json").unlink(missing_ok=True)
     return hp, jp

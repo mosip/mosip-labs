@@ -29,6 +29,12 @@ raw = {
              "container": "-", "reason": "JobFailed", "message": "", "restarts": 0}],
     "silent": [],
 }
+raw["issues"][4]["code"] = {"class": "io.mosip.websub.hub.Hub", "method": "publish",
+                            "file": "Hub.java", "line": 40}
+raw["issues"][4]["path"] = ["resident", "websub"]
+broker = issue("activemq", "activemq", "disk full")
+broker["code"] = {"class": "io.mosip.Nope", "method": "x", "file": "Nope.java", "line": 1}
+raw["issues"].append(broker)
 d = analyze(raw, DepMap())
 chains = {c["root"]: c for c in d["chains"]}
 print({r: (c["status"], c["impacted_count"]) for r, c in chains.items()})
@@ -38,6 +44,9 @@ assert d["chains"][0]["root"] == "activemq"                                   # 
 assert [t["component"] for t in chains["activemq"]["impacted"]] == ["regproc"]  # down dep blamed via map
 kc = chains["keycloak"]
 assert kc["status"] == "suspected"
+assert chains["websub"]["code"]["file"] == "Hub.java"
+assert chains["websub"]["request_path"] == ["resident", "websub"]
+assert chains["activemq"]["code"] is None
 flat = str(kc["impacted"])
 assert all(x in flat for x in ("pms", "syncdata", "admin")) and "websub" not in flat and "credentialrequest" not in flat
 assert any(k["id"] == "AUTH-002" for k in kc["known"])                       # borrowed diagnosis
