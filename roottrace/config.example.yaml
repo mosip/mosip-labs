@@ -1,8 +1,12 @@
 environment_name: dev            # shown in reports and Slack
 public_url: null                 # e.g. https://roottrace.dev.example.net (Slack "Full report" link)
+grafana_url: null                # Grafana base URL; each pattern links to Explore
+api_token: null                  # prefer ROOTTRACE_API_TOKEN; locks /scan /trace /report
+ignore_issue_ids: []             # catalog ids to drop as false positives, e.g. [AUTH-002]
+report_history: 48               # timestamped copies kept under <out>/history
 
 loki:
-  url: http://loki-gateway.cattle-logging-system.svc:80   # in-cluster; or your external Loki URL
+  url: http://loki.loki-monitoring.svc:3100   # in-cluster; laptop tunnel is http://localhost:3100
   username: null                 # basic auth, or use bearer_token; secrets via ROOTTRACE_* env vars
   bearer_token: null
   org_id: null                   # X-Scope-OrgID if Loki is multi-tenant
@@ -13,10 +17,12 @@ k8s:
   enabled: true
   kubeconfig: null               # path to a Rancher kubeconfig when running outside the cluster
   context: null
+  evidence: true                 # previous container log for crashing pods
+  revisions: false               # exec into pods and read git.properties; needs pods/exec
 
 namespaces: []                   # empty = all except exclude_namespaces
 service_label: app               # Loki label that names the service
-include_warn: false
+include_warn: true              # count WARN lines as well as ERROR / FATAL
 baseline_offset: 24h             # compare against the same window yesterday (try 7d for weekly patterns)
 spike_factor: 3.0
 critical_score: 50

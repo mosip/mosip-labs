@@ -146,3 +146,34 @@ issues:
     match: {regex: "(FailedMount|FailedAttachVolume|disk pressure|DiskPressure|no space left|Evicted)"}
     cause: A PVC failed to mount, or the node or disk is full.
     fix: Check Longhorn/storage class health and node disk usage.
+
+  # Seen on the 131ga scan of 2026-11-19. review: observed means the signature is real;
+  # the fix text is still a lead, not a change someone has confirmed in the cluster.
+  - id: AMQ-002
+    title: ActiveMQ backup link lost
+    severity: high
+    review: observed
+    match: {regex: "AMQ222092|Connection to the backup node failed"}
+    cause: The master cannot replicate to the backup. On 131ga the slave was CrashLoopBackOff, exit 143, startup probe failing.
+    fix: Describe the slave pod and read its previous log. Exit 143 is SIGTERM. Check the shared journal or PVC, and whether only the slave is crash-looping.
+    owner: devops
+
+  - id: IDREPO-001
+    title: credentialReProcessJob ClassCastException
+    severity: high
+    review: observed
+    match:
+      regex: "credentialReProcessJob[\\s\\S]{0,200}ClassCastException"
+      service: "credentialrequest"
+    cause: The reprocess batch step casts a null or unexpected type. The exception message on 131ga was null.
+    fix: Open the credentialrequest log at AbstractStep for credentialReProcessJob and the cast in that step.
+    owner: idrepo
+
+  - id: K8S-NOCPU
+    scope: k8s
+    title: HPA cannot read CPU
+    severity: medium
+    review: observed
+    match: {regex: "FailedGetResourceMetric|missing request for cpu"}
+    cause: The HorizontalPodAutoscaler asks for CPU and the container has no resources.requests.cpu. Seen on clamav on 131ga.
+    fix: Set a CPU request on that container. Until then the HPA does not scale it. regproc depends on clamav.
