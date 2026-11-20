@@ -1,5 +1,5 @@
 # kubectl apply -f deploy/roottrace.yaml   (or import via Rancher "Import YAML")
-# Edit: image, config.yaml (Loki URL / environment_name / public_url), and the Secret values.
+# Edit: image, Ingress host, environment_name, public_url, and the Secret values.
 apiVersion: v1
 kind: Namespace
 metadata: {name: roottrace}
@@ -15,6 +15,13 @@ rules:
   - apiGroups: [""]
     resources: [namespaces, pods, events]
     verbs: [get, list]
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [get]
+  # Used only when k8s.revisions is true, to read git.properties from the running jar.
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create]
   - apiGroups: [apps]
     resources: [replicasets]
     verbs: [get, list]
@@ -30,12 +37,17 @@ kind: ConfigMap
 metadata: {name: roottrace-config, namespace: roottrace}
 data:
   config.yaml: |
-    environment_name: dev
+    environment_name: 131ga
+    public_url: null
+    grafana_url: null
     loki:
-      url: http://loki-gateway.cattle-logging-system.svc:80
+      url: http://loki.loki-monitoring.svc:3100
     k8s:
       enabled: true
+      evidence: true
+      revisions: true
     baseline_offset: 24h
+    report_history: 48
 ---
 apiVersion: v1
 kind: Secret
@@ -45,6 +57,16 @@ stringData:
   ROOTTRACE_SLACK_WEBHOOK: ""
   ROOTTRACE_LOKI_USER: ""
   ROOTTRACE_LOKI_PASSWORD: ""
+  # Empty token leaves the API open inside the cluster. Set one before exposing the Ingress.
+  ROOTTRACE_API_TOKEN: ""
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: roottrace-reports, namespace: roottrace}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: {storage: 1Gi}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -61,12 +83,16 @@ spec:
           image: REGISTRY/roottrace:0.1.0
           ports: [{containerPort: 8080}]
           envFrom: [{secretRef: {name: roottrace-secrets}}]
-          volumeMounts: [{name: cfg, mountPath: /etc/roottrace}]
+          volumeMounts:
+            - {name: cfg, mountPath: /etc/roottrace}
+            - {name: reports, mountPath: /var/roottrace}
           readinessProbe: {httpGet: {path: /health, port: 8080}}
           resources:
             requests: {cpu: 100m, memory: 256Mi}
             limits: {memory: 1Gi}
-      volumes: [{name: cfg, configMap: {name: roottrace-config}}]
+      volumes:
+        - {name: cfg, configMap: {name: roottrace-config}}
+        - {name: reports, persistentVolumeClaim: {claimName: roottrace-reports}}
 ---
 apiVersion: v1
 kind: Service
@@ -74,6 +100,32 @@ metadata: {name: roottrace, namespace: roottrace}
 spec:
   selector: {app: roottrace}
   ports: [{port: 80, targetPort: 8080}]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: {name: roottrace, namespace: roottrace}
+spec:
+  rules:
+    - host: roottrace.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: {name: roottrace, port: {number: 80}}
+---
+# Cluster pods can reach the API. The token, when set, is what keeps a scan from being anonymous.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: roottrace-api, namespace: roottrace}
+spec:
+  podSelector: {matchLabels: {app: roottrace}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - {protocol: TCP, port: 8080}
 ---
 # Continuous mode: every 30 min scan the last 30 min; post to Slack only when unhealthy.
 apiVersion: batch/v1
@@ -91,5 +143,10 @@ spec:
           containers:
             - name: trigger
               image: curlimages/curl:8.10.1
-              args: ["-sf", "--max-time", "600",
-                     "http://roottrace.roottrace.svc/scan?since=30m&slack=1&only_if=unhealthy"]
+              envFrom: [{secretRef: {name: roottrace-secrets}}]
+              command: ["sh", "-c"]
+              args:
+                - |
+                  auth=()
+                  if [ -n "$ROOTTRACE_API_TOKEN" ]; then auth=(-H "Authorization: Bearer $ROOTTRACE_API_TOKEN"); fi
+                  exec curl -sf --max-time 600 "${auth[@]}" "http://roottrace.roottrace.svc/scan?since=30m&slack=1&only_if=unhealthy"

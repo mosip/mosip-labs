@@ -16,4 +16,4 @@ roottrace = "roottrace.cli:main"
 packages = ["roottrace"]
 
 [tool.setuptools.package-data]
-roottrace = ["known_issues.yaml", "dependencies.yaml"]
+roottrace = ["known_issues.yaml", "dependencies.yaml", "sources.yaml"]

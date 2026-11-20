@@ -266,7 +266,11 @@ Time formats: `--since 30m | 2h | 1d | 1w`. `--from` and `--to` take ISO-8601 (`
 | Key | Default | Meaning |
 |---|---|---|
 | `environment_name` | `env` | Name shown in reports and Slack |
-| `public_url` | `null` | URL where the API is exposed; used for the "Full report" link in Slack |
+| `public_url` | `null` | URL where the API is exposed; used for the "Full report" link in Slack and for trace links |
+| `grafana_url` | `null` | Grafana base URL. Each pattern gets an Explore link |
+| `api_token` | `null` | When set, `/scan`, `/trace` and `/report` require `Authorization: Bearer` (`ROOTTRACE_API_TOKEN`) |
+| `ignore_issue_ids` | `[]` | Catalog ids to drop as false positives. An entry can also set `suppress: true` |
+| `report_history` | `48` | Timestamped copies kept in `<out>/history` beside the latest report |
 | `loki.url` | `http://localhost:3100` | Loki base URL |
 | `loki.username` / `loki.password` | `null` | Basic auth (prefer env vars) |
 | `loki.bearer_token` | `null` | Bearer token auth |
@@ -276,11 +280,13 @@ Time formats: `--since 30m | 2h | 1d | 1w`. `--from` and `--to` take ISO-8601 (`
 | `k8s.enabled` | `true` | Collect pod and event health |
 | `k8s.kubeconfig` | `null` | Path to the Rancher kubeconfig (`null` = default or in-cluster) |
 | `k8s.context` | `null` | Kubeconfig context |
+| `k8s.evidence` | `true` | Attach the previous container log for up to 8 crashing pods |
+| `k8s.revisions` | `false` | Exec into up to 8 pods and read `git.properties` from the running jar. Needs `pods/exec` |
 | `namespaces` | `[]` | Namespaces to scan (empty = all except `exclude_namespaces`) |
 | `exclude_namespaces` | system namespaces | Namespaces to skip |
-| `service_label` | `app` | Loki label that names the service |
+| `service_label` | `app` | Loki label that names the service. A sidecar container (`istio-proxy`) is reported as `<app>/<container>`, so its lines stay separate from the service |
 | `error_filter` | errors, exceptions, timeouts… | Regex that pre-filters lines in Loki |
-| `include_warn` | `false` | Also count WARN lines |
+| `include_warn` | `true` | Count WARN lines as well as ERROR and FATAL. Set `false` to keep errors only |
 | `baseline_offset` | `24h` | How far back the comparison window is |
 | `spike_factor` | `3.0` | Current / baseline ratio counted as a spike |
 | `critical_score` | `50` | An issue scoring at or above this makes the scan exit with code 2 |
@@ -290,7 +296,7 @@ Time formats: `--since 30m | 2h | 1d | 1w`. `--from` and `--to` take ISO-8601 (`
 
 **Environment variables** override the file and keep secrets out of it:
 `ROOTTRACE_LOKI_URL`, `ROOTTRACE_LOKI_USER`, `ROOTTRACE_LOKI_PASSWORD`, `ROOTTRACE_LOKI_TOKEN`, `ROOTTRACE_LOKI_ORG`,
-`ROOTTRACE_SLACK_WEBHOOK`, `ROOTTRACE_ENV_NAME`, `ROOTTRACE_PUBLIC_URL`.
+`ROOTTRACE_SLACK_WEBHOOK`, `ROOTTRACE_ENV_NAME`, `ROOTTRACE_PUBLIC_URL`, `ROOTTRACE_GRAFANA_URL`, `ROOTTRACE_API_TOKEN`.
 
 ---
 
@@ -348,13 +354,14 @@ Running inside the cluster removes the need for a laptop tunnel and enables sche
    - the image
    - the Loki URL in the ConfigMap (in-cluster, for example `http://loki.loki-monitoring.svc:3100`)
    - `environment_name`
-   - the Slack webhook in the Secret
+   - the Slack webhook and `ROOTTRACE_API_TOKEN` in the Secret
+   - the Ingress host
 3. **Apply** with `kubectl apply -f deploy/roottrace.yaml`, or use Rancher → **Import YAML**. This creates:
    - namespace `roottrace`
-   - a **read-only** ClusterRole (pods, events, namespaces, replicasets)
-   - the API **Deployment** and **Service**
+   - a ClusterRole that can list pods and events, read pod logs, and exec (exec is used only when `k8s.revisions` is true)
+   - the API **Deployment**, a **PVC** for reports, a **Service**, an **Ingress**, and a **NetworkPolicy**
    - a **CronJob** that scans the last 30 minutes, every 30 minutes, and posts to Slack **only when unhealthy**
-4. Optional: add an Ingress and set `public_url`, so Slack messages link to `/report`.
+4. Set `public_url` to the Ingress host so Slack and the report's trace links leave the cluster.
 
 > Tip: point Slack at yourself for the first week and tune out noise before announcing it to the team.
 
