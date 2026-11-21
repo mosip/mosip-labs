@@ -9,6 +9,86 @@ because Claude Code updates an installed plugin only when that version changes. 
   changed for them.
 - **MAJOR**: a change that can break a task in progress (state machine, manifest schema). Finish or restart open tasks.
 
+## 0.8.5
+Six more agents on `skeleton: 2`: requirement-analyst, testcase-designer, testcase-reviewer, code-reviewer,
+fresh-context-reviewer and defect-analyst. With 0.8.3/0.8.4 that is 12 of 25: each has entry checks, a command per step,
+a failure table by rule id, stop points and a done-check that is a command.
+- Read-only agents (requirement-analyst, testcase-reviewer, defect-analyst) name the `crewline` command the
+  orchestrator runs for them; they cannot run it themselves.
+- requirement-analyst: REQ-001..006 table; PILOT-002's two review-found gaps as the case for asking during requirements.
+- testcase-designer keeps the KM-COV-001 token rules; failures keyed on CoverageCli gap names and NAME/DEP/EXP rules.
+- testcase-reviewer checks what a case really sends (runtime templates) and asserts (`checkErrorsOnlyInResponse`).
+- code-reviewer re-runs `change-scope` / `test-integrity` on HEAD; fresh-context-reviewer re-reviews from the previous
+  findings, not from scratch (rule 14b); both end in `crewline review record` by the orchestrator.
+- defect-analyst: CODE_UNDER_CHANGE and branch-only failures are not bugs; DEF-001..003 table.
+
+## 0.8.4
+Agent definitions say how, not only what. The busiest agents were role descriptions (about 50 lines, mostly "do X"):
+no check before starting, no command per step, no rule for what to do when a step fails, and "done" was the agent's
+opinion.
+- **`docs/agent-skeleton.md`** (`skeleton: 2`): Inputs, Entry checks (`Check | How`), Produces, Procedure (each step
+  names its command), When something fails (`What you see | Do`, by rule id or log signature), Stop and ask the user,
+  Done when (commands that must PASS), Example (a real pilot run), Must not, Output contract.
+- **Rewritten on it:** api-automation, failure-analyst, impact-analyst, software-developer, sdet-architect (and
+  dsl-automation from 0.8.3). Every rule id and `crewline` command they cite exists; examples come from PILOT-001,
+  PILOT-002 and MOSIP-45750.
+  - failure-analyst asks the automation agent for a system-test base run (its analysis profile runs unit tests only).
+  - impact-analyst stops reading when the same file comes back a third time or the state budget is near
+    (MAT-JAVA25 spent 5.3M tokens in IMPACT_ANALYSIS).
+- **`validators/tests/test_agent_skeleton.py`** keeps the sections present and in order, the two tables in place, and
+  a `crewline` command in Procedure and Done when, for every agent that declares `skeleton: 2`.
+
+## 0.8.3
+The DSL TestRig agent runs the DSL. It was a one-step stub ("Not in the MVP"); MAT-JAVA25 ran the chain by hand
+(build, copy the centralized folder, fill config, start the packet creator, wait, run, read the report).
+- **`crewline service start | health | stop | list`** (SVC-001..008): runs a server a test run needs in the background
+  (its own process group, log in the run folder), returns once `--ready-url` answers, the process dies (log tail,
+  secret lines masked) or `--ready-timeout` passes (then stops it). `--copy-from` copies the run folder first, so
+  `creds merge` fills a copy and never a tracked file; a `--cwd` git could commit is refused, and so is a port that
+  already answers. `stop` ends the whole process tree. `crewline run` waits for exit, so it could not do this.
+- **`crewline regression` reads DSL scenario reports**: `DSL-<env>-<level>-run-<epoch>-report_T-..html`, per
+  `Scenario_<n>` (`data-status`, and the 1.3/1.4 summary rows); known issue = FAIL, ignored left out; the newest run in a
+  `testng-report/` that keeps every run; base and branch from another `DSL-<env>-<level>` block (REG-009). Checked on
+  the MAT-JAVA25 runs (`P-2_F-1` -> 2 PASS, 1 FAIL) and a released full run (204 = 168 pass + 27 known + 9 ignored).
+- **`knowledge/frameworks/dsl-testrig.md`** profiled from the repository and the MAT-JAVA25 evidence: layout, the
+  10-step run chain as Crewline commands, report names, the JDK 25 failure signatures, rules (`push-reports-to-s3=no`,
+  rebuild the orchestrator after a config change: its config is on the classpath).
+- **`agents/qa/dsl-automation.md`** rewritten: entry checks, procedure by command, what to do per failure, when to stop
+  and ask, a done-check that is a command, and the MAT-JAVA25 sanity run as the example. sdet-architect routes a DSL
+  TestRig (DSC-011) to it.
+
+## 0.8.2
+Lessons from MAT-ONBOARD (onboarding the DSL TestRig repository mosip-automation-tests). Budgets now count tokens by
+weight, so a task stops later than before; nothing that passed now fails.
+- **Token budget counts what it costs:** `core/usage-budget.yaml` `metric: weighted` = fresh + cache_read x 0.1, with caps
+  recalibrated (per task 3M, per state 0.8M, per subagent 0.5M weighted; about 25M / 6.5M / 4M total at the pilots'
+  ratio). MAT-ONBOARD INTAKE stopped at 2.51M total and IMPACT_ANALYSIS at 3.6M, almost all re-read context. Calls in
+  WAITING_FOR_USER or in a step marked `wait: ...` are reported as `waited` and never count against a cap.
+  `metric: total` restores the old count. `usage.md` gains weighted and waited columns.
+- **`crewline run --stall <min>`:** stops a run whose log has not grown for N minutes (a build that started Tomcat and
+  waited on it for 15+ minutes). EVD-005 now names it.
+- **`crewline discover`:** argLine counts only in surefire/failsafe (a compiler-plugin argLine raised a false DSC-001);
+  JaCoCo declared only in pluginManagement is reported as not running (DSC-002); Cucumber alone no longer makes a UI-test
+  project (a browser driver does); a DSL TestRig (TestRunner + scenario sheet / dslrig package) is the system-test
+  project, not a service (DSC-011); `.crewline-work/` task worktrees are no longer scanned (they doubled the module
+  count); `--base` warns when discovery reads another commit than the task base and lists the guidance files that
+  differ (DSC-012).
+- **`crewline gates refresh` decides `onboarding_discovery` and `onboarding_baseline`** (ONB-001..007): discovery and its
+  drafts present and on the base; owner approval `onboarding_review`; reviewed profile when api-test exists; baseline
+  build record passed.
+- **`crewline tracker waive`** records `tracker.waived` / `--subtasks` `tracker.subtasks_waived` (was a hand edit).
+- **`crewline task close --id <id> --report <file>`** records `final_report_ref`, removes clean worktrees, keeps
+  `open_worktrees` current and applies FINAL_REPORT -> DONE. `crewline status` with no active task shows the most recent
+  one (it returned NOT_RUN right after DONE).
+- **VER-005:** every command warns on stderr when it runs from a plugin-cache copy that has a newer version beside it
+  (the session ran 0.7.2 by full path with 0.8.0 installed). The skill tells the agent to ask for a session restart.
+
+## 0.8.1
+Documentation only; no rule changes. README brought up to 0.8.0 with pictures: what's new, the guard's decision flow, the
+full-regression decisions (run, reuse the user's base, waive, fix, defer) as section 7.2, where run reports go, the task
+workspace tree, and the regression-break branch in the failure diagram. Validator table, task counts (287 tests,
+EV-01..70) and the lessons from MOSIP-45750 and KM-COV-001 updated.
+
 ## 0.8.0
 Token cost. KM-COV-001 (keymanager coverage matrices) spent 94M tokens against the 8M per-task budget and the budget never
 stopped it. Stricter for tasks in progress: USE-001 is now a BLOCK, and USE-010/011 are new BLOCKs.
