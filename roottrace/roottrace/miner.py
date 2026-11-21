@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import math
+import random
 from collections import Counter
 from dataclasses import dataclass, field
 
 from drain3 import TemplateMiner
 from drain3.template_miner_config import TemplateMinerConfig
 
-from .parser import Event, code_location
+from .parser import Event, code_location, frames_in
 
 # Multiplier inside the score. FATAL outranks ERROR, which outranks WARN. Unknown levels score as 1.
 LEVEL_WEIGHT = {"FATAL": 3.0, "ERROR": 2.0, "WARN": 1.0}
@@ -32,8 +33,10 @@ class Issue:
     error_codes: Counter = field(default_factory=Counter)
     trace_ids: list = field(default_factory=list)
     samples: list = field(default_factory=list)     # up to 3 masked raw lines
+    marks: list = field(default_factory=list)       # when this pattern fired, for cross-service time joins
     known: list = field(default_factory=list)       # catalog matches
     code: dict | None = None                        # application throw site
+    code_note: str | None = None                    # why code is empty: no stack, or no io.mosip frame
     path: list = field(default_factory=list)        # services that logged a shared trace id, in order
     since_deploy: bool | None = None                # True when a rollout is in the window and this pattern started after it
     score: float = 0.0
@@ -56,8 +59,8 @@ class Issue:
             "exceptions": dict(self.exceptions.most_common(5)),
             "root_causes": dict(self.root_causes.most_common(5)),
             "error_codes": dict(self.error_codes.most_common(10)),
-            "trace_ids": self.trace_ids[:10], "samples": self.samples,
-            "known": self.known, "code": self.code, "path": self.path,
+            "trace_ids": self.trace_ids[:10], "samples": self.samples, "marks": self.marks,
+            "known": self.known, "code": self.code, "code_note": self.code_note, "path": self.path,
             "since_deploy": self.since_deploy, "score": round(self.score, 1),
         }
 
@@ -115,6 +118,15 @@ class Miner:
             key = self._cluster(ev)
             iss = self._get(key, ev)
             iss.count += 1
+            # Keep when it fired, spread across the window. The first 4000 are kept whole;
+            # after that each new line has an even chance to replace one, so a chatty pattern
+            # does not only remember the start of the day.
+            if len(iss.marks) < 4000:
+                iss.marks.append(ev.ts_ns)
+            else:
+                j = random.randrange(iss.count)
+                if j < 4000:
+                    iss.marks[j] = ev.ts_ns
             iss.first_ns = ev.ts_ns if not iss.first_ns else min(iss.first_ns, ev.ts_ns)
             iss.last_ns = max(iss.last_ns, ev.ts_ns)
             iss.pods.add(ev.pod)
@@ -131,7 +143,13 @@ class Miner:
             if len(iss.samples) < 3:
                 iss.samples.append({"ts_ns": ev.ts_ns, "pod": ev.pod, "text": ev.raw[:3000]})
             if iss.code is None:
-                iss.code = code_location(ev)       # first event that can name a MOSIP frame wins
+                loc = code_location(ev)            # first event that can name a MOSIP frame wins
+                if loc:
+                    iss.code = {**loc, "pod": ev.pod}
+                    iss.code_note = None
+                elif not iss.code_note:
+                    # A one-line message has nothing to open. A stack of library frames is a different gap.
+                    iss.code_note = "stack has no io.mosip frame" if frames_in(ev.raw) else "no stack in this window"
 
     def _get(self, key: str, ev: Event) -> Issue:
         if key not in self.issues:

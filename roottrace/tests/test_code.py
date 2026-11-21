@@ -2,6 +2,7 @@
 import sys
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent))
 from fake_loki import FakeLoki  # noqa: E402
@@ -37,12 +38,13 @@ def test_frames():
 
 def test_scan():
     now = time.time_ns()
-    ida = {"namespace": "ida", "app": "ida-auth", "container": "ida-auth", "pod": "ida-auth-0"}
+    ida = {"namespace": "ida", "app": "ida-auth", "container": "ida-auth", "pod": "ida-auth-1"}
     km = {"namespace": "keymanager", "app": "keymanager", "container": "keymanager", "pod": "keymanager-0"}
     header = ("2026-11-19 10:00:00.000 ERROR 1 --- [t] io.mosip.authentication.service.AuthService : "
               "IDA-MLC-019 sign failed transactionId=TXN10042")
     rows = [
         (now - 3_000_000_000, km, "2026-11-19 10:00:00.000 ERROR 1 --- [t] i.m.k.Key : KER-KMS-012 failed transactionId=TXN10042"),
+        (now - 2_500_000_000, {**ida, "pod": "ida-auth-0"}, header),
         (now - 2_000_000_000, ida, header),
         (now - 1_900_000_000, ida, "\tat org.springframework.web.client.RestTemplate.exchange(RestTemplate.java:40)"),
         (now - 1_800_000_000, ida, "\tat io.mosip.authentication.service.AuthService.authenticate(AuthService.java:210)"),
@@ -55,7 +57,8 @@ def test_scan():
         cfg = Config()
         cfg.loki.url = url
         cfg.k8s.enabled = False
-        result = engine.scan(cfg, now - 3600 * 10**9, now)
+        with patch.object(engine.k8smod, "read_revisions", return_value=[]) as read_revisions:
+            result = engine.scan(cfg, now - 3600 * 10**9, now)
     finally:
         fake.stop()
     by_level = {i["level"]: i for i in result["issues"]}
@@ -64,8 +67,15 @@ def test_scan():
     err = next(i for i in result["issues"] if i["level"] == "ERROR" and i["service"] == "ida-auth")
     assert err["code"]["class"] == "io.mosip.authentication.service.AuthService", err["code"]
     assert err["code"]["file"] == "AuthService.java" and err["code"]["line"] == 210
+    assert err["pods"] == ["ida-auth-0", "ida-auth-1"]
+    assert err["code"]["pod"] == "ida-auth-1"
+    targets = read_revisions.call_args.args[1]
+    assert ("ida", "ida-auth-1", None) in targets
+    assert ("ida", "ida-auth-0", None) not in targets
     assert err["code"]["repo"].endswith("/id-authentication"), err["code"]
     assert err["path"] == ["keymanager", "ida-auth"], err["path"]
+    assert err["code"]["snippet_note"] == "running commit was not read from the pod"
+    assert warn["code"] is None and warn["code_note"] == "no stack in this window", warn
 
 
 def main():

@@ -70,6 +70,10 @@ def main():
     assert repo_for("io.mosip.kernel.auth.service.TokenService", sources)["repo"].endswith("/mosip-openid-bridge")
     assert repo_for("io.mosip.registration.processor.packet.PacketReceiver", sources)["repo"].endswith("/registration")
     assert repo_for("io.mosip.kernel.authmanager.service.TokenService", sources) is None
+    assert repo_for("io.mosip.kernel.core.util.DateUtils2", sources)["repo"].endswith("/commons")
+    assert repo_for("io.mosip.kernel.dataaccess.hibernate.repository.impl.HibernateRepositoryImpl", sources)["repo"].endswith("/commons")
+    assert repo_for("io.mosip.commons.packet.keeper.PacketKeeper", sources)["repo"].endswith("/packet-manager")
+    assert repo_for("io.mosip.commons.packetmanager.PacketManagerService", sources)["repo"].endswith("/packet-manager")
 
     print("BUILD INFO CHECKS PASSED")
 

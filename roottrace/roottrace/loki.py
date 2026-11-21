@@ -30,6 +30,7 @@ class LokiClient:
         if cfg.org_id:
             self.s.headers["X-Scope-OrgID"] = cfg.org_id    # required by multi-tenant Loki
         self.s.verify = cfg.verify_tls
+        self.truncated = False              # set by query_range when the cap stops the window early
 
     def _get(self, path: str, params: dict) -> dict:
         """GET a Loki API path and return the `data` object.
@@ -76,6 +77,7 @@ class LokiClient:
         cap = max_lines or self.cfg.max_lines
         out: list[LogEntry] = []
         cursor = start_ns
+        self.truncated = False
         while cursor < end_ns and len(out) < cap:
             data = self._get("/loki/api/v1/query_range", {
                 "query": query, "start": cursor, "end": end_ns,
@@ -94,7 +96,8 @@ class LokiClient:
                 break                                           # short page means Loki is exhausted
             cursor = batch[-1].ts_ns + 1                        # step past the last line
         if len(out) >= cap:
-            log.warning("Hit max_lines cap (%d) — narrow the window or namespaces for full coverage", cap)
+            self.truncated = True
+            log.warning("Hit max_lines cap (%d) — this slice is partial", cap)
         return out
 
     def instant_vector(self, query: str, at_ns: int) -> list[tuple[dict, float]]:

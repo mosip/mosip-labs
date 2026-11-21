@@ -1,6 +1,7 @@
 """History, logs-missing, false positives, deploy timing, Loki retry, packaged sources."""
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -77,6 +78,24 @@ def test_since_deploy_and_history(tmp=None):
     htmls = list((out / "history").glob("roottrace-report-*.html"))
     assert len(htmls) == 1 and not old.exists(), [p.name for p in htmls]
     assert "since deploy" in (out / "roottrace-report.html").read_text(encoding="utf-8")
+    streak = dict(shaped)
+    streak["issues"] = [dict(shaped["issues"][0], key="idrepo/credentialrequest#1", since_deploy=None)]
+    streak["report_history"] = 48
+    hist = out / "history"
+    for day in ("20261117", "20261118", "20261119"):
+        (hist / f"roottrace-report-{day}T000000Z.json").write_text(
+            '{"issues":[{"key":"idrepo/credentialrequest#1","is_new":true}]}', encoding="utf-8")
+    write(streak, str(out))
+    assert "new all week" in (out / "roottrace-report.html").read_text(encoding="utf-8")
+    streak["issues"][0].pop("new_streak", None)
+    for path in hist.glob("roottrace-report-2026*.json"):
+        path.unlink()
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    for day in ("20261117", "20261118", today):
+        (hist / f"roottrace-report-{day}T000000Z.json").write_text(
+            '{"issues":[{"key":"idrepo/credentialrequest#1","is_new":true}]}', encoding="utf-8")
+    write(streak, str(out))
+    assert "new all week" not in (out / "roottrace-report.html").read_text(encoding="utf-8")
 
 
 def test_loki_retries():

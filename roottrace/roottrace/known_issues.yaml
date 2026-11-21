@@ -1,6 +1,9 @@
 # Built-in starter catalog. Add team-specific entries in a separate file and list it under
 # `catalog_paths` in config.yaml. Every entry: id, title, severity, match.regex (+ optional
-# match.service), cause, fix, owner. `scope: k8s` entries match Kubernetes pod/event findings.
+# match.service, match.class, match.method), cause, fix, owner.
+# A match on the message alone is a lead. match.class / match.method attach only when the
+# logged frame is that class and method, and the report marks that fix confirmed.
+# `scope: k8s` entries match Kubernetes pod/event findings.
 issues:
   - id: DB-001
     title: Database connection failure

@@ -47,6 +47,7 @@ assert kc["status"] == "suspected"
 assert chains["websub"]["code"]["file"] == "Hub.java"
 assert chains["websub"]["request_path"] == ["resident", "websub"]
 assert chains["activemq"]["code"] is None
+assert chains["activemq"]["code_note"] is None                          # infra root has no Java line to explain
 flat = str(kc["impacted"])
 assert all(x in flat for x in ("pms", "syncdata", "admin")) and "websub" not in flat and "credentialrequest" not in flat
 assert any(k["id"] == "AUTH-002" for k in kc["known"])                       # borrowed diagnosis

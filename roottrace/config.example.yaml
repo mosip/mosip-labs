@@ -11,14 +11,14 @@ loki:
   bearer_token: null
   org_id: null                   # X-Scope-OrgID if Loki is multi-tenant
   verify_tls: true
-  max_lines: 200000
+  max_lines: 200000              # cap per slice; a window longer than 6h is queried in 6h slices
 
 k8s:
   enabled: true
   kubeconfig: null               # path to a Rancher kubeconfig when running outside the cluster
   context: null
   evidence: true                 # previous container log for crashing pods
-  revisions: false               # exec into pods and read git.properties; needs pods/exec
+  revisions: false               # exec into pods and read git.properties; the report then shows that commit's method
 
 namespaces: []                   # empty = all except exclude_namespaces
 service_label: app               # Loki label that names the service
