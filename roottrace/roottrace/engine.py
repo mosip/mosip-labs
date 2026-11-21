@@ -224,8 +224,8 @@ def scan(cfg: Config, start: int, end: int, namespaces: list[str] | None = None,
     targets = []
     seen_pods = set()
     for iss in issues:
-        pod = (iss.code or {}).get("pod") or next(iter(sorted(iss.pods)), None)
-        if not pod:
+        pod = iss.code.get("pod") if iss.code else min(iss.pods, default=None)
+        if not pod or pod == "-" or not iss.namespace or iss.namespace == "-":
             continue
         key = (iss.namespace, pod, None)
         if key not in seen_pods:

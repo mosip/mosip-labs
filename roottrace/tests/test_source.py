@@ -37,16 +37,18 @@ def test_attach_uses_pod_commit():
         calls.append(commit)
         return {"snippet": {"line": line, "lines": [{"n": line, "text": "return id;", "hit": True}]}, "commit": commit}
 
-    hit = {"score": 9, "pods": ["auth-0"], "code": {
+    hit = {"score": 9, "namespace": "ida", "pods": ["auth-0"], "code": {
         "class": "io.mosip.authentication.service.AuthService", "file": "AuthService.java",
-        "line": 210, "repo": "https://github.com/mosip/id-authentication"}}
-    attach_snippets([hit], [{"pod": "auth-0", "revision": {"commit": "fa3d713f2de9"}}], fetch=fetch)
+        "line": 210, "repo": "https://github.com/mosip/id-authentication", "pod": "auth-0"}}
+    attach_snippets([hit], [{"namespace": "ida", "pod": "auth-0",
+                             "revision": {"commit": "fa3d713f2de9"}}], fetch=fetch)
     assert calls == ["fa3d713f2de9"]
     assert hit["code"]["snippet"]["lines"][0]["text"] == "return id;"
 
-    missed = {"score": 1, "pods": ["other-0"], "code": {"class": "io.mosip.a.A", "line": 1,
-                                                        "repo": "https://github.com/mosip/x"}}
-    attach_snippets([missed], [], fetch=fetch)
+    missed = {"score": 1, "namespace": "ida", "pods": ["other-0"],
+              "code": {"class": "io.mosip.a.A", "line": 1, "repo": "https://github.com/mosip/x"}}
+    attach_snippets([missed], [{"namespace": "ida", "pod": "other-0",
+                                "revision": {"commit": "bbbbbbbbbbbb"}}], fetch=fetch)
     assert calls == ["fa3d713f2de9"]
     assert missed["code"]["snippet_note"] == "running commit was not read from the pod"
 

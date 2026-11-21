@@ -44,11 +44,15 @@ def test_cap_is_partial():
         cfg = Config()
         cfg.loki.url = url
         cfg.loki.max_lines = 1
+        cfg.critical_score = float("inf")
         cfg.k8s.enabled = False
         result = engine.scan(cfg, now - 3600 * 10**9, now)
     finally:
         fake.stop()
     assert any(g["which"] == "current" and g["reason"] == "stopped at max_lines" for g in result["coverage"])
+    assert result["issues"]
+    assert result["verdict"].startswith("Incomplete")
+    assert result["critical"]
 
 
 def test_timeout_is_split_and_reported():

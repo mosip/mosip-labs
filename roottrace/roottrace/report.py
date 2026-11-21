@@ -518,16 +518,15 @@ def build(result: dict) -> dict:
     chains = result.get("deps", {}).get("chains", [])
     # Unhealthy beats degraded. Critical catalog hits, failing pods, or a silent service are enough.
     look = _look(chains)
-    if crit or bad_pods or result["silent"]:
+    if result.get("coverage"):
+        verdict = "Incomplete. Part of this window was not read, so a clean result is not known."
+        vcls = "bad"
+    elif crit or bad_pods or result["silent"]:
         verdict = f"Unhealthy. Start with {look}." if look else "Unhealthy. Pods are failing or a service went silent."
         vcls = "bad"
     elif new or issues:
         verdict = f"Degraded. Start with {look}." if look else f"Degraded. {len(issues)} error patterns, {new} of them new."
         vcls = "warn"
-    elif result.get("coverage"):
-        # An empty window that Loki did not finish is not a clean result.
-        verdict = "Incomplete. Part of this window was not read, so a clean result is not known."
-        vcls = "bad"
     else:
         verdict, vcls = "Healthy. No errors in this window.", ""
     # The same Drain template in two services is one shared upstream, not two incidents.

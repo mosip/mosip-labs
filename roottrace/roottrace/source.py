@@ -118,9 +118,8 @@ def attach_snippets(issues: list[dict], revisions: list[dict], fetch=fetch_snipp
         code = iss.get("code")
         if not code or not code.get("line"):
             continue
-        ns = iss.get("namespace")
-        pods = [code["pod"]] if code.get("pod") else list(iss.get("pods") or [])
-        commit = next((by_pod[(ns, p)] for p in pods if (ns, p) in by_pod), None)
+        ns, pod = iss.get("namespace"), code.get("pod")
+        commit = by_pod.get((ns, pod)) if ns and ns != "-" and pod and pod != "-" else None
         if not commit:
             code["snippet_note"] = "running commit was not read from the pod"
             continue
