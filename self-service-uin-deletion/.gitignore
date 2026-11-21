@@ -1,0 +1,60 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Local JDKs and Temp Files ###
+.jdks/
+*.zip
+
+### Environment files and secrets ###
+# Real settings live in .env files next to each component; only the
+# *.env.example templates are committed. Copy one to .env and fill it in.
+.env
+.env.*
+!.env.example
+# Private keys are never committed. Generate one per environment and point
+# the component at it (see README, "Environment files").
+*private*.pem
+*private-key*.pem
+# Local-development keys and the client registration made from them
+# (collab-ui/local-dev/local_keys.py)
+collab-ui/local-dev/keys/
+# Database dumps for the local data stack (never committed)
+docker/dumps/
+# Helm value files filled in for a real environment
+values-*.yaml
+!values-*.example.yaml
+
+### Python ###
+__pycache__/
+*.pyc
