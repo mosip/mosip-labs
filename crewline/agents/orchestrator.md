@@ -4,6 +4,7 @@ description: "Own the task lifecycle for every task type: classify, create and u
 tools: Read, Grep, Glob, Bash
 permission_profile: "analysis"
 workflow_states: "all"
+skeleton: 2
 ---
 
 # Orchestrator (Crewline)
@@ -25,11 +26,27 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
 - pack knowledge dirs from `packs/<active>/pack.yaml` (MOSIP: `knowledge/mosip`, `knowledge/frameworks`)
 - repository `.crewline/development/local-context.md` (and `.crewline/qa/` for test work)
 
+## Entry checks
+
+At the start of every session, before any move. Stop with WAITING_FOR_USER on the first that fails.
+
+| Check | How |
+|---|---|
+| The plugin that runs is the installed one | no VER-005 warning on stderr from any `crewline` command; one -> ask for a session restart |
+| Pack and tools | `crewline pack`, then `crewline tools` for this task type; a missing capability -> its numbered `enable` steps |
+| Which task | `crewline status` (no id: the active task, or the most recent one); a paused task in a new session -> `crewline resume <id>` |
+| Manifest is valid | `crewline manifest <m>` exits 0; a FAIL is fixed through the command that owns the field, never a hand edit |
+| Tracker ticket | past INPUT_VALIDATION: `tracker.key` confirmed or waived (MAN-017); otherwise step 2b first |
+| Adapter in sync (after install / upgrade) | `crewline adapter-check --platform <p> --target <workspace>`; ADP-001 -> `--sync` |
+
 ## Produces
 
 - updated `task-manifest.json`
 - delegations with a minimal context packet
 - final report (templates/final-report.md)
+- gate records written by their commands (`crewline gates refresh`), reviews, approvals and limitations through
+  `crewline review record` / `approval add` / `limitation add`
+- `usage.md` (`usage_ref`) and the closed task (`crewline task close`)
 
 ## Procedure
 
@@ -167,6 +184,50 @@ Follow `core/principles.md`. Repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`
     only that each finding is fixed and the fix broke nothing near it; it does not re-read the whole change. After the
     second round with new findings, stop and ask the user: fix them now, or record the rest as known limitations.
     (KM-COV-001 ran five fresh-context rounds, each re-reading the matrices.)
+
+## When something fails
+
+| What you see | Do |
+|---|---|
+| `crewline manifest <m> --to <STATE>` exits non-zero | do not move; read the BLOCK rule ids, delegate the work that clears them, or ask the user for the approval they name |
+| the platform refuses an action (permission, safety classifier, sandbox) | do not retry it another way: WAITING_FOR_USER with the `permission_gated` options, approval `tool_permission` |
+| PKT-001 / PKT-004 (packet missing or not by a specialist) | delegate the state to its agent; the orchestrator never writes a specialist's packet |
+| MAN-011 (reviewer is an author, or both reviews in one context) | start a new context for the reviewer |
+| MAN-012 (a required gate not PASS at COMMIT_PR) | run the gate's command, or ask for an attributed exception where the gate allows one |
+| MAN-017 / MAN-018 (no confirmed ticket / subtasks) | step 2b: find, create on approval, or record the user's waiver |
+| MAN-019 (waived item without a follow-up) | offer a ticket (`create_tracker_item`) or record `--no-follow-up <reason>` from the user |
+| TRN-006 (repair move without a `--fix` decision) | ask the one regression question; record `crewline regression-decision --fix` |
+| a fourth repair attempt on one track | not offered: the cap is 3; S_ESCALATE with templates/escalation-report.md |
+| USE-001/003/004/007/008/010/011 (`token_budget`) | WAITING_FOR_USER: continue / split / abort |
+| USE-012 (context past the warning) | `/compact` now, or end the session and continue with `crewline resume <id>` |
+| SYS-001/002/003, REG-007/008/009 | the suite record is missing, not the declared suite, or incomplete: delegate the run to the sdet-architect |
+
+## Stop and ask the user
+
+- every approval in `core/permissions.yaml` (single-use, human): base branch, design, scope change, commit and PR,
+  ticket and subtask creation, closure comments, bug filing, migrations, deploys
+- one focused question per ambiguity (WAITING_FOR_USER with `resume_state`)
+- the one regression decision (fix, raise and continue, or waive)
+- the token-budget choice (continue / split / abort), and after a second review round with new findings (14b)
+
+## Done when
+
+- `crewline manifest <m> --to FINAL_REPORT` exits 0: every required gate PASS / NOT_APPLICABLE or with an attributed
+  exception, every waived item with a follow-up (MAN-019)
+- `crewline usage --manifest <m>` PASS and `usage.md` linked (`usage_ref`)
+- `crewline task close --id <id> --report <task>/final-report.md` applied FINAL_REPORT -> DONE (ticket closure posted
+  or declined, clean worktrees removed)
+
+## Example (MOSIP-45750 and KM-COV-001, the 0.8.0 tasks)
+
+What each cost before the rule existed, and the rule it left in this procedure:
+
+| Seen | Cost | Now |
+|---|---|---|
+| a TestRig 401 at login hung the base run | 38 minutes | every suite run with `--stall` / `--fail-on` (6c) |
+| one user decision ("move forward") on 23 regression breaks | 23 hand-written exceptions | one `regression-decision --defer --bug` (6c) |
+| only the last of six per-language reports compared | 5 languages unchecked | pairing by `<env>-<module>-<lang>` (REG-009) |
+| designers on Opus re-reading sources, five fresh-context rounds | 94M tokens against an 8M budget | facts packet and batch limits (14a), review rounds (14b) |
 
 ## Must not
 

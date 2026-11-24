@@ -9,17 +9,15 @@ import pytest
 AGENTS = Path(__file__).resolve().parents[2] / "agents"
 SECTIONS = ["Inputs", "Entry checks", "Produces", "Procedure", "When something fails", "Stop and ask the user",
             "Done when", "Example", "Must not", "Output contract"]
-MIGRATED = {"dsl-automation", "api-automation", "failure-analyst", "impact-analyst", "software-developer", "sdet-architect",
-            "requirement-analyst", "testcase-designer", "testcase-reviewer", "code-reviewer", "fresh-context-reviewer",
-            "defect-analyst"}
 
 
 def _skeleton2() -> list[Path]:
     return [p for p in sorted(AGENTS.rglob("*.md")) if re.search(r"^skeleton:\s*2\s*$", p.read_text(encoding="utf-8"), re.M)]
 
 
-def test_migrated_agents_declare_skeleton_2():
-    assert MIGRATED <= {p.stem for p in _skeleton2()}
+def test_every_agent_declares_skeleton_2():
+    missing = {p.stem for p in AGENTS.rglob("*.md")} - {p.stem for p in _skeleton2()}
+    assert not missing, f"agents not on skeleton 2: {sorted(missing)}"
 
 
 @pytest.mark.parametrize("path", _skeleton2(), ids=lambda p: p.stem)
