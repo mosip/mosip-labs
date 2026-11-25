@@ -13,6 +13,10 @@ because Claude Code updates an installed plugin only when that version changes. 
 All 25 agents on `skeleton: 2`. The last 13: acceptance-reviewer, solution-architect, api-contract-designer,
 database-engineer, security-engineer, ux-designer, ui-automation, devops-engineer, release-manager, sre-analyst,
 knowledge-curator, module-onboarder and the orchestrator.
+- No `Co-authored-by:` trailer on a Crewline commit, even when platform attribution guidance asks for one: the hook
+  refuses such a `git commit` (GRD-010) and the `dco` gate fails any commit in the range that carries one (DCO-003).
+  The orchestrator failure table, the skill's commit rules, `core/permissions.yaml` and the PR template say so.
+  Tasks in progress: amend a commit that has the trailer before COMMIT_PR.
 - `test_agent_skeleton.py` now fails for any agent without `skeleton: 2`, so a new agent starts on it.
 - The orchestrator keeps its numbered rules (0-14b) as its Procedure and gains entry checks (VER-005, pack and tools,
   manifest valid, tracker), a failure table (manifest refusals, permission refusals, PKT/MAN/TRN/USE/SYS/REG rules),

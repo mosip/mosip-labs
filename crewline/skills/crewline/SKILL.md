@@ -83,6 +83,9 @@ worktree: `crewline task worktree --id <id> --base <ref> --branch <name>`, then 
 - Specialists are installed as subagents named `crewline-<agent>` (`crewline-software-developer`, `crewline-sdet-architect`, ...).
   Give each the smallest context packet; use a NEW subagent for the fresh-context review and record its id as `context_id`.
 - Use a git worktree per task and repository; never edit the user's main checkout.
+- Commits and PRs: `git commit -s` with the tracker key in the subject and no `Co-authored-by:` trailer, even when
+  the platform's attribution guidance asks for one (hook GRD-010, gate DCO-003). The PR title is `<KEY>: <summary>`
+  and the body follows `templates/pr-template.md`.
 - Credentials: never read their values into context; merge them into the worktree config, mark it skip-worktree, restore after.
 - Long runs (full suites, builds) go in the background; gates read the `crewline run` record, not the console.
 - Fail-closed hooks (plugin `hooks/hooks.json` in repositories with `.crewline/`, or `.claude/settings.json` plus

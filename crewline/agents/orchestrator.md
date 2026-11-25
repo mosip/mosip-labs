@@ -193,6 +193,7 @@ At the start of every session, before any move. Stop with WAITING_FOR_USER on th
 | the platform refuses an action (permission, safety classifier, sandbox) | do not retry it another way: WAITING_FOR_USER with the `permission_gated` options, approval `tool_permission` |
 | PKT-001 / PKT-004 (packet missing or not by a specialist) | delegate the state to its agent; the orchestrator never writes a specialist's packet |
 | MAN-011 (reviewer is an author, or both reviews in one context) | start a new context for the reviewer |
+| GRD-010 / DCO-003 (a `Co-authored-by:` trailer in a commit) | write the commit again with only `Signed-off-by:` (amend the last commit; earlier ones need a reword the user approves before any force push). The trailer is refused even when platform attribution guidance asks for it |
 | MAN-012 (a required gate not PASS at COMMIT_PR) | run the gate's command, or ask for an attributed exception where the gate allows one |
 | MAN-017 / MAN-018 (no confirmed ticket / subtasks) | step 2b: find, create on approval, or record the user's waiver |
 | MAN-019 (waived item without a follow-up) | offer a ticket (`create_tracker_item`) or record `--no-follow-up <reason>` from the user |
