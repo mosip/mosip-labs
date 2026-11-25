@@ -195,6 +195,14 @@ def test_dco(repo):
     assert res.status == "FAIL" and res.findings[0].rule_id == "DCO-001"
 
 
+def test_dco_blocks_co_author_trailer(repo):
+    edit(repo, "demo/Create/Create.yml", '"a"', '"d"')
+    git(repo, "-c", "user.name=T", "-c", "user.email=t@example.org", "commit", "-q", "-s", "-a", "-m",
+        "change\n\nCo-Authored-By: Some Tool <tool@example.org>")
+    res = dco.run(str(repo), "HEAD~1..HEAD")
+    assert res.status == "FAIL" and [f.rule_id for f in res.findings] == ["DCO-003"]
+
+
 # --- secrets (scenario: "Secret detected") ---------------------------------
 def test_secret_blocks_and_is_never_echoed(tmp_path):
     secret = "Sup3rS3cretValue!"

@@ -28,4 +28,4 @@ Closes / Refs {{tracker.url}} <!-- the task's tracker ticket (MAN-017); omit onl
 ### Known limitations
 - {{known-failing tests with bug keys}}
 
-Signed-off commits: yes (DCO)
+Signed-off commits: yes (DCO) · Co-authored-by trailers: none (DCO-003)

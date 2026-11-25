@@ -9,6 +9,24 @@ because Claude Code updates an installed plugin only when that version changes. 
   changed for them.
 - **MAJOR**: a change that can break a task in progress (state machine, manifest schema). Finish or restart open tasks.
 
+## 0.8.6
+All 25 agents on `skeleton: 2`. The last 13: acceptance-reviewer, solution-architect, api-contract-designer,
+database-engineer, security-engineer, ux-designer, ui-automation, devops-engineer, release-manager, sre-analyst,
+knowledge-curator, module-onboarder and the orchestrator.
+- No `Co-authored-by:` trailer on a Crewline commit, even when platform attribution guidance asks for one: the hook
+  refuses such a `git commit` (GRD-010) and the `dco` gate fails any commit in the range that carries one (DCO-003).
+  The orchestrator failure table, the skill's commit rules, `core/permissions.yaml` and the PR template say so.
+  Tasks in progress: amend a commit that has the trailer before COMMIT_PR.
+- `test_agent_skeleton.py` now fails for any agent without `skeleton: 2`, so a new agent starts on it.
+- The orchestrator keeps its numbered rules (0-14b) as its Procedure and gains entry checks (VER-005, pack and tools,
+  manifest valid, tracker), a failure table (manifest refusals, permission refusals, PKT/MAN/TRN/USE/SYS/REG rules),
+  stop points, a done-check (`manifest --to FINAL_REPORT`, `usage`, `task close`) and the 0.8.0 lessons as its example.
+- Failure tables by rule id: MIG-001..004 (database-engineer), DEPSEC-001/002 and PKT-005 (security-engineer),
+  ONB-001..006 and DSC-* (module-onboarder), SYS-002/003 and BEV-004 (ui-automation), SCP-002 (devops-engineer).
+- Examples only from recorded runs: PP-PYSDK (threat review), INJIVERIFY-2464 (UI rig, specialist packets),
+  MAT-ONBOARD (onboarding), MOSIP-45750 (shared CI workflow, version links), PILOT-001 (knowledge, versions). Agents
+  no task has run yet (database-engineer, sre-analyst, api-contract-designer, release-manager, ux-designer) say so.
+
 ## 0.8.5
 Six more agents on `skeleton: 2`: requirement-analyst, testcase-designer, testcase-reviewer, code-reviewer,
 fresh-context-reviewer and defect-analyst. With 0.8.3/0.8.4 that is 12 of 25: each has entry checks, a command per step,

@@ -759,7 +759,8 @@ state goes over its cap.
 1. Ask the **upstream** base branch before any branch exists (approval `base_branch`).
 2. Cut a worktree and branch from that upstream ref exactly; never from local or `origin`.
 3. Carry only the task's commits. Origin- or local-only changes go in only on explicit request.
-4. Sign every commit (`git commit -s`, DCO) and put the tracker key in the subject (Jira `PROJ-1` or GitHub `#N`;
+4. Sign every commit (`git commit -s`, DCO) with no `Co-authored-by:` trailer (the commit names only its human author;
+   the hook refuses it, GRD-010, and the `dco` gate checks every commit, DCO-003), and put the tracker key in the subject (Jira `PROJ-1` or GitHub `#N`;
    `crewline branch --manifest <m>` reads `tracker.key` + `requirements.story_keys`, BR-002).
    The PR title starts with the key: `<KEY>: <summary>` (e.g. `MOSIP-38854: Handle missing identity name fields in
    NotificationService`); the hook refuses `gh pr create` / `gh pr edit --title` otherwise (GRD-009).
@@ -834,13 +835,13 @@ Run from `validators/`: `python -m crewline [--json] <command> ...`. Exit codes:
 | `regression-decision` | RGD-001..004 | the user's one decision: `--waive` (no code change / user waiver), `--fix` (approval `regression_fix`), `--defer --bug <KEY>` (one exception for every break + raised defect) |
 | `service` | SVC-001..008 | `start --name --cwd --ready-url [--copy-from] -- <command>` runs a server in the background (the DSL packet creator) and returns once the URL answers, the process dies (log tail, secrets masked) or `--ready-timeout` passes; refuses a busy port and a `--cwd` git could commit; `health`, `stop` (whole process tree), `list` |
 | `creds` | CRD-001..004 | `merge --from <values> --into <props>`: env values into a worktree config by key, names only in the output, tracked file skip-worktree, original kept; `restore` puts it back |
-| `branch` · `dco` | BR-001..005 · DCO-001..002 | fork model; signed-off commits |
+| `branch` · `dco` | BR-001..005 · DCO-001..003 | fork model; signed-off commits; no `Co-authored-by:` trailer (DCO-003) |
 | `secrets` | SEC-001..005 | gitleaks when present; values never printed |
 | `tools` | TOOL-000..003 | capabilities from `core/tools.yaml` + active pack overlay; numbered enable steps; `--task-type` (default: the active task's) skips what only other task types need (TOOL-003) |
 | `pack` | PCK-001..002 | show / list / `--set` product pack (`mosip` default, `generic` for a non-MOSIP repo) |
 | `usage` | USE-001..012 | token usage per task/stage/step **and** budget stop (`token_budget` gate); packet size; `--apply` stamps a mark (USE-009) |
 | `discover` | DSC-001..009 | module onboarding: reads poms, tests, CI, DB scripts, deploy, guidance, TestRig suites and coding-standard checkers read-only; writes evidence-labelled drafts and a baseline |
-| `guard` | GRD-001..009 | commit/push/PR gated; **GRD-009** PR title not prefixed `<tracker key>: ` or body not linking the ticket; force-push / `--no-verify` / prod always denied; **GRD-007** raw log dump or suite not via `crewline run`; **GRD-008** Read of a dump or file over `read_max_bytes`. Quoted arguments and heredoc bodies are not read as git commands; a write outside every git checkout and the session folder is not a repository change |
+| `guard` | GRD-001..010 | commit/push/PR gated; **GRD-010** commit message with a `Co-authored-by:` trailer; **GRD-009** PR title not prefixed `<tracker key>: ` or body not linking the ticket; force-push / `--no-verify` / prod always denied; **GRD-007** raw log dump or suite not via `crewline run`; **GRD-008** Read of a dump or file over `read_max_bytes`. Quoted arguments and heredoc bodies are not read as git commands; a write outside every git checkout and the session folder is not a repository change |
 | `manifest --next` / `status` | NXT-001..004, STS-001 | every legal move and each precondition with its state; repair attempts left, open approvals. Read these before offering the user a choice |
 | `review record` / `approval add` / `limitation add` | REC-001..002 | write records through a command that validates first; never hand-edit the manifest |
 | `ci-coverage` | CIC-001..003 | test suites the task ran that no CI workflow runs (checked on the move to FINAL_REPORT) |

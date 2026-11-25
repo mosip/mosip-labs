@@ -10,6 +10,7 @@
   GRD-008  Read of a dump file or a file over read_max_bytes
   GRD-009  `gh pr create` / `gh pr edit --title|--body` whose title does not start with the task's tracker key
            (`<KEY>: summary`) or whose body does not link the ticket (URL or key)
+  GRD-010  git commit whose message carries a `Co-authored-by:` trailer (DCO-003 checks the commits themselves)
 
 The Cursor / Claude adapter runs this from a platform hook so the model cannot skip
 `crewline manifest` and still commit. Exit 0 PASS, 1 FAIL, 2 NOT_RUN.
@@ -232,6 +233,9 @@ def _check_shell(command: str, manifest_path: str | None = None) -> Result:
         return res.finish()
     if action == "commit" and not has_signoff(command):
         res.add("GRD-005", BLOCK, "git commit must be signed off (`git commit -s`)", evidence=command)
+        return res.finish()
+    if action == "commit" and re.search(r"co-authored-by:", command, re.I):
+        res.add("GRD-010", BLOCK, "a Crewline commit must not carry a Co-authored-by trailer", evidence=command)
         return res.finish()
     if action == "pr_edit" and not manifest_path:
         return res.finish()                  # renaming a PR outside a task is not a shipping action

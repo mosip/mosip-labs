@@ -27,6 +27,5 @@ Rules for writing one:
 - An agent with a read-only profile cannot run `crewline`: its Procedure names the command the orchestrator runs for
   it, and its Done when is that command's result.
 
-Agents on skeleton 2: requirement-analyst, impact-analyst, testcase-designer,
-testcase-reviewer, software-developer, api-automation, dsl-automation, failure-analyst, defect-analyst, code-reviewer,
-fresh-context-reviewer, sdet-architect. The others keep the 0.8 layout until they are rewritten the same way.
+Every agent is on skeleton 2 (since 0.8.6), and the test fails for a new agent that is not. An agent with no recorded
+run says so in its Example and names the nearest real case, if any; the first real run replaces it.

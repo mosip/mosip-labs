@@ -3,6 +3,8 @@ made by the model.
 
   DCO-001  commit has no `Signed-off-by:` trailer                     BLOCK
   DCO-002  no sign-off matches the commit author's email               BLOCK
+  DCO-003  commit carries a `Co-authored-by:` trailer                  BLOCK
+           (a Crewline commit names only its human author; the tool is not a co-author)
 """
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ import subprocess
 from .result import BLOCK, INFO, Result
 
 SOB = re.compile(r"^Signed-off-by:\s*(.+?)\s*<([^>]+)>\s*$", re.M)
+COAUTHOR = re.compile(r"^Co-authored-by:", re.M | re.I)
 
 
 def run(repo: str, rev_range: str) -> Result:
@@ -31,6 +34,9 @@ def run(repo: str, rev_range: str) -> Result:
                     remediation="git commit --amend -s (or git rebase --signoff) before the PR gate")
         elif email.lower() not in {e.lower() for _, e in signers}:
             res.add("DCO-002", BLOCK, f"{short} sign-off does not match author <{email}>", evidence=sha)
+        if COAUTHOR.search(body):
+            res.add("DCO-003", BLOCK, f"{short} has a Co-authored-by trailer", evidence=sha,
+                    remediation="remove the trailer: git commit --amend (last commit) or reword it before the PR gate")
     if not commits:
         res.add("DCO-000", INFO, f"no commits in {rev_range}")
     res.inputs["commits"] = len(commits)

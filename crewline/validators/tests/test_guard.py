@@ -75,6 +75,11 @@ def test_unsigned_commit_is_blocked():
     assert res.status == "FAIL" and "GRD-005" in ids(res)
 
 
+def test_co_authored_commit_is_blocked():
+    res = guard.check_shell('git commit -s -m "MOSIP-1: fix\n\nCo-Authored-By: Some Tool <tool@example.org>"')
+    assert res.status == "FAIL" and "GRD-010" in ids(res)
+
+
 def test_commit_without_task_is_blocked():
     res = guard.check_shell("git commit -s -m MOSIP-1", None)
     assert res.status == "FAIL" and "GRD-001" in ids(res)

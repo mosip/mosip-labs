@@ -46,7 +46,7 @@ actions:
   create_application_bug:       {tier: L1, default: draft, approval: explicit user confirmation every time, requires: "generated error report attached at creation after a secret scan; full report only with the actuator config dump removed; whitelisted excerpt + run command/env in the description"}
   reply_to_review_comment:      {tier: L2, default: allowed on the task's own PR (valid -> what changed; not valid -> reason), note: "reason cites code/evidence"}
   resolve_review_thread:        {tier: L2, default: allowed on the task's own PR after the thread has a fix or a reasoned reply, command: "gh api graphql resolveReviewThread", note: never without a reply}
-  commit_signed_off:            {tier: L2, default: after gates, approval: commit_pr, command: "git commit -s"}
+  commit_signed_off:            {tier: L2, default: after gates, approval: commit_pr, command: "git commit -s", note: "no Co-authored-by trailer (GRD-010 / DCO-003)"}
   push_branch:                  {tier: L2, default: after DCO + branch_scope + change_scope, approval: push_and_pr, note: push to origin (fork)}
   create_pr:                    {tier: L2, default: after DCO + branch_scope + change_scope, approval: push_and_pr, note: PR targets the upstream base branch}
   persist_knowledge:            {tier: L2, default: propose, approval: review for high-impact entries}
