@@ -61,10 +61,26 @@ function pushRoleUserDetailsJoin(params, role) {
   return userDetailsJoinSql(`$${params.length}`);
 }
 
+/**
+ * True when the user has any activity_events in repos owned by the org slug.
+ * Used for team-list visibility (lifetime), independent of assignment org.
+ */
+function userHasOrgRepoActivitySql(userIdExpr, orgParam) {
+  return `
+    EXISTS (
+      SELECT 1
+      FROM activity_events e_vis
+      JOIN repos r_vis ON r_vis.github_repo_id = e_vis.repo_id
+      WHERE e_vis.user_id = ${userIdExpr}
+        AND LOWER(r_vis.owner) = ${orgParam}
+    )`;
+}
+
 module.exports = {
   userAssignmentWindowSql,
   userDetailsRoleFilterSql,
   userDetailsJoinSql,
   userDetailsExistsSql,
   pushRoleUserDetailsJoin,
+  userHasOrgRepoActivitySql,
 };

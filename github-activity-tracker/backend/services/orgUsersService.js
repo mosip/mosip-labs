@@ -1,6 +1,7 @@
 const db = require("../db/dbPool");
 const { EXCLUDED_GITHUB_LOGINS } = require("../config/excludedGitHubLogins");
 const { getCustomDateRange } = require("../utils/dateRange");
+const { userHasOrgRepoActivitySql } = require("../utils/userRoleSql");
 
 const DEFAULT_LIMIT = 20;
 
@@ -85,14 +86,13 @@ async function fetchAssignments(orgId, role) {
     FROM github_users u
     JOIN user_details ud ON ud.user_id = u.id
     LEFT JOIN user_roles ur ON ur.id = ud.role_id
-    LEFT JOIN organizations o ON o.id = ud.organization_id
   `;
 
-  // Assignments explicitly tied to another organization are excluded; rows
-  // without an organization remain visible for every org.
+  // Show active users only in orgs where they have repo activity. Counts stay
+  // scoped by repo owner separately; assignment organization_id is metadata.
   const whereClauses = [
     "ud.active = true",
-    "(ud.organization_id IS NULL OR LOWER(o.slug) = $1)",
+    userHasOrgRepoActivitySql("u.id", "$1"),
   ];
 
   if (Array.isArray(EXCLUDED_GITHUB_LOGINS) && EXCLUDED_GITHUB_LOGINS.length > 0) {
